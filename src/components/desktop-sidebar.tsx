@@ -1,8 +1,8 @@
 "use client";
 
-import React from "react";
+import React, { useState } from "react";
 import { Button } from "@/components/ui/button";
-import { Users, Folder, ListPlus, Settings } from "lucide-react";
+import { Users, Folder, ListPlus, Settings, ChevronLeft, ChevronRight } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { Separator } from "@/components/ui/separator";
@@ -15,14 +15,37 @@ interface DesktopSidebarProps {
 
 export function DesktopSidebar({ activeTab, onTabChange, onOpenSettings }: DesktopSidebarProps) {
   const isMobile = useIsMobile();
+  const [isCollapsed, setIsCollapsed] = useState(false);
 
   if (isMobile) {
     return null; // فقط روی دسکتاپ نمایش داده شود
   }
 
+  const toggleCollapse = () => {
+    setIsCollapsed(!isCollapsed);
+  };
+
   return (
-    <aside className="fixed top-0 right-0 h-screen w-64 p-4 pt-20 bg-sidebar/80 backdrop-blur-md border-l border-sidebar-border shadow-lg flex flex-col z-10">
-      <nav className="flex flex-col gap-2">
+    <aside className={cn(
+      "fixed top-0 right-0 h-screen bg-sidebar/80 backdrop-blur-md border-l border-sidebar-border shadow-lg flex flex-col z-10 transition-all duration-300",
+      isCollapsed ? "w-16" : "w-64"
+    )}>
+      {/* Header with collapse button */}
+      <div className="p-4 pt-20 flex justify-between items-center border-b border-sidebar-border">
+        {!isCollapsed && (
+          <h2 className="text-lg font-semibold text-sidebar-foreground">منو</h2>
+        )}
+        <Button
+          variant="ghost"
+          size="icon"
+          onClick={toggleCollapse}
+          className="text-sidebar-foreground hover:text-sidebar-primary-foreground"
+        >
+          {isCollapsed ? <ChevronRight size={18} /> : <ChevronLeft size={18} />}
+        </Button>
+      </div>
+      
+      <nav className="flex flex-col gap-2 flex-1 overflow-y-auto">
         <Button
           variant="ghost"
           className={cn(
@@ -32,7 +55,7 @@ export function DesktopSidebar({ activeTab, onTabChange, onOpenSettings }: Deskt
           onClick={() => onTabChange('contacts')}
         >
           <Users size={20} />
-          مخاطبین
+          {!isCollapsed && <span>مخاطبین</span>}
         </Button>
         <Button
           variant="ghost"
@@ -43,7 +66,7 @@ export function DesktopSidebar({ activeTab, onTabChange, onOpenSettings }: Deskt
           onClick={() => onTabChange('groups')}
         >
           <Folder size={20} />
-          گروه‌ها
+          {!isCollapsed && <span>گروه‌ها</span>}
         </Button>
         <Button
           variant="ghost"
@@ -54,16 +77,19 @@ export function DesktopSidebar({ activeTab, onTabChange, onOpenSettings }: Deskt
           onClick={() => onTabChange('customFields')}
         >
           <ListPlus size={20} />
-          فیلدهای سفارشی
+          {!isCollapsed && <span>فیلدهای سفارشی</span>}
         </Button>
-        <Separator className="my-2 bg-sidebar-border" />
+        <Separator className={cn("my-2 bg-sidebar-border", isCollapsed && "mx-2")} />
         <Button
           variant="ghost"
-          className="justify-start gap-3 px-4 py-2 text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
+          className={cn(
+            "justify-start gap-3 px-4 py-2 text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground",
+            isCollapsed && "justify-center"
+          )}
           onClick={onOpenSettings}
         >
           <Settings size={20} />
-          تنظیمات
+          {!isCollapsed && <span>تنظیمات</span>}
         </Button>
       </nav>
     </aside>

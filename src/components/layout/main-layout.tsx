@@ -1,6 +1,6 @@
 "use client";
 
-import React from "react";
+import React, { useState, useEffect } from "react";
 import { usePathname } from "next/navigation";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { Header } from "./header";
@@ -15,9 +15,17 @@ interface MainLayoutProps {
 export function MainLayout({ children }: MainLayoutProps) {
   const isMobile = useIsMobile();
   const pathname = usePathname();
+  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
 
   // تعیین اینکه آیا صفحه فعلی یکی از صفحات اصلی است
   const isMainPage = ['/contacts', '/groups', '/custom-fields', '/tools', '/settings'].includes(pathname);
+
+  // برای صفحات کوچک، سایدبار را به صورت پیش‌فرض جمع کن
+  useEffect(() => {
+    if (window.innerWidth < 768) {
+      setIsSidebarCollapsed(true);
+    }
+  }, []);
 
   return (
     <div className="min-h-screen flex flex-col bg-gradient-to-br from-blue-100 to-purple-100 dark:from-gray-900 dark:to-black">
@@ -38,8 +46,8 @@ export function MainLayout({ children }: MainLayoutProps) {
           />
         )}
         
-        {/* محتوای اصلی - حاشیه‌گذاری شده برای دسکتاپ (از سمت چپ) */}
-        <div className={`flex-grow ${!isMobile ? 'mr-64' : ''}`}>
+        {/* محتوای اصلی - حاشیه‌گذاری شده برای دسکتاپ */}
+        <div className={`flex-grow ${!isMobile && !isSidebarCollapsed ? 'mr-64' : ''}`}>
           <div className="p-4 sm:p-8">
             {children}
           </div>
