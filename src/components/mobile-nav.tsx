@@ -12,11 +12,8 @@ interface MobileNavProps {
 }
 
 export function MobileNav({ activeTab, onTabChange, onOpenSettings }: MobileNavProps) {
-  // اضافه کردن دیباگ
-  console.log('MobileNav rendered with activeTab:', activeTab);
-
   return (
-    <nav className="fixed bottom-0 left-0 right-0 z-50 bg-red-500 border-t border-border p-2 flex justify-around items-center shadow-lg md:hidden">
+    <nav className="fixed bottom-0 left-0 right-0 z-50 glass border-t border-border p-2 flex justify-around items-center shadow-lg md:hidden">
       <Button
         variant="ghost"
         className={cn("flex flex-col items-center gap-1 h-auto py-2 text-foreground hover:text-primary", activeTab === 'contacts' && "text-primary")}

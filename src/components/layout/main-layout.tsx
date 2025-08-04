@@ -39,9 +39,6 @@ export function MainLayout({ children }: MainLayoutProps) {
     windowWidth: typeof window !== 'undefined' ? window.innerWidth : 'unknown'
   });
 
-  // اضافه کردن دیباگ برای بررسی نمایش MobileNav
-  console.log('Should show MobileNav:', (isMobile || isTablet) && isMainPage);
-
   return (
     <div className="min-h-screen flex flex-col bg-gradient-to-br from-blue-100 to-purple-100 dark:from-gray-900 dark:to-black">
       <Toaster richColors position="top-center" />
@@ -60,13 +57,13 @@ export function MainLayout({ children }: MainLayoutProps) {
         
         {/* محتوای اصلی - حاشیه‌گذاری شده برای دسکتاپ */}
         <div className={`flex-grow ${!isMobile && !isTablet && !isSidebarCollapsed ? 'mr-64' : ''}`}>
-          <div className="p-4 sm:p-8 pb-20"> {/* اضافه کردن padding-bottom برای جلوگیری از پنهان شدن */}
+          <div className="p-4 sm:p-8">
             {children}
           </div>
         </div>
       </div>
 
-      {/* ناوبری موبایل - روی موبایل و تبلت و صفحات اصلی نمایش داده شود */}
+      {/* موبایل و تبلت ناوبری - روی موبایل و تبلت و صفحات اصلی نمایش داده شود */}
       {(isMobile || isTablet) && isMainPage && (
         <MobileNav 
           activeTab={pathname === '/contacts' || pathname === '/' ? 'contacts' : pathname === '/groups' ? 'groups' : 'customFields'}
