@@ -9,6 +9,9 @@ import { ThemeToggle } from "@/components/theme-toggle";
 import { ContactListHeader } from "@/components/contact-list-header";
 import { ContactFormDialog } from "@/components/contact-form-dialog";
 import { ContactList } from "@/components/contact-list";
+import { SettingsDialog } from "@/components/settings-dialog"; // Import the new settings dialog
+import { Button } from "@/components/ui/button"; // Import Button for the floating action button
+import { Plus } from "lucide-react"; // Import Plus icon
 
 export default function Home() {
   const [contacts, setContacts] = useState<Contact[]>([]);
@@ -70,44 +73,6 @@ export default function Home() {
     setIsContactFormDialogOpen(true);
   };
 
-  const handleExport = async () => {
-    try {
-      const json = await ContactService.exportContacts();
-      const blob = new Blob([json], { type: 'application/json' });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = 'prism_contacts_backup.json';
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      URL.revokeObjectURL(url);
-      toast.success("مخاطبین با موفقیت خروجی گرفته شدند!");
-    } catch (error) {
-      toast.error("خروجی گرفتن از مخاطبین با شکست مواجه شد.");
-      console.error("Error exporting contacts:", error);
-    }
-  };
-
-  const handleImport = async (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    if (file) {
-      const reader = new FileReader();
-      reader.onload = async (e) => {
-        try {
-          const jsonString = e.target?.result as string;
-          await ContactService.importContacts(jsonString);
-          toast.success("مخاطبین با موفقیت ورودی گرفته شدند!");
-          fetchContacts();
-        } catch (error) {
-          toast.error("ورودی گرفتن از مخاطبین با شکست مواجه شد. لطفاً از معتبر بودن فایل JSON اطمینان حاصل کنید.");
-          console.error("Error importing contacts:", error);
-        }
-      };
-      reader.readAsText(file);
-    }
-  };
-
   const handleAddGroup = async (groupName: string) => {
     try {
       await ContactService.addGroup(groupName);
@@ -135,15 +100,15 @@ export default function Home() {
       <div className="w-full max-w-4xl glass p-6 rounded-lg shadow-lg backdrop-blur-md">
         <div className="flex justify-between items-center mb-6">
           <h1 className="text-3xl font-bold text-primary-foreground">مخاطبین منشور</h1>
-          <ThemeToggle />
+          <div className="flex gap-2">
+            <SettingsDialog onContactsRefreshed={fetchContacts} />
+            <ThemeToggle />
+          </div>
         </div>
 
         <ContactListHeader
           searchTerm={searchTerm}
           onSearchChange={setSearchTerm}
-          onAddContactClick={handleAddContactClick}
-          onExport={handleExport}
-          onImport={handleImport}
         />
 
         <ContactFormDialog
@@ -163,6 +128,13 @@ export default function Home() {
           onDeleteContact={handleDelete}
         />
       </div>
+      {/* Floating Add Contact Button */}
+      <Button
+        className="fixed bottom-8 left-8 rounded-full h-14 w-14 shadow-lg flex items-center justify-center"
+        onClick={handleAddContactClick}
+      >
+        <Plus size={24} />
+      </Button>
       <MadeWithDyad />
     </div>
   );
