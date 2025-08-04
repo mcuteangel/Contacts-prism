@@ -43,7 +43,7 @@ export function MainLayout({ children }: MainLayoutProps) {
       <Header />
       
       <div className="flex flex-1">
-        {/* دسکتاپ سایدبار - ثابت و سمت راست */}
+        {/* دسکتاپ سایدبار - فقط روی دسکتاپ نمایش داده شود */}
         {!isMobile && (
           <DesktopSidebar
             activeTab={pathname === '/contacts' || pathname === '/' ? 'contacts' : pathname === '/groups' ? 'groups' : 'customFields'}
@@ -61,7 +61,7 @@ export function MainLayout({ children }: MainLayoutProps) {
         </div>
       </div>
 
-      {/* موبایل ناوبری - ثابت در پایین صفحه */}
+      {/* موبایل ناوبری - فقط روی موبایل نمایش داده شود */}
       {isMobile && isMainPage && (
         <MobileNav 
           activeTab={pathname === '/contacts' || pathname === '/' ? 'contacts' : pathname === '/groups' ? 'groups' : 'customFields'}
