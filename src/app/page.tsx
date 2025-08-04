@@ -15,6 +15,8 @@ import { Header } from "@/components/header";
 import { MobileNav } from "@/components/mobile-nav";
 import { GroupsManagement } from "@/components/groups-management";
 import { CustomFieldsManagement } from "@/components/custom-fields-management";
+import { DesktopSidebar } from "@/components/desktop-sidebar"; // Import new DesktopSidebar
+import { useIsMobile } from "@/hooks/use-mobile"; // Import useIsMobile
 
 export default function Home() {
   const [contacts, setContacts] = useState<Contact[]>([]);
@@ -23,7 +25,9 @@ export default function Home() {
   const [isContactFormDialogOpen, setIsContactFormDialogOpen] = useState(false);
   const [editingContact, setEditingContact] = useState<Contact | null>(null);
   const [isSettingsDialogOpen, setIsSettingsDialogOpen] = useState(false);
-  const [activeTab, setActiveTab] = useState<'contacts' | 'groups' | 'customFields'>('contacts'); // Removed 'settings' from activeTab state
+  const [activeTab, setActiveTab] = useState<'contacts' | 'groups' | 'customFields'>('contacts');
+
+  const isMobile = useIsMobile(); // Use the hook
 
   const fetchContacts = async () => {
     try {
@@ -105,7 +109,14 @@ export default function Home() {
 
       <Header onContactsRefreshed={fetchContacts} />
 
-      <div className="flex-grow w-full max-w-4xl mx-auto p-4 sm:p-8 pt-20 pb-20 sm:pt-24 sm:pb-24">
+      {/* Desktop Sidebar */}
+      <DesktopSidebar
+        activeTab={activeTab}
+        onTabChange={setActiveTab}
+        onOpenSettings={() => setIsSettingsDialogOpen(true)}
+      />
+
+      <div className={`flex-grow w-full max-w-4xl mx-auto p-4 sm:p-8 pt-20 pb-20 sm:pt-24 sm:pb-24 ${!isMobile ? 'mr-64' : ''}`}> {/* Adjust margin for sidebar */}
         <div className="glass p-6 rounded-lg shadow-lg backdrop-blur-md">
           {activeTab === 'contacts' && (
             <>
@@ -142,14 +153,12 @@ export default function Home() {
         onGroupsRefreshed={fetchGroups}
       />
 
-      {/* Settings Dialog (controlled by Header and MobileNav) */}
       <SettingsDialog
         isOpen={isSettingsDialogOpen}
         onOpenChange={setIsSettingsDialogOpen}
         onContactsRefreshed={fetchContacts}
       />
 
-      {/* Floating Add Contact Button - only visible on contacts tab */}
       {activeTab === 'contacts' && (
         <Button
           className="fixed bottom-8 left-8 rounded-full h-14 w-14 shadow-lg flex items-center justify-center z-20"
@@ -159,6 +168,7 @@ export default function Home() {
         </Button>
       )}
 
+      {/* Mobile Navigation */}
       <MobileNav
         activeTab={activeTab}
         onTabChange={setActiveTab}
