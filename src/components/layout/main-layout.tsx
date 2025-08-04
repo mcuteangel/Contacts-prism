@@ -63,7 +63,7 @@ export function MainLayout({ children }: MainLayoutProps) {
         </div>
       </div>
 
-      {/* موبایل و تبلت ناوبری - روی موبایل و تبلت و صفحات اصلی نمایش داده شود */}
+      {/* ناوبری موبایل - روی موبایل و تبلت و صفحات اصلی نمایش داده شود */}
       {(isMobile || isTablet) && isMainPage && (
         <MobileNav 
           activeTab={pathname === '/contacts' || pathname === '/' ? 'contacts' : pathname === '/groups' ? 'groups' : 'customFields'}
