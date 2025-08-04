@@ -18,7 +18,7 @@ export function MainLayout({ children }: MainLayoutProps) {
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
 
   // تعیین اینکه آیا صفحه فعلی یکی از صفحات اصلی است
-  const isMainPage = ['/contacts', '/groups', '/custom-fields', 'tools', '/settings'].includes(pathname);
+  const isMainPage = ['/contacts', '/groups', '/custom-fields', '/tools', '/settings'].includes(pathname);
 
   // برای صفحات کوچک، سایدبار را به صورت پیش‌فرض جمع کن
   useEffect(() => {
@@ -43,6 +43,7 @@ export function MainLayout({ children }: MainLayoutProps) {
               else if (tab === 'customFields') window.location.href = '/custom-fields';
             }}
             onOpenSettings={() => window.location.href = '/settings'}
+            onCollapseChange={(collapsed) => setIsSidebarCollapsed(collapsed)}
           />
         )}
         

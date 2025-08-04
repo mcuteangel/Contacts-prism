@@ -11,9 +11,10 @@ interface DesktopSidebarProps {
   activeTab: 'contacts' | 'groups' | 'customFields';
   onTabChange: (tab: 'contacts' | 'groups' | 'customFields') => void;
   onOpenSettings: () => void;
+  onCollapseChange?: (collapsed: boolean) => void;
 }
 
-export function DesktopSidebar({ activeTab, onTabChange, onOpenSettings }: DesktopSidebarProps) {
+export function DesktopSidebar({ activeTab, onTabChange, onOpenSettings, onCollapseChange }: DesktopSidebarProps) {
   const isMobile = useIsMobile();
   const [isCollapsed, setIsCollapsed] = useState(false);
 
@@ -22,7 +23,11 @@ export function DesktopSidebar({ activeTab, onTabChange, onOpenSettings }: Deskt
   }
 
   const toggleCollapse = () => {
-    setIsCollapsed(!isCollapsed);
+    const newCollapsedState = !isCollapsed;
+    setIsCollapsed(newCollapsedState);
+    if (onCollapseChange) {
+      onCollapseChange(newCollapsedState);
+    }
   };
 
   return (
