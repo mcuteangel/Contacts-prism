@@ -30,7 +30,14 @@ export function MainLayout({ children }: MainLayoutProps) {
     window.location.href = '/settings';
   };
 
-  console.log('Device:', { isMobile, isTablet, isMainPage });
+  // برای دیباگ کردن
+  console.log('Device Status:', {
+    isMobile,
+    isTablet,
+    isMainPage,
+    pathname,
+    windowWidth: typeof window !== 'undefined' ? window.innerWidth : 'unknown'
+  });
 
   return (
     <div className="min-h-screen flex flex-col bg-gradient-to-br from-blue-100 to-purple-100 dark:from-gray-900 dark:to-black">
