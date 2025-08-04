@@ -18,7 +18,7 @@ export function MainLayout({ children }: MainLayoutProps) {
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
 
   // تعیین اینکه آیا صفحه فعلی یکی از صفحات اصلی است
-  const isMainPage = ['/contacts', '/groups', '/custom-fields', '/tools', '/settings'].includes(pathname);
+  const isMainPage = ['/contacts', '/groups', '/custom-fields', '/tools', '/settings', '/'].includes(pathname);
 
   // برای صفحات کوچک، سایدبار را به صورت پیش‌فرض جمع کن
   useEffect(() => {
@@ -36,7 +36,7 @@ export function MainLayout({ children }: MainLayoutProps) {
         {/* دسکتاپ سایدبار - ثابت و سمت راست */}
         {!isMobile && (
           <DesktopSidebar
-            activeTab={pathname === '/contacts' ? 'contacts' : pathname === '/groups' ? 'groups' : 'customFields'}
+            activeTab={pathname === '/contacts' || pathname === '/' ? 'contacts' : pathname === '/groups' ? 'groups' : 'customFields'}
             onTabChange={(tab) => {
               if (tab === 'contacts') window.location.href = '/';
               else if (tab === 'groups') window.location.href = '/groups';
