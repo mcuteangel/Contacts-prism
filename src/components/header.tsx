@@ -1,7 +1,7 @@
 "use client";
 
 import React from "react";
-import { SettingsDialog } from "@/components/settings-dialog"; // Corrected import path
+import { SettingsDialog } from "@/components/settings-dialog"; // Fixed import path
 import { ThemeToggle } from "@/components/theme-toggle";
 import { Button } from "@/components/ui/button";
 import { Settings } from "lucide-react";
