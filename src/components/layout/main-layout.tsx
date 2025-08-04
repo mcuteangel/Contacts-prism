@@ -60,7 +60,7 @@ export function MainLayout({ children }: MainLayoutProps) {
         
         {/* محتوای اصلی - حاشیه‌گذاری شده برای دسکتاپ */}
         <div className={`flex-grow ${!isMobile && !isTablet && !isSidebarCollapsed ? 'mr-64' : ''}`}>
-          <div className="p-4 sm:p-8">
+          <div className="p-4 sm:p-8 pb-20"> {/* اضافه کردن padding-bottom برای جلوگیری از پنهان شدن */}
             {children}
           </div>
         </div>
