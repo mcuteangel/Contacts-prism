@@ -19,10 +19,11 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Download, Upload, Settings } from "lucide-react";
+import { Download, Upload, Settings, Sun, Moon, Monitor } from "lucide-react";
 import { toast } from "sonner";
 import { ContactService } from "@/services/contact-service";
 import { useTheme } from "next-themes";
+import { cn } from "@/lib/utils"; // Import cn utility
 
 interface SettingsDialogProps {
   onContactsRefreshed: () => void;
@@ -82,19 +83,42 @@ export function SettingsDialog({ onContactsRefreshed }: SettingsDialogProps) {
         </DialogHeader>
         <div className="grid gap-4 py-4">
           <div className="flex flex-col gap-2">
-            <Label htmlFor="theme-select" className="text-right">
-              تم پیش‌فرض
-            </Label>
-            <Select onValueChange={(value) => setTheme(value)} value={theme}>
-              <SelectTrigger id="theme-select">
-                <SelectValue placeholder="انتخاب تم" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="light">روشن</SelectItem>
-                <SelectItem value="dark">تاریک</SelectItem>
-                <SelectItem value="system">سیستم</SelectItem>
-              </SelectContent>
-            </Select>
+            <Label className="text-right">تم پیش‌فرض</Label>
+            <div className="grid grid-cols-3 gap-2">
+              <Button
+                variant="outline"
+                className={cn(
+                  "flex flex-col items-center justify-center p-4 h-auto",
+                  theme === "light" && "ring-2 ring-ring ring-offset-2"
+                )}
+                onClick={() => setTheme("light")}
+              >
+                <Sun size={24} />
+                <span className="mt-2 text-sm">روشن</span>
+              </Button>
+              <Button
+                variant="outline"
+                className={cn(
+                  "flex flex-col items-center justify-center p-4 h-auto",
+                  theme === "dark" && "ring-2 ring-ring ring-offset-2"
+                )}
+                onClick={() => setTheme("dark")}
+              >
+                <Moon size={24} />
+                <span className="mt-2 text-sm">تاریک</span>
+              </Button>
+              <Button
+                variant="outline"
+                className={cn(
+                  "flex flex-col items-center justify-center p-4 h-auto",
+                  theme === "system" && "ring-2 ring-ring ring-offset-2"
+                )}
+                onClick={() => setTheme("system")}
+              >
+                <Monitor size={24} />
+                <span className="mt-2 text-sm">سیستم</span>
+              </Button>
+            </div>
           </div>
 
           <div className="flex flex-col gap-2">
