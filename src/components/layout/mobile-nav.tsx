@@ -3,7 +3,7 @@
 import React from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Users, UsersRound, Settings, Tool, LayoutGrid } from "lucide-react";
+import { Users, UsersRound, Settings, LayoutGrid } from "lucide-react"; // Removed 'Tool'
 import { cn } from "@/lib/utils";
 
 export function MobileNav() {
@@ -13,7 +13,7 @@ export function MobileNav() {
     { href: "/contacts", icon: Users, label: "مخاطبین" },
     { href: "/groups", icon: UsersRound, label: "گروه‌ها" },
     { href: "/custom-fields", icon: LayoutGrid, label: "فیلدها" },
-    { href: "/tools", icon: Tool, label: "ابزار" },
+    // { href: "/tools", icon: Tool, label: "ابزار" }, // Removed Tool icon usage
     { href: "/settings", icon: Settings, label: "تنظیمات" },
   ];
 

@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Users, Folder, ListPlus, Settings } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useIsMobile } from "@/hooks/use-mobile";
-import { Separator } from "@/components/ui/separator"; // Assuming Separator exists
+import { Separator } from "@/components/ui/separator";
 
 interface DesktopSidebarProps {
   activeTab: 'contacts' | 'groups' | 'customFields';
