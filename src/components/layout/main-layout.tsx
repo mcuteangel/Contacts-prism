@@ -20,13 +20,6 @@ export function MainLayout({ children }: MainLayoutProps) {
   // تعیین اینکه آیا صفحه فعلی یکی از صفحات اصلی است
   const isMainPage = ['/contacts', '/groups', '/custom-fields', '/tools', '/settings', '/'].includes(pathname);
 
-  // برای صفحات کوچک، سایدبار را به صورت پیش‌فرض جمع کن
-  useEffect(() => {
-    if (window.innerWidth < 768) {
-      setIsSidebarCollapsed(true);
-    }
-  }, []);
-
   const handleTabChange = (tab: 'contacts' | 'groups' | 'customFields') => {
     if (tab === 'contacts') window.location.href = '/';
     else if (tab === 'groups') window.location.href = '/groups';
@@ -61,7 +54,7 @@ export function MainLayout({ children }: MainLayoutProps) {
         </div>
       </div>
 
-      {/* موبایل ناوبری - فقط روی موبایل نمایش داده شود */}
+      {/* موبایل ناوبری - فقط روی موبایل و صفحات اصلی نمایش داده شود */}
       {isMobile && isMainPage && (
         <MobileNav 
           activeTab={pathname === '/contacts' || pathname === '/' ? 'contacts' : pathname === '/groups' ? 'groups' : 'customFields'}

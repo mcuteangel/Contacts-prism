@@ -4,7 +4,6 @@ import React from "react";
 import { Button } from "@/components/ui/button";
 import { Users, Folder, ListPlus, Settings } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { useIsMobile } from "@/hooks/use-mobile";
 
 interface MobileNavProps {
   activeTab: 'contacts' | 'groups' | 'customFields';
@@ -13,12 +12,6 @@ interface MobileNavProps {
 }
 
 export function MobileNav({ activeTab, onTabChange, onOpenSettings }: MobileNavProps) {
-  const isMobile = useIsMobile();
-
-  if (!isMobile) {
-    return null;
-  }
-
   return (
     <nav className="fixed bottom-0 left-0 right-0 z-10 glass border-t border-border p-2 flex justify-around items-center shadow-lg sm:hidden">
       <Button
