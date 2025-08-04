@@ -21,7 +21,7 @@ export function DesktopSidebar({ activeTab, onTabChange, onOpenSettings }: Deskt
   }
 
   return (
-    <aside className="fixed top-0 left-0 h-screen w-64 p-4 pt-20 bg-sidebar/80 backdrop-blur-md border-r border-sidebar-border shadow-lg flex flex-col z-10">
+    <aside className="fixed top-0 right-0 h-screen w-64 p-4 pt-20 bg-sidebar/80 backdrop-blur-md border-l border-sidebar-border shadow-lg flex flex-col z-10">
       <nav className="flex flex-col gap-2">
         <Button
           variant="ghost"
