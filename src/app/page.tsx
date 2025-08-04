@@ -416,7 +416,7 @@ export default function Home() {
                             <Plus size={16} />
                           </Button>
                         </DialogTrigger>
-                        <DialogContent className="sm:max-w-[300px]">
+                        <DialogContent className="sm:max-w-[300px] glass"> {/* Added glass class here */}
                           <DialogHeader>
                             <DialogTitle>افزودن گروه جدید</DialogTitle>
                           </DialogHeader>
