@@ -1,29 +1,24 @@
 import * as React from "react"
 
 const MOBILE_BREAKPOINT = 768
-const TABLET_BREAKPOINT = 1024
 
 export function useIsMobile() {
   const [isMobile, setIsMobile] = React.useState<boolean>(false)
-  const [isTablet, setIsTablet] = React.useState<boolean>(false)
 
   React.useEffect(() => {
-    const checkDeviceSize = () => {
-      const width = window.innerWidth
-      setIsMobile(width < MOBILE_BREAKPOINT)
-      setIsTablet(width >= MOBILE_BREAKPOINT && width < TABLET_BREAKPOINT)
-      console.log('Width:', width, 'Mobile:', width < MOBILE_BREAKPOINT, 'Tablet:', width >= MOBILE_BREAKPOINT && width < TABLET_BREAKPOINT)
+    const checkIsMobile = () => {
+      setIsMobile(window.innerWidth < MOBILE_BREAKPOINT)
     }
     
     // Check initially
-    checkDeviceSize()
+    checkIsMobile()
     
     // Add event listener
-    window.addEventListener('resize', checkDeviceSize)
+    window.addEventListener('resize', checkIsMobile)
     
     // Cleanup
-    return () => window.removeEventListener('resize', checkDeviceSize)
+    return () => window.removeEventListener('resize', checkIsMobile)
   }, [])
 
-  return { isMobile, isTablet }
+  return { isMobile, isTablet: false }
 }

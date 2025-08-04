@@ -41,7 +41,7 @@ export function MainLayout({ children }: MainLayoutProps) {
       
       <div className="flex flex-1">
         {/* دسکتاپ سایدبار - فقط روی دسکتاپ نمایش داده شود */}
-        {!isMobile && !isTablet && (
+        {!isMobile && (
           <DesktopSidebar
             activeTab={pathname === '/contacts' || pathname === '/' ? 'contacts' : pathname === '/groups' ? 'groups' : 'customFields'}
             onTabChange={handleTabChange}
@@ -51,7 +51,7 @@ export function MainLayout({ children }: MainLayoutProps) {
         )}
         
         {/* محتوای اصلی - حاشیه‌گذاری شده برای دسکتاپ */}
-        <div className={`flex-grow ${!isMobile && !isTablet && !isSidebarCollapsed ? 'mr-64' : ''}`}>
+        <div className={`flex-grow ${!isMobile && !isSidebarCollapsed ? 'mr-64' : ''}`}>
           <div className="p-4 sm:p-8">
             {children}
           </div>

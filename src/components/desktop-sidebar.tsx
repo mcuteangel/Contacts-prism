@@ -15,12 +15,7 @@ interface DesktopSidebarProps {
 }
 
 export function DesktopSidebar({ activeTab, onTabChange, onOpenSettings, onCollapseChange }: DesktopSidebarProps) {
-  const isMobile = useIsMobile();
   const [isCollapsed, setIsCollapsed] = useState(false);
-
-  if (isMobile) {
-    return null; // فقط روی دسکتاپ نمایش داده شود
-  }
 
   const toggleCollapse = () => {
     const newCollapsedState = !isCollapsed;
