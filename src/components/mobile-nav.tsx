@@ -13,10 +13,13 @@ interface MobileNavProps {
 
 export function MobileNav({ activeTab, onTabChange, onOpenSettings }: MobileNavProps) {
   return (
-    <nav className="fixed bottom-0 left-0 right-0 z-50 glass border-t border-border p-2 flex justify-around items-center shadow-lg md:hidden">
+    <nav className="fixed bottom-0 left-0 right-0 z-50 glass border-t border-border p-2 flex justify-around items-center shadow-lg">
       <Button
         variant="ghost"
-        className={cn("flex flex-col items-center gap-1 h-auto py-2 text-foreground hover:text-primary", activeTab === 'contacts' && "text-primary")}
+        className={cn(
+          "flex flex-col items-center gap-1 h-auto py-2 text-foreground hover:text-primary",
+          activeTab === 'contacts' && "text-primary"
+        )}
         onClick={() => onTabChange('contacts')}
       >
         <Users size={20} />
@@ -24,7 +27,10 @@ export function MobileNav({ activeTab, onTabChange, onOpenSettings }: MobileNavP
       </Button>
       <Button
         variant="ghost"
-        className={cn("flex flex-col items-center gap-1 h-auto py-2 text-foreground hover:text-primary", activeTab === 'groups' && "text-primary")}
+        className={cn(
+          "flex flex-col items-center gap-1 h-auto py-2 text-foreground hover:text-primary",
+          activeTab === 'groups' && "text-primary"
+        )}
         onClick={() => onTabChange('groups')}
       >
         <Folder size={20} />
@@ -32,7 +38,10 @@ export function MobileNav({ activeTab, onTabChange, onOpenSettings }: MobileNavP
       </Button>
       <Button
         variant="ghost"
-        className={cn("flex flex-col items-center gap-1 h-auto py-2 text-foreground hover:text-primary", activeTab === 'customFields' && "text-primary")}
+        className={cn(
+          "flex flex-col items-center gap-1 h-auto py-2 text-foreground hover:text-primary",
+          activeTab === 'customFields' && "text-primary"
+        )}
         onClick={() => onTabChange('customFields')}
       >
         <ListPlus size={20} />
