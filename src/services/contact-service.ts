@@ -1,7 +1,7 @@
 import { db, type Contact, type Group } from '@/database/db';
 
 export const ContactService = {
-  async addContact(contact: Omit<Contact, 'createdAt' | 'updatedAt'>): Promise<number> {
+  async addContact(contact: Omit<Contact, 'createdAt' | 'updatedAt' | 'id'>): Promise<number> {
     const now = new Date();
     return db.contacts.add({ ...contact, createdAt: now, updatedAt: now });
   },
@@ -11,7 +11,7 @@ export const ContactService = {
   },
 
   async getAllContacts(): Promise<Contact[]> {
-    return db.contacts.orderBy('name').toArray();
+    return db.contacts.orderBy('firstName').toArray(); // Order by first name
   },
 
   async updateContact(id: number, updates: Partial<Omit<Contact, 'createdAt'>>): Promise<number> {
@@ -27,9 +27,13 @@ export const ContactService = {
     const lowerCaseQuery = query.toLowerCase();
     return db.contacts
       .filter(contact =>
-        contact.name.toLowerCase().includes(lowerCaseQuery) ||
-        contact.phoneNumbers.some(num => num.includes(lowerCaseQuery)) ||
-        (contact.notes?.toLowerCase().includes(lowerCaseQuery) ?? false) // Fixed: Ensure this part always returns a boolean
+        contact.firstName.toLowerCase().includes(lowerCaseQuery) ||
+        (contact.lastName?.toLowerCase().includes(lowerCaseQuery) ?? false) ||
+        contact.phoneNumbers.some(pn => pn.number.includes(lowerCaseQuery)) || // Search in new phone number structure
+        (contact.notes?.toLowerCase().includes(lowerCaseQuery) ?? false) ||
+        (contact.position?.toLowerCase().includes(lowerCaseQuery) ?? false) || // Search position
+        (contact.address?.toLowerCase().includes(lowerCaseQuery) ?? false) || // Search address
+        (contact.customFields?.some(cf => cf.value.toLowerCase().includes(lowerCaseQuery)) ?? false) // Search custom fields
       )
       .toArray();
   },
@@ -47,11 +51,14 @@ export const ContactService = {
         ...c,
         createdAt: new Date(c.createdAt), // Ensure dates are Date objects
         updatedAt: new Date(c.updatedAt),
+        // Ensure phoneNumbers and customFields are correctly typed if coming from JSON
+        phoneNumbers: c.phoneNumbers || [],
+        customFields: c.customFields || [],
       })));
     });
   },
 
-  // Group operations (basic for now)
+  // Group operations
   async addGroup(name: string): Promise<number> {
     const now = new Date();
     return db.groups.add({ name, createdAt: now, updatedAt: now });
