@@ -301,38 +301,38 @@ export default function Home() {
                   <Plus size={18} /> {editingContact ? "ویرایش مخاطب" : "افزودن مخاطب"}
                 </Button>
               </DialogTrigger>
-              <DialogContent className="sm:max-w-[600px] glass overflow-y-auto max-h-[90vh]"> {/* Increased max-width and added scroll */}
+              <DialogContent className="sm:max-w-[600px] glass overflow-y-auto max-h-[90vh]">
                 <DialogHeader>
                   <DialogTitle>{editingContact ? "ویرایش مخاطب" : "افزودن مخاطب جدید"}</DialogTitle>
                   <DialogDescription>
                     {editingContact ? "تغییرات مخاطب را اینجا اعمال کنید." : "مخاطب جدیدی به لیست خود اضافه کنید."}
                   </DialogDescription>
                 </DialogHeader>
-                <form onSubmit={form.handleSubmit(onSubmit)} className="grid gap-4 py-4">
-                  <div className="grid grid-cols-4 items-center gap-4">
+                <form onSubmit={form.handleSubmit(onSubmit)} className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-4 py-4">
+                  <div className="flex flex-col gap-2">
                     <Label htmlFor="firstName" className="text-right">
                       نام
                     </Label>
-                    <Input id="firstName" {...form.register("firstName")} className="col-span-3" />
-                    {form.formState.errors.firstName && <p className="col-span-4 text-right text-red-500 text-sm">{form.formState.errors.firstName.message}</p>}
+                    <Input id="firstName" {...form.register("firstName")} />
+                    {form.formState.errors.firstName && <p className="text-right text-red-500 text-sm">{form.formState.errors.firstName.message}</p>}
                   </div>
-                  <div className="grid grid-cols-4 items-center gap-4">
+                  <div className="flex flex-col gap-2">
                     <Label htmlFor="lastName" className="text-right">
                       نام خانوادگی
                     </Label>
-                    <Input id="lastName" {...form.register("lastName")} className="col-span-3" />
+                    <Input id="lastName" {...form.register("lastName")} />
                   </div>
 
                   {/* Dynamic Phone Numbers */}
-                  <div className="col-span-4 grid gap-2">
+                  <div className="col-span-full flex flex-col gap-2">
                     <Label className="text-right">شماره(ها)</Label>
-                    {phoneInputs.map((phoneInput, index) => (
-                      <div key={phoneInput.id} className="grid grid-cols-4 items-center gap-2">
+                    {phoneInputs.map((phoneInput) => (
+                      <div key={phoneInput.id} className="flex items-center gap-2">
                         <Select
                           value={phoneInput.type}
                           onValueChange={(value) => updatePhoneNumberField(phoneInput.id!, 'type', value)}
                         >
-                          <SelectTrigger className="col-span-1">
+                          <SelectTrigger className="w-[120px] flex-shrink-0">
                             <SelectValue placeholder="نوع" />
                           </SelectTrigger>
                           <SelectContent>
@@ -346,31 +346,31 @@ export default function Home() {
                           placeholder="شماره تلفن"
                           value={phoneInput.number}
                           onChange={(e) => updatePhoneNumberField(phoneInput.id!, 'number', e.target.value)}
-                          className="col-span-2"
+                          className="flex-grow"
                         />
                         <Button
                           type="button"
                           variant="ghost"
                           size="icon"
                           onClick={() => removePhoneNumberField(phoneInput.id!)}
-                          className="col-span-1"
+                          className="flex-shrink-0"
                         >
                           <X size={16} />
                         </Button>
                       </div>
                     ))}
-                    <Button type="button" variant="outline" onClick={addPhoneNumberField} className="col-span-4 flex items-center gap-2">
+                    <Button type="button" variant="outline" onClick={addPhoneNumberField} className="flex items-center gap-2">
                       <Plus size={16} /> افزودن شماره تلفن
                     </Button>
-                    {form.formState.errors.phoneNumbers && <p className="col-span-4 text-right text-red-500 text-sm">{form.formState.errors.phoneNumbers.message}</p>}
+                    {form.formState.errors.phoneNumbers && <p className="text-right text-red-500 text-sm">{form.formState.errors.phoneNumbers.message}</p>}
                   </div>
 
-                  <div className="grid grid-cols-4 items-center gap-4">
+                  <div className="flex flex-col gap-2">
                     <Label htmlFor="gender" className="text-right">
                       جنسیت
                     </Label>
                     <Select onValueChange={(value) => form.setValue("gender", value as "male" | "female" | "other")} value={form.watch("gender")}>
-                      <SelectTrigger className="col-span-3">
+                      <SelectTrigger>
                         <SelectValue placeholder="انتخاب جنسیت" />
                       </SelectTrigger>
                       <SelectContent>
@@ -381,25 +381,25 @@ export default function Home() {
                     </Select>
                   </div>
 
-                  <div className="grid grid-cols-4 items-center gap-4">
+                  <div className="flex flex-col gap-2">
                     <Label htmlFor="position" className="text-right">
                       سمت/تخصص
                     </Label>
-                    <Input id="position" {...form.register("position")} className="col-span-3" />
+                    <Input id="position" {...form.register("position")} />
                   </div>
 
-                  <div className="grid grid-cols-4 items-center gap-4">
+                  <div className="flex flex-col gap-2">
                     <Label htmlFor="address" className="text-right">
                       آدرس
                     </Label>
-                    <Textarea id="address" {...form.register("address")} className="col-span-3" />
+                    <Textarea id="address" {...form.register("address")} />
                   </div>
 
-                  <div className="grid grid-cols-4 items-center gap-4">
+                  <div className="col-span-full flex flex-col gap-2">
                     <Label htmlFor="groupId" className="text-right">
                       گروه
                     </Label>
-                    <div className="col-span-3 flex gap-2">
+                    <div className="flex gap-2">
                       <Select onValueChange={(value) => form.setValue("groupId", parseInt(value))} value={form.watch("groupId")?.toString()}>
                         <SelectTrigger className="flex-grow">
                           <SelectValue placeholder="انتخاب گروه" />
@@ -447,29 +447,29 @@ export default function Home() {
                     </div>
                   </div>
 
-                  <div className="grid grid-cols-4 items-center gap-4">
+                  <div className="flex flex-col gap-2">
                     <Label htmlFor="notes" className="text-right">
                       یادداشت‌ها
                     </Label>
-                    <Textarea id="notes" {...form.register("notes")} className="col-span-3" />
+                    <Textarea id="notes" {...form.register("notes")} />
                   </div>
 
                   {/* Dynamic Custom Fields */}
-                  <div className="col-span-4 grid gap-2">
+                  <div className="col-span-full flex flex-col gap-2">
                     <Label className="text-right">فیلدهای سفارشی</Label>
-                    {customFieldInputs.map((cfInput, index) => (
-                      <div key={cfInput.id} className="grid grid-cols-4 items-center gap-2">
+                    {customFieldInputs.map((cfInput) => (
+                      <div key={cfInput.id} className="flex items-center gap-2">
                         <Input
                           placeholder="نام فیلد"
                           value={cfInput.name}
                           onChange={(e) => updateCustomField(cfInput.id!, 'name', e.target.value)}
-                          className="col-span-1"
+                          className="w-[120px] flex-shrink-0"
                         />
                         <Select
                           value={cfInput.type}
                           onValueChange={(value) => updateCustomField(cfInput.id!, 'type', value as 'text' | 'number' | 'date' | 'list')}
                         >
-                          <SelectTrigger className="col-span-1">
+                          <SelectTrigger className="w-[100px] flex-shrink-0">
                             <SelectValue placeholder="نوع" />
                           </SelectTrigger>
                           <SelectContent>
@@ -483,25 +483,25 @@ export default function Home() {
                           placeholder="مقدار فیلد"
                           value={cfInput.value}
                           onChange={(e) => updateCustomField(cfInput.id!, 'value', e.target.value)}
-                          className="col-span-1"
+                          className="flex-grow"
                         />
                         <Button
                           type="button"
                           variant="ghost"
                           size="icon"
                           onClick={() => removeCustomField(cfInput.id!)}
-                          className="col-span-1"
+                          className="flex-shrink-0"
                         >
                           <X size={16} />
                         </Button>
                       </div>
                     ))}
-                    <Button type="button" variant="outline" onClick={addCustomField} className="col-span-4 flex items-center gap-2">
+                    <Button type="button" variant="outline" onClick={addCustomField} className="flex items-center gap-2">
                       <Plus size={16} /> افزودن فیلد سفارشی
                     </Button>
                   </div>
 
-                  <DialogFooter>
+                  <DialogFooter className="col-span-full flex justify-end pt-4">
                     <Button type="submit">{editingContact ? "ذخیره تغییرات" : "افزودن مخاطب"}</Button>
                   </DialogFooter>
                 </form>
