@@ -5,6 +5,7 @@ import { usePathname } from "next/navigation";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { Header } from "./header";
 import { MobileNav } from "./mobile-nav";
+import { DesktopSidebar } from "@/components/desktop-sidebar";
 import { Toaster } from "sonner";
 
 interface MainLayoutProps {
@@ -22,12 +23,39 @@ export function MainLayout({ children }: MainLayoutProps) {
     <div className="min-h-screen flex flex-col bg-gradient-to-br from-blue-100 to-purple-100 dark:from-gray-900 dark:to-black">
       <Toaster richColors position="top-center" />
       <Header />
-      <main className="flex-grow p-4 sm:p-8 flex flex-col items-center justify-center">
-        <div className="w-full max-w-4xl glass p-6 rounded-lg shadow-lg backdrop-blur-md">
+      
+      <div className="flex flex-1">
+        {/* دسکتاپ سایدبار */}
+        {!isMobile && (
+          <DesktopSidebar
+            activeTab={pathname === '/contacts' ? 'contacts' : pathname === '/groups' ? 'groups' : 'customFields'}
+            onTabChange={(tab) => {
+              if (tab === 'contacts') window.location.href = '/';
+              else if (tab === 'groups') window.location.href = '/groups';
+              else if (tab === 'customFields') window.location.href = '/custom-fields';
+            }}
+            onOpenSettings={() => window.location.href = '/settings'}
+          />
+        )}
+        
+        {/* محتوای اصلی */}
+        <div className={`flex-grow ${!isMobile ? 'ml-64' : ''}`}>
           {children}
         </div>
-      </main>
-      {isMobile && isMainPage && <MobileNav />}
+      </div>
+
+      {/* موبایل ناوبری */}
+      {isMobile && isMainPage && (
+        <MobileNav
+          activeTab={pathname === '/contacts' ? 'contacts' : pathname === '/groups' ? 'groups' : 'customFields'}
+          onTabChange={(tab) => {
+            if (tab === 'contacts') window.location.href = '/';
+            else if (tab === 'groups') window.location.href = '/groups';
+            else if (tab === 'customFields') window.location.href = '/custom-fields';
+          }}
+          onOpenSettings={() => window.location.href = '/settings'}
+        />
+      )}
     </div>
   );
 }

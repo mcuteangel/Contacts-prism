@@ -11,11 +11,8 @@ import { ContactList } from "@/components/contact-list";
 import { SettingsDialog } from "@/components/settings-dialog";
 import { Button } from "@/components/ui/button";
 import { Plus } from "lucide-react";
-import { Header } from "@/components/layout/header";
-import { MobileNav } from "@/components/layout/mobile-nav";
 import { GroupsManagement } from "@/components/groups-management";
 import { CustomFieldsManagement } from "@/components/custom-fields-management";
-import { DesktopSidebar } from "@/components/desktop-sidebar";
 import { useIsMobile } from "@/hooks/use-mobile";
 
 export default function Home() {
@@ -125,16 +122,8 @@ export default function Home() {
     <div className="min-h-screen flex flex-col bg-gradient-to-br from-blue-100 to-purple-100 dark:from-gray-900 dark:to-black">
       <Toaster richColors position="top-center" />
 
-      <Header />
-
-      <DesktopSidebar
-        activeTab={activeTab}
-        onTabChange={setActiveTab}
-        onOpenSettings={() => setIsSettingsDialogOpen(true)}
-      />
-
-      <div className={`flex-grow w-full max-w-4xl mx-auto p-4 sm:p-8 pt-20 pb-20 sm:pt-24 sm:pb-24 ${!isMobile ? 'mr-64' : ''}`}>
-        <div className="glass p-6 rounded-lg shadow-lg backdrop-blur-md">
+      <div className="flex-grow p-4 sm:p-8 flex flex-col items-center justify-center">
+        <div className="w-full max-w-4xl glass p-6 rounded-lg shadow-lg backdrop-blur-md">
           {activeTab === 'contacts' && (
             <>
               <ContactListHeader
@@ -184,12 +173,6 @@ export default function Home() {
           <Plus size={24} />
         </Button>
       )}
-
-      <MobileNav
-        activeTab={activeTab}
-        onTabChange={setActiveTab}
-        onOpenSettings={() => setIsSettingsDialogOpen(true)}
-      />
 
       <MadeWithDyad />
     </div>
