@@ -30,14 +30,15 @@ import {
 } from "@/components/ui/select";
 import { Plus, Search, Upload, Download, Trash2, Edit } from "lucide-react"; // Icons
 
-const contactSchema = z.object({
-  name: z.string().min(1, "Name is required"),
-  phoneNumbers: z.string().min(1, "At least one phone number is required").transform(val => val.split(',').map(s => s.trim()).filter(Boolean)),
+// Define the schema for the form input values
+const formSchema = z.object({
+  name: z.string().min(1, "نام الزامی است"),
+  phoneNumbers: z.string().min(1, "حداقل یک شماره تلفن الزامی است"), // This is a string for the input field
   gender: z.enum(['male', 'female', 'other']).optional(),
   notes: z.string().optional(),
 });
 
-type ContactFormValues = z.infer<typeof contactSchema>;
+type ContactFormValues = z.infer<typeof formSchema>;
 
 export default function Home() {
   const [contacts, setContacts] = useState<Contact[]>([]);
@@ -46,10 +47,10 @@ export default function Home() {
   const [editingContact, setEditingContact] = useState<Contact | null>(null);
 
   const form = useForm<ContactFormValues>({
-    resolver: zodResolver(contactSchema),
+    resolver: zodResolver(formSchema), // Use formSchema here
     defaultValues: {
       name: "",
-      phoneNumbers: "",
+      phoneNumbers: "", // Default as a string
       gender: undefined,
       notes: "",
     },
@@ -60,7 +61,7 @@ export default function Home() {
       const allContacts = await ContactService.getAllContacts();
       setContacts(allContacts);
     } catch (error) {
-      toast.error("Failed to load contacts.");
+      toast.error("بارگذاری مخاطبین با شکست مواجه شد.");
       console.error("Error fetching contacts:", error);
     }
   };
@@ -71,41 +72,44 @@ export default function Home() {
 
   const onSubmit = async (values: ContactFormValues) => {
     try {
+      // Transform phoneNumbers from string (from form) to string[] (for service)
+      const phoneNumbersArray = values.phoneNumbers.split(',').map(s => s.trim()).filter(Boolean);
+
       if (editingContact) {
         await ContactService.updateContact(editingContact.id!, {
           name: values.name,
-          phoneNumbers: values.phoneNumbers,
+          phoneNumbers: phoneNumbersArray, // Use the transformed array
           gender: values.gender,
           notes: values.notes,
         });
-        toast.success("Contact updated successfully!");
+        toast.success("مخاطب با موفقیت به‌روزرسانی شد!");
       } else {
         await ContactService.addContact({
           name: values.name,
-          phoneNumbers: values.phoneNumbers,
+          phoneNumbers: phoneNumbersArray, // Use the transformed array
           gender: values.gender,
           notes: values.notes,
         });
-        toast.success("Contact added successfully!");
+        toast.success("مخاطب با موفقیت اضافه شد!");
       }
       form.reset();
       setIsAddContactDialogOpen(false);
       setEditingContact(null);
       fetchContacts();
     } catch (error) {
-      toast.error("Failed to save contact.");
+      toast.error("ذخیره مخاطب با شکست مواجه شد.");
       console.error("Error saving contact:", error);
     }
   };
 
   const handleDelete = async (id: number) => {
-    if (window.confirm("Are you sure you want to delete this contact?")) {
+    if (window.confirm("آیا از حذف این مخاطب مطمئن هستید؟")) {
       try {
         await ContactService.deleteContact(id);
-        toast.success("Contact deleted successfully!");
+        toast.success("مخاطب با موفقیت حذف شد!");
         fetchContacts();
       } catch (error) {
-        toast.error("Failed to delete contact.");
+        toast.error("حذف مخاطب با شکست مواجه شد.");
         console.error("Error deleting contact:", error);
       }
     }
@@ -115,7 +119,7 @@ export default function Home() {
     setEditingContact(contact);
     form.reset({
       name: contact.name,
-      phoneNumbers: contact.phoneNumbers.join(', '),
+      phoneNumbers: contact.phoneNumbers.join(', '), // Convert string[] to string for form input
       gender: contact.gender,
       notes: contact.notes,
     });
@@ -134,9 +138,9 @@ export default function Home() {
       a.click();
       document.body.removeChild(a);
       URL.revokeObjectURL(url);
-      toast.success("Contacts exported successfully!");
+      toast.success("مخاطبین با موفقیت خروجی گرفته شدند!");
     } catch (error) {
-      toast.error("Failed to export contacts.");
+      toast.error("خروجی گرفتن از مخاطبین با شکست مواجه شد.");
       console.error("Error exporting contacts:", error);
     }
   };
@@ -149,10 +153,10 @@ export default function Home() {
         try {
           const jsonString = e.target?.result as string;
           await ContactService.importContacts(jsonString);
-          toast.success("Contacts imported successfully!");
+          toast.success("مخاطبین با موفقیت ورودی گرفته شدند!");
           fetchContacts();
         } catch (error) {
-          toast.error("Failed to import contacts. Please ensure the file is valid JSON.");
+          toast.error("ورودی گرفتن از مخاطبین با شکست مواجه شد. لطفاً از معتبر بودن فایل JSON اطمینان حاصل کنید.");
           console.error("Error importing contacts:", error);
         }
       };
@@ -170,13 +174,13 @@ export default function Home() {
     <div className="min-h-screen flex flex-col items-center justify-center p-4 sm:p-8 bg-gradient-to-br from-blue-100 to-purple-100 dark:from-gray-900 dark:to-black">
       <Toaster richColors position="top-center" />
       <div className="w-full max-w-4xl glass p-6 rounded-lg shadow-lg backdrop-blur-md">
-        <h1 className="text-3xl font-bold text-center mb-6 text-primary-foreground">Prism Contacts</h1>
+        <h1 className="text-3xl font-bold text-center mb-6 text-primary-foreground">مخاطبین منشور</h1>
 
         <div className="flex flex-col sm:flex-row gap-4 mb-6">
           <div className="relative flex-grow">
             <Input
               type="text"
-              placeholder="Search contacts..."
+              placeholder="جستجوی مخاطبین..."
               className="pl-10 pr-4 py-2 w-full rounded-md border border-input bg-background text-foreground focus:ring-2 focus:ring-ring focus:border-transparent"
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
@@ -193,61 +197,61 @@ export default function Home() {
             }}>
               <DialogTrigger asChild>
                 <Button className="flex items-center gap-2">
-                  <Plus size={18} /> {editingContact ? "Edit Contact" : "Add Contact"}
+                  <Plus size={18} /> {editingContact ? "ویرایش مخاطب" : "افزودن مخاطب"}
                 </Button>
               </DialogTrigger>
               <DialogContent className="sm:max-w-[425px] glass">
                 <DialogHeader>
-                  <DialogTitle>{editingContact ? "Edit Contact" : "Add New Contact"}</DialogTitle>
+                  <DialogTitle>{editingContact ? "ویرایش مخاطب" : "افزودن مخاطب جدید"}</DialogTitle>
                   <DialogDescription>
-                    {editingContact ? "Make changes to your contact here." : "Add a new contact to your list."}
+                    {editingContact ? "تغییرات مخاطب را اینجا اعمال کنید." : "مخاطب جدیدی به لیست خود اضافه کنید."}
                   </DialogDescription>
                 </DialogHeader>
                 <form onSubmit={form.handleSubmit(onSubmit)} className="grid gap-4 py-4">
                   <div className="grid grid-cols-4 items-center gap-4">
                     <Label htmlFor="name" className="text-right">
-                      Name
+                      نام
                     </Label>
                     <Input id="name" {...form.register("name")} className="col-span-3" />
                     {form.formState.errors.name && <p className="col-span-4 text-right text-red-500 text-sm">{form.formState.errors.name.message}</p>}
                   </div>
                   <div className="grid grid-cols-4 items-center gap-4">
                     <Label htmlFor="phoneNumbers" className="text-right">
-                      Phone(s)
+                      شماره(ها)
                     </Label>
-                    <Input id="phoneNumbers" placeholder="Comma separated" {...form.register("phoneNumbers")} className="col-span-3" />
+                    <Input id="phoneNumbers" placeholder="با کاما جدا کنید" {...form.register("phoneNumbers")} className="col-span-3" />
                     {form.formState.errors.phoneNumbers && <p className="col-span-4 text-right text-red-500 text-sm">{form.formState.errors.phoneNumbers.message}</p>}
                   </div>
                   <div className="grid grid-cols-4 items-center gap-4">
                     <Label htmlFor="gender" className="text-right">
-                      Gender
+                      جنسیت
                     </Label>
                     <Select onValueChange={(value) => form.setValue("gender", value as "male" | "female" | "other")} value={form.watch("gender")}>
                       <SelectTrigger className="col-span-3">
-                        <SelectValue placeholder="Select gender" />
+                        <SelectValue placeholder="انتخاب جنسیت" />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="male">Male</SelectItem>
-                        <SelectItem value="female">Female</SelectItem>
-                        <SelectItem value="other">Other</SelectItem>
+                        <SelectItem value="male">مرد</SelectItem>
+                        <SelectItem value="female">زن</SelectItem>
+                        <SelectItem value="other">سایر</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>
                   <div className="grid grid-cols-4 items-center gap-4">
                     <Label htmlFor="notes" className="text-right">
-                      Notes
+                      یادداشت‌ها
                     </Label>
                     <Textarea id="notes" {...form.register("notes")} className="col-span-3" />
                   </div>
                   <DialogFooter>
-                    <Button type="submit">{editingContact ? "Save Changes" : "Add Contact"}</Button>
+                    <Button type="submit">{editingContact ? "ذخیره تغییرات" : "افزودن مخاطب"}</Button>
                   </DialogFooter>
                 </form>
               </DialogContent>
             </Dialog>
 
             <Button onClick={handleExport} variant="outline" className="flex items-center gap-2">
-              <Download size={18} /> Export
+              <Download size={18} /> خروجی
             </Button>
             <Input
               id="import-file"
@@ -257,14 +261,14 @@ export default function Home() {
               className="hidden"
             />
             <Label htmlFor="import-file" className="flex items-center gap-2 px-4 py-2 rounded-md text-sm font-medium bg-secondary text-secondary-foreground hover:bg-secondary/80 cursor-pointer">
-              <Upload size={18} /> Import
+              <Upload size={18} /> ورودی
             </Label>
           </div>
         </div>
 
         <div className="grid gap-4">
           {filteredContacts.length === 0 ? (
-            <p className="text-center text-muted-foreground">No contacts found. Add a new contact to get started!</p>
+            <p className="text-center text-muted-foreground">مخاطبی یافت نشد. برای شروع یک مخاطب جدید اضافه کنید!</p>
           ) : (
             filteredContacts.map((contact) => (
               <div key={contact.id} className="glass p-4 rounded-lg flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">

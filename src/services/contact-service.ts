@@ -29,7 +29,7 @@ export const ContactService = {
       .filter(contact =>
         contact.name.toLowerCase().includes(lowerCaseQuery) ||
         contact.phoneNumbers.some(num => num.includes(lowerCaseQuery)) ||
-        (contact.notes && contact.notes.toLowerCase().includes(lowerCaseQuery))
+        (contact.notes?.toLowerCase().includes(lowerCaseQuery) ?? false) // Fixed: Ensure this part always returns a boolean
       )
       .toArray();
   },
