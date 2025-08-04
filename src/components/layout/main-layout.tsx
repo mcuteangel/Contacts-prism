@@ -4,7 +4,7 @@ import React, { useState, useEffect } from "react";
 import { usePathname } from "next/navigation";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { Header } from "./header";
-import { MobileNav } from "./mobile-nav";
+import { MobileNav } from "@/components/mobile-nav";
 import { DesktopSidebar } from "@/components/desktop-sidebar";
 import { Toaster } from "sonner";
 
@@ -27,6 +27,16 @@ export function MainLayout({ children }: MainLayoutProps) {
     }
   }, []);
 
+  const handleTabChange = (tab: 'contacts' | 'groups' | 'customFields') => {
+    if (tab === 'contacts') window.location.href = '/';
+    else if (tab === 'groups') window.location.href = '/groups';
+    else if (tab === 'customFields') window.location.href = '/custom-fields';
+  };
+
+  const handleOpenSettings = () => {
+    window.location.href = '/settings';
+  };
+
   return (
     <div className="min-h-screen flex flex-col bg-gradient-to-br from-blue-100 to-purple-100 dark:from-gray-900 dark:to-black">
       <Toaster richColors position="top-center" />
@@ -37,12 +47,8 @@ export function MainLayout({ children }: MainLayoutProps) {
         {!isMobile && (
           <DesktopSidebar
             activeTab={pathname === '/contacts' || pathname === '/' ? 'contacts' : pathname === '/groups' ? 'groups' : 'customFields'}
-            onTabChange={(tab) => {
-              if (tab === 'contacts') window.location.href = '/';
-              else if (tab === 'groups') window.location.href = '/groups';
-              else if (tab === 'customFields') window.location.href = '/custom-fields';
-            }}
-            onOpenSettings={() => window.location.href = '/settings'}
+            onTabChange={handleTabChange}
+            onOpenSettings={handleOpenSettings}
             onCollapseChange={(collapsed) => setIsSidebarCollapsed(collapsed)}
           />
         )}
@@ -57,7 +63,11 @@ export function MainLayout({ children }: MainLayoutProps) {
 
       {/* موبایل ناوبری - ثابت در پایین صفحه */}
       {isMobile && isMainPage && (
-        <MobileNav />
+        <MobileNav 
+          activeTab={pathname === '/contacts' || pathname === '/' ? 'contacts' : pathname === '/groups' ? 'groups' : 'customFields'}
+          onTabChange={handleTabChange}
+          onOpenSettings={handleOpenSettings}
+        />
       )}
     </div>
   );
