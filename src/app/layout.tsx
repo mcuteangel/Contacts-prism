@@ -2,7 +2,8 @@ import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import { ThemeProvider } from "@/components/theme-provider";
-import { MainLayout } from "@/components/layout/main-layout";
+import { Header } from "@/components/layout/header";
+import { MobileNav } from "@/components/layout/mobile-nav";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -35,7 +36,19 @@ export default function RootLayout({
           enableSystem
           disableTransitionOnChange
         >
-          <MainLayout>{children}</MainLayout>
+          <div className="min-h-screen flex flex-col bg-gradient-to-br from-blue-100 to-purple-100 dark:from-gray-900 dark:to-black">
+            <Header />
+            <div className="flex flex-1">
+              {/* Desktop Sidebar - Only on desktop */}
+              <DesktopSidebar />
+              {/* Main Content */}
+              <div className="flex-grow">
+                {children}
+              </div>
+            </div>
+            {/* Mobile Navigation - Only on mobile */}
+            <MobileNav />
+          </div>
         </ThemeProvider>
       </body>
     </html>
