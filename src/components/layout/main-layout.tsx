@@ -15,7 +15,7 @@ export function MainLayout({ children }: MainLayoutProps) {
   const isMobile = useIsMobile();
   const pathname = usePathname();
 
-  // Determine if the current path is one of the main navigation paths
+  // تعیین اینکه آیا صفحه فعلی یکی از صفحات اصلی است
   const isMainPage = ['/contacts', '/groups', '/custom-fields', '/tools', '/settings'].includes(pathname);
 
   return (
