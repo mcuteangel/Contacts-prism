@@ -10,8 +10,7 @@ import {
   DialogHeader,
   DialogTitle,
   DialogFooter,
-  DialogTrigger,
-} from "@/components/ui/dialog";
+} from "@/components/ui/dialog"; // Removed DialogTrigger
 import {
   Select,
   SelectContent,
@@ -26,10 +25,12 @@ import { useTheme } from "next-themes";
 import { cn } from "@/lib/utils"; // Import cn utility
 
 interface SettingsDialogProps {
+  isOpen: boolean; // Added isOpen prop
+  onOpenChange: (open: boolean) => void; // Added onOpenChange prop
   onContactsRefreshed: () => void;
 }
 
-export function SettingsDialog({ onContactsRefreshed }: SettingsDialogProps) {
+export function SettingsDialog({ isOpen, onOpenChange, onContactsRefreshed }: SettingsDialogProps) {
   const { theme, setTheme } = useTheme();
 
   const handleExport = async () => {
@@ -71,12 +72,8 @@ export function SettingsDialog({ onContactsRefreshed }: SettingsDialogProps) {
   };
 
   return (
-    <Dialog>
-      <DialogTrigger asChild>
-        <Button variant="outline" size="icon">
-          <Settings size={18} />
-        </Button>
-      </DialogTrigger>
+    <Dialog open={isOpen} onOpenChange={onOpenChange}> {/* Use isOpen and onOpenChange props */}
+      {/* Removed DialogTrigger as it's now controlled externally */}
       <DialogContent className="sm:max-w-[400px] glass">
         <DialogHeader>
           <DialogTitle>تنظیمات</DialogTitle>

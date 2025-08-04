@@ -5,13 +5,16 @@ import { useEffect, useState } from "react";
 import { ContactService } from "@/services/contact-service";
 import { type Contact, type Group } from "@/database/db";
 import { Toaster, toast } from "sonner";
-import { ThemeToggle } from "@/components/theme-toggle";
 import { ContactListHeader } from "@/components/contact-list-header";
 import { ContactFormDialog } from "@/components/contact-form-dialog";
 import { ContactList } from "@/components/contact-list";
-import { SettingsDialog } from "@/components/settings-dialog"; // Import the new settings dialog
-import { Button } from "@/components/ui/button"; // Import Button for the floating action button
-import { Plus } from "lucide-react"; // Import Plus icon
+import { SettingsDialog } from "@/components/settings-dialog";
+import { Button } from "@/components/ui/button";
+import { Plus } from "lucide-react";
+import { Header } from "@/components/header";
+import { MobileNav } from "@/components/mobile-nav";
+import { GroupsManagement } from "@/components/groups-management";
+import { CustomFieldsManagement } from "@/components/custom-fields-management";
 
 export default function Home() {
   const [contacts, setContacts] = useState<Contact[]>([]);
@@ -19,6 +22,8 @@ export default function Home() {
   const [searchTerm, setSearchTerm] = useState("");
   const [isContactFormDialogOpen, setIsContactFormDialogOpen] = useState(false);
   const [editingContact, setEditingContact] = useState<Contact | null>(null);
+  const [isSettingsDialogOpen, setIsSettingsDialogOpen] = useState(false);
+  const [activeTab, setActiveTab] = useState<'contacts' | 'groups' | 'customFields'>('contacts'); // Removed 'settings' from activeTab state
 
   const fetchContacts = async () => {
     try {
@@ -95,46 +100,71 @@ export default function Home() {
   );
 
   return (
-    <div className="min-h-screen flex flex-col items-center justify-center p-4 sm:p-8 bg-gradient-to-br from-blue-100 to-purple-100 dark:from-gray-900 dark:to-black">
+    <div className="min-h-screen flex flex-col bg-gradient-to-br from-blue-100 to-purple-100 dark:from-gray-900 dark:to-black">
       <Toaster richColors position="top-center" />
-      <div className="w-full max-w-4xl glass p-6 rounded-lg shadow-lg backdrop-blur-md">
-        <div className="flex justify-between items-center mb-6">
-          <h1 className="text-3xl font-bold text-primary-foreground">مخاطبین منشور</h1>
-          <div className="flex gap-2">
-            <SettingsDialog onContactsRefreshed={fetchContacts} />
-            <ThemeToggle />
-          </div>
+
+      <Header onContactsRefreshed={fetchContacts} />
+
+      <div className="flex-grow w-full max-w-4xl mx-auto p-4 sm:p-8 pt-20 pb-20 sm:pt-24 sm:pb-24">
+        <div className="glass p-6 rounded-lg shadow-lg backdrop-blur-md">
+          {activeTab === 'contacts' && (
+            <>
+              <ContactListHeader
+                searchTerm={searchTerm}
+                onSearchChange={setSearchTerm}
+              />
+              <ContactList
+                contacts={filteredContacts}
+                groups={groups}
+                onEditContact={handleEdit}
+                onDeleteContact={handleDelete}
+              />
+            </>
+          )}
+
+          {activeTab === 'groups' && (
+            <GroupsManagement />
+          )}
+
+          {activeTab === 'customFields' && (
+            <CustomFieldsManagement />
+          )}
         </div>
-
-        <ContactListHeader
-          searchTerm={searchTerm}
-          onSearchChange={setSearchTerm}
-        />
-
-        <ContactFormDialog
-          isOpen={isContactFormDialogOpen}
-          onOpenChange={setIsContactFormDialogOpen}
-          editingContact={editingContact}
-          onContactSaved={handleContactSaved}
-          groups={groups}
-          onAddGroup={handleAddGroup}
-          onGroupsRefreshed={fetchGroups}
-        />
-
-        <ContactList
-          contacts={filteredContacts}
-          groups={groups}
-          onEditContact={handleEdit}
-          onDeleteContact={handleDelete}
-        />
       </div>
-      {/* Floating Add Contact Button */}
-      <Button
-        className="fixed bottom-8 left-8 rounded-full h-14 w-14 shadow-lg flex items-center justify-center"
-        onClick={handleAddContactClick}
-      >
-        <Plus size={24} />
-      </Button>
+
+      <ContactFormDialog
+        isOpen={isContactFormDialogOpen}
+        onOpenChange={setIsContactFormDialogOpen}
+        editingContact={editingContact}
+        onContactSaved={handleContactSaved}
+        groups={groups}
+        onAddGroup={handleAddGroup}
+        onGroupsRefreshed={fetchGroups}
+      />
+
+      {/* Settings Dialog (controlled by Header and MobileNav) */}
+      <SettingsDialog
+        isOpen={isSettingsDialogOpen}
+        onOpenChange={setIsSettingsDialogOpen}
+        onContactsRefreshed={fetchContacts}
+      />
+
+      {/* Floating Add Contact Button - only visible on contacts tab */}
+      {activeTab === 'contacts' && (
+        <Button
+          className="fixed bottom-8 left-8 rounded-full h-14 w-14 shadow-lg flex items-center justify-center z-20"
+          onClick={handleAddContactClick}
+        >
+          <Plus size={24} />
+        </Button>
+      )}
+
+      <MobileNav
+        activeTab={activeTab}
+        onTabChange={setActiveTab}
+        onOpenSettings={() => setIsSettingsDialogOpen(true)}
+      />
+
       <MadeWithDyad />
     </div>
   );
