@@ -29,6 +29,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Plus, Search, Upload, Download, Trash2, Edit } from "lucide-react"; // Icons
+import { ThemeToggle } from "@/components/theme-toggle"; // Import ThemeToggle
 
 // Define the schema for the form input values
 const formSchema = z.object({
@@ -174,7 +175,10 @@ export default function Home() {
     <div className="min-h-screen flex flex-col items-center justify-center p-4 sm:p-8 bg-gradient-to-br from-blue-100 to-purple-100 dark:from-gray-900 dark:to-black">
       <Toaster richColors position="top-center" />
       <div className="w-full max-w-4xl glass p-6 rounded-lg shadow-lg backdrop-blur-md">
-        <h1 className="text-3xl font-bold text-center mb-6 text-primary-foreground">مخاطبین منشور</h1>
+        <div className="flex justify-between items-center mb-6">
+          <h1 className="text-3xl font-bold text-primary-foreground">مخاطبین منشور</h1>
+          <ThemeToggle /> {/* Add ThemeToggle here */}
+        </div>
 
         <div className="flex flex-col sm:flex-row gap-4 mb-6">
           <div className="relative flex-grow">
