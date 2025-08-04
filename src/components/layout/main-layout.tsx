@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from "react";
 import { usePathname } from "next/navigation";
-import { useIsMobile } from "@/hooks/use-mobile";
+import { useIsMobile } from "@/hooks/use-is-mobile";
 import { Header } from "./header";
 import { MobileNav } from "@/components/mobile-nav";
 import { DesktopSidebar } from "@/components/desktop-sidebar";
@@ -13,7 +13,7 @@ interface MainLayoutProps {
 }
 
 export function MainLayout({ children }: MainLayoutProps) {
-  const isMobile = useIsMobile();
+  const { isMobile, isTablet } = useIsMobile();
   const pathname = usePathname();
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
 
@@ -37,7 +37,7 @@ export function MainLayout({ children }: MainLayoutProps) {
       
       <div className="flex flex-1">
         {/* دسکتاپ سایدبار - فقط روی دسکتاپ نمایش داده شود */}
-        {!isMobile && (
+        {!isMobile && !isTablet && (
           <DesktopSidebar
             activeTab={pathname === '/contacts' || pathname === '/' ? 'contacts' : pathname === '/groups' ? 'groups' : 'customFields'}
             onTabChange={handleTabChange}
@@ -47,15 +47,15 @@ export function MainLayout({ children }: MainLayoutProps) {
         )}
         
         {/* محتوای اصلی - حاشیه‌گذاری شده برای دسکتاپ */}
-        <div className={`flex-grow ${!isMobile && !isSidebarCollapsed ? 'mr-64' : ''}`}>
+        <div className={`flex-grow ${!isMobile && !isTablet && !isSidebarCollapsed ? 'mr-64' : ''}`}>
           <div className="p-4 sm:p-8">
             {children}
           </div>
         </div>
       </div>
 
-      {/* موبایل ناوبری - فقط روی موبایل و صفحات اصلی نمایش داده شود */}
-      {isMobile && isMainPage && (
+      {/* موبایل و تبلت ناوبری - روی موبایل و تبلت و صفحات اصلی نمایش داده شود */}
+      {(isMobile || isTablet) && isMainPage && (
         <MobileNav 
           activeTab={pathname === '/contacts' || pathname === '/' ? 'contacts' : pathname === '/groups' ? 'groups' : 'customFields'}
           onTabChange={handleTabChange}
