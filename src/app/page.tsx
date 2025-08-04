@@ -26,8 +26,15 @@ export default function Home() {
   const [editingContact, setEditingContact] = useState<Contact | null>(null);
   const [isSettingsDialogOpen, setIsSettingsDialogOpen] = useState(false);
   const [activeTab, setActiveTab] = useState<'contacts' | 'groups' | 'customFields'>('contacts');
+  const [mounted, setMounted] = useState(false);
 
   const isMobile = useIsMobile();
+
+  useEffect(() => {
+    setMounted(true);
+    fetchContacts();
+    fetchGroups();
+  }, []);
 
   const fetchContacts = async () => {
     try {
@@ -48,11 +55,6 @@ export default function Home() {
       console.error("Error fetching groups:", error);
     }
   };
-
-  useEffect(() => {
-    fetchContacts();
-    fetchGroups();
-  }, []);
 
   const handleAddContactClick = () => {
     setEditingContact(null);
@@ -102,6 +104,22 @@ export default function Home() {
     (contact.address && contact.address.toLowerCase().includes(searchTerm.toLowerCase())) ||
     (contact.customFields && contact.customFields.some(cf => cf.name.toLowerCase().includes(searchTerm.toLowerCase()) || cf.value.toLowerCase().includes(searchTerm.toLowerCase())))
   );
+
+  if (!mounted) {
+    return (
+      <div className="min-h-screen flex flex-col bg-gradient-to-br from-blue-100 to-purple-100 dark:from-gray-900 dark:to-black">
+        <div className="flex-grow w-full max-w-4xl mx-auto p-4 sm:p-8 pt-20 pb-20 sm:pt-24 sm:pb-24">
+          <div className="glass p-6 rounded-lg shadow-lg backdrop-blur-md">
+            <div className="animate-pulse space-y-4">
+              <div className="h-4 bg-gray-200 rounded w-3/4"></div>
+              <div className="h-4 bg-gray-200 rounded w-1/2"></div>
+              <div className="h-32 bg-gray-200 rounded"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen flex flex-col bg-gradient-to-br from-blue-100 to-purple-100 dark:from-gray-900 dark:to-black">
