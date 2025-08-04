@@ -3,17 +3,16 @@
 import React from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Users, UsersRound, Settings, LayoutGrid } from "lucide-react"; // Removed 'Tool'
+import { Users, UsersRound, Settings, LayoutGrid } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 export function MobileNav() {
   const pathname = usePathname();
 
   const navItems = [
-    { href: "/contacts", icon: Users, label: "مخاطبین" },
+    { href: "/", icon: Users, label: "مخاطبین" },
     { href: "/groups", icon: UsersRound, label: "گروه‌ها" },
     { href: "/custom-fields", icon: LayoutGrid, label: "فیلدها" },
-    // { href: "/tools", icon: Tool, label: "ابزار" }, // Removed Tool icon usage
     { href: "/settings", icon: Settings, label: "تنظیمات" },
   ];
 

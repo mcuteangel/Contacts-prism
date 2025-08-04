@@ -25,7 +25,7 @@ export function MainLayout({ children }: MainLayoutProps) {
       <Header />
       
       <div className="flex flex-1">
-        {/* دسکتاپ سایدبار */}
+        {/* دسکتاپ سایدبار - ثابت و روی همیشه نمایش داده می‌شود */}
         {!isMobile && (
           <DesktopSidebar
             activeTab={pathname === '/contacts' ? 'contacts' : pathname === '/groups' ? 'groups' : 'customFields'}
@@ -38,13 +38,15 @@ export function MainLayout({ children }: MainLayoutProps) {
           />
         )}
         
-        {/* محتوای اصلی */}
+        {/* محتوای اصلی - حاشیه‌گذاری شده برای دسکتاپ */}
         <div className={`flex-grow ${!isMobile ? 'ml-64' : ''}`}>
-          {children}
+          <div className="p-4 sm:p-8">
+            {children}
+          </div>
         </div>
       </div>
 
-      {/* موبایل ناوبری */}
+      {/* موبایل ناوبری - ثابت در پایین صفحه */}
       {isMobile && isMainPage && (
         <MobileNav
           activeTab={pathname === '/contacts' ? 'contacts' : pathname === '/groups' ? 'groups' : 'customFields'}

@@ -17,11 +17,11 @@ export function DesktopSidebar({ activeTab, onTabChange, onOpenSettings }: Deskt
   const isMobile = useIsMobile();
 
   if (isMobile) {
-    return null; // Only render on desktop
+    return null; // فقط روی دسکتاپ نمایش داده شود
   }
 
   return (
-    <aside className="fixed right-0 top-0 h-screen w-64 p-4 pt-20 bg-sidebar/80 backdrop-blur-md border-l border-sidebar-border shadow-lg flex flex-col z-10">
+    <aside className="fixed top-0 left-0 h-screen w-64 p-4 pt-20 bg-sidebar/80 backdrop-blur-md border-r border-sidebar-border shadow-lg flex flex-col z-10">
       <nav className="flex flex-col gap-2">
         <Button
           variant="ghost"
