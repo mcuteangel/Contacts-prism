@@ -39,6 +39,9 @@ export function MainLayout({ children }: MainLayoutProps) {
     windowWidth: typeof window !== 'undefined' ? window.innerWidth : 'unknown'
   });
 
+  // اضافه کردن دیباگ برای بررسی نمایش MobileNav
+  console.log('Should show MobileNav:', (isMobile || isTablet) && isMainPage);
+
   return (
     <div className="min-h-screen flex flex-col bg-gradient-to-br from-blue-100 to-purple-100 dark:from-gray-900 dark:to-black">
       <Toaster richColors position="top-center" />
