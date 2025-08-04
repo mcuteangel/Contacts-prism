@@ -1,12 +1,13 @@
 "use client";
 
 import React from "react";
+import { CustomFieldsManagement } from "@/components/custom-fields-management";
 
 export default function CustomFieldsPage() {
   return (
-    <div className="flex flex-col items-center justify-center h-full">
+    <div className="p-4 sm:p-8">
       <h1 className="text-3xl font-bold text-primary-foreground mb-4">فیلدهای سفارشی</h1>
-      <p className="text-muted-foreground">این بخش در حال توسعه است.</p>
+      <CustomFieldsManagement />
     </div>
   );
 }

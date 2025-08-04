@@ -21,23 +21,18 @@ export function MainLayout({ children }: MainLayoutProps) {
   const isMainPage = ['/contacts', '/groups', '/custom-fields', '/tools', '/settings', '/'].includes(pathname);
 
   const handleTabChange = (tab: 'contacts' | 'groups' | 'customFields') => {
-    if (tab === 'contacts') window.location.href = '/';
-    else if (tab === 'groups') window.location.href = '/groups';
-    else if (tab === 'customFields') window.location.href = '/custom-fields';
+    if (tab === 'contacts') {
+      window.location.href = '/';
+    } else if (tab === 'groups') {
+      window.location.href = '/groups';
+    } else if (tab === 'customFields') {
+      window.location.href = '/custom-fields';
+    }
   };
 
   const handleOpenSettings = () => {
     window.location.href = '/settings';
   };
-
-  // برای دیباگ کردن
-  console.log('Device Status:', {
-    isMobile,
-    isTablet,
-    isMainPage,
-    pathname,
-    windowWidth: typeof window !== 'undefined' ? window.innerWidth : 'unknown'
-  });
 
   return (
     <div className="min-h-screen flex flex-col bg-gradient-to-br from-blue-100 to-purple-100 dark:from-gray-900 dark:to-black">

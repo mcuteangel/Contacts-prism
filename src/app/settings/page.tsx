@@ -11,7 +11,7 @@ export default function SettingsPage() {
   const { theme, setTheme } = useTheme();
 
   return (
-    <div className="flex flex-col items-center justify-center h-full">
+    <div className="p-4 sm:p-8">
       <h1 className="text-3xl font-bold text-primary-foreground mb-6">تنظیمات</h1>
       <div className="grid gap-4 py-4 w-full max-w-sm">
         <div className="flex flex-col gap-2">
