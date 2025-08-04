@@ -12,6 +12,7 @@ export function useIsMobile() {
       const width = window.innerWidth
       setIsMobile(width < MOBILE_BREAKPOINT)
       setIsTablet(width >= MOBILE_BREAKPOINT && width < TABLET_BREAKPOINT)
+      console.log('Width:', width, 'Mobile:', width < MOBILE_BREAKPOINT, 'Tablet:', width >= MOBILE_BREAKPOINT && width < TABLET_BREAKPOINT)
     }
     
     // Check initially
