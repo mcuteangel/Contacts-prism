@@ -8,7 +8,6 @@ import { Toaster, toast } from "sonner";
 import { ContactListHeader } from "@/components/contact-list-header";
 import { ContactFormDialog } from "@/components/contact-form-dialog";
 import { ContactList } from "@/components/contact-list";
-import { SettingsDialog } from "@/components/settings-dialog";
 import { Button } from "@/components/ui/button";
 import { Plus } from "lucide-react";
 import { GroupsManagement } from "@/components/groups-management";
@@ -21,8 +20,6 @@ export default function Home() {
   const [searchTerm, setSearchTerm] = useState("");
   const [isContactFormDialogOpen, setIsContactFormDialogOpen] = useState(false);
   const [editingContact, setEditingContact] = useState<Contact | null>(null);
-  const [isSettingsDialogOpen, setIsSettingsDialogOpen] = useState(false);
-  const [activeTab, setActiveTab] = useState<'contacts' | 'groups' | 'customFields'>('contacts');
   const [mounted, setMounted] = useState(false);
 
   const isMobile = useIsMobile();
@@ -124,28 +121,18 @@ export default function Home() {
 
       <div className="flex-grow p-4 sm:p-8 flex flex-col items-center justify-center">
         <div className="w-full max-w-4xl glass p-6 rounded-lg shadow-lg backdrop-blur-md">
-          {activeTab === 'contacts' && (
-            <>
-              <ContactListHeader
-                searchTerm={searchTerm}
-                onSearchChange={setSearchTerm}
-              />
-              <ContactList
-                contacts={filteredContacts}
-                groups={groups}
-                onEditContact={handleEdit}
-                onDeleteContact={handleDelete}
-              />
-            </>
-          )}
-
-          {activeTab === 'groups' && (
-            <GroupsManagement />
-          )}
-
-          {activeTab === 'customFields' && (
-            <CustomFieldsManagement />
-          )}
+          <div className="space-y-6">
+            <ContactListHeader
+              searchTerm={searchTerm}
+              onSearchChange={setSearchTerm}
+            />
+            <ContactList
+              contacts={filteredContacts}
+              groups={groups}
+              onEditContact={handleEdit}
+              onDeleteContact={handleDelete}
+            />
+          </div>
         </div>
       </div>
 
@@ -159,15 +146,9 @@ export default function Home() {
         onGroupsRefreshed={fetchGroups}
       />
 
-      <SettingsDialog
-        isOpen={isSettingsDialogOpen}
-        onOpenChange={setIsSettingsDialogOpen}
-        onContactsRefreshed={fetchContacts}
-      />
-
-      {activeTab === 'contacts' && (
+      {isMobile && (
         <Button
-          className="fixed bottom-8 left-8 rounded-full h-14 w-14 shadow-lg flex items-center justify-center z-20"
+          className="fixed bottom-24 left-8 rounded-full h-14 w-14 shadow-lg flex items-center justify-center z-20"
           onClick={handleAddContactClick}
         >
           <Plus size={24} />
