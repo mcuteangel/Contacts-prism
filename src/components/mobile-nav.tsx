@@ -2,12 +2,12 @@
 
 import React from "react";
 import { Button } from "@/components/ui/button";
-import { Users, Folder, ListPlus, Settings, BarChart3 } from "lucide-react";
+import { Users, Folder, ListPlus, Settings, BarChart3, Brain } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 interface MobileNavProps {
-  activeTab: 'contacts' | 'groups' | 'customFields' | 'globalCustomFields' | 'analytics';
-  onTabChange: (tab: 'contacts' | 'groups' | 'customFields' | 'globalCustomFields' | 'analytics') => void;
+  activeTab: 'contacts' | 'groups' | 'customFields' | 'globalCustomFields' | 'analytics' | 'ai';
+  onTabChange: (tab: 'contacts' | 'groups' | 'customFields' | 'globalCustomFields' | 'analytics' | 'ai') => void;
   onOpenSettings: () => void;
 }
 
@@ -68,6 +68,17 @@ export function MobileNav({ activeTab, onTabChange, onOpenSettings }: MobileNavP
       >
         <BarChart3 size={20} />
         <span className="text-xs">آمار</span>
+      </Button>
+      <Button
+        variant="ghost"
+        className={cn(
+          "flex flex-col items-center gap-1 h-auto py-2 text-foreground hover:text-primary",
+          activeTab === 'ai' && "text-primary"
+        )}
+        onClick={() => onTabChange('ai')}
+      >
+        <Brain size={20} />
+        <span className="text-xs">هوش مصنوعی</span>
       </Button>
       <Button
         variant="ghost"

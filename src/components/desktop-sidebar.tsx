@@ -2,90 +2,13 @@
 
 import React, { useState } from "react";
 import { Button } from "@/components/ui/button";
-import { Users, Folder, ListPlus, Settings, ChevronLeft, ChevronRight, BarChart3 } from "lucide-react";
+import { Users, Folder, ListPlus, Settings, ChevronLeft, ChevronRight, BarChart3, Brain } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Separator } from "@/components/ui/separator";
 
 interface DesktopSidebarProps {
-  activeTab: 'contacts' | 'groups' | 'customFields' | 'globalCustomFields' | 'analytics';
-  onTabChange: (tab: 'contacts' | 'groups' | 'customFields' | 'globalCustomFields' | 'analytics') => void;
-  onOpenSettings: () => void;
-  onCollapseChange?: (collapsed: boolean) => void;
-}
-
-export function DesktopSidebar({ activeTab, onTabChange, onOpenSettings, onCollapseChange }: DesktopSidebarProps) {
-  const [isCollapsed, setIsCollapsed] = useState(true);
-
-  const toggleCollapse = () => {
-    const newCollapsedState = !isCollapsed;
-    setIsCollapsed(newCollapsedState);
-    if (onCollapseChange) {
-      onCollapseChange(newCollapsedState);
-    }
-  };
-
-  return (
-    <aside className={cn(
-      "fixed top-0 right-0 h-screen glass border-r border-border shadow-lg flex flex-col z-40 transition-all duration-300",
-      isCollapsed ? "w-16" : "w-64"
-    )}>
-      <div className="p-4 pt-20 flex justify-between items-center border-b border-border">
-        {!isCollapsed && (
-          <h2 className="text-lg font-semibold text-foreground">منو</h2>
-        )}
-        <Button
-          variant="ghost"
-          size="icon"
-          onClick={toggleCollapse}
-          className="text-foreground hover:text-primary"
-        >
-          {is
-
-<dyad-command type="rebuild"></dyad-command>
-<dyad-chat-summary>تکمیل قابلیت‌های باقیمانده پروژه Prism Contacts</dyad-chat-summary>
-من قابلیت‌های اصلی باقیمانده را پیاده‌سازی کردم:
-
-## ✅ تکمیل شده:
-
-### 1. **مدیریت فیلدهای سفارشی سراسری**
-- ایجاد کامپوننت `GlobalCustomFieldsManagement` برای تعریف قالب‌های فیلدهای سفارشی
-- ذخیره در localStorage و استفاده در فرم‌های مخاطبین
-- پشتیبانی از انواع فیلدها (متن، عدد، تاریخ، لیست)
-
-### 2. **یکپارچگی دستگاه**
-- افزودن دکمه‌های تماس (`tel:`)، پیامک (`sms:`)، ایمیل (`mailto:`)
-- نمایش در نقشه‌ها با Google Maps
-- اشتراک‌گذاری اطلاعات مخاطبین
-- کپی کردن به کلیپ‌بورد
-
-### 3. **داشبورد آماری**
-- نمودارهای پای و میله‌ای با Recharts
-- آمار کلی مخاطبین، گروه‌ها، شماره‌ها
-- توزیع جنسیت، گروه‌ها و انواع شماره تلفن
-- کارت‌های آماری با نمادهای بصری
-
-### 4. **به‌روزرسانی ناوبری**
-- افزودن تب‌های جدید به ناوبری دسکتاپ و موبایل
-- صفحه‌های مستقل برای مدیریت فیلدهای سراسری و آمار
-
-### 5. **ساختار پروژه**
-- ماژول‌بندی قابلیت‌های جدید در فایل‌های مجزا
-- استفاده از بهترین شیوه‌ها و رعایت اصول کدنویسی
-
-پروژه اکنون به نسخه کامل‌تری نزدیک شده و قابلیت‌های پیشرفته‌تری نسبت به MVP اولیه دارد.
-
-dyad-write path="src/components/desktop-sidebar.tsx" description="Updating desktop sidebar to include analytics">
-"use client";
-
-import React, { useState } from "react";
-import { Button } from "@/components/ui/button";
-import { Users, Folder, ListPlus, Settings, ChevronLeft, ChevronRight, BarChart3 } from "lucide-react";
-import { cn } from "@/lib/utils";
-import { Separator } from "@/components/ui/separator";
-
-interface DesktopSidebarProps {
-  activeTab: 'contacts' | 'groups' | 'customFields' | 'globalCustomFields' | 'analytics';
-  onTabChange: (tab: 'contacts' | 'groups' | 'customFields' | 'globalCustomFields' | 'analytics') => void;
+  activeTab: 'contacts' | 'groups' | 'customFields' | 'globalCustomFields' | 'analytics' | 'ai';
+  onTabChange: (tab: 'contacts' | 'groups' | 'customFields' | 'globalCustomFields' | 'analytics' | 'ai') => void;
   onOpenSettings: () => void;
   onCollapseChange?: (collapsed: boolean) => void;
 }
@@ -175,6 +98,17 @@ export function DesktopSidebar({ activeTab, onTabChange, onOpenSettings, onColla
         >
           <BarChart3 size={20} />
           {!isCollapsed && <span className="text-sm">آمار و تحلیل</span>}
+        </Button>
+        <Button
+          variant="ghost"
+          className={cn(
+            "justify-start gap-3 px-3 py-2 text-foreground hover:bg-accent hover:text-accent-foreground",
+            activeTab === 'ai' && "bg-primary text-primary-foreground hover:bg-primary hover:text-primary-foreground"
+          )}
+          onClick={() => onTabChange('ai')}
+        >
+          <Brain size={20} />
+          {!isCollapsed && <span className="text-sm">هوش مصنوعی</span>}
         </Button>
         <Separator className="my-2" />
         <Button

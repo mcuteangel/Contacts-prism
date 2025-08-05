@@ -17,7 +17,7 @@ export function MainLayout({ children }: MainLayoutProps) {
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
   const [isMobile, setIsMobile] = useState<boolean | undefined>(undefined);
 
-  const isMainPage = ['/contacts', '/groups', '/custom-fields', '/custom-fields-global', '/analytics', '/tools', '/settings', '/'].includes(pathname);
+  const isMainPage = ['/contacts', '/groups', '/custom-fields', '/custom-fields-global', '/analytics', '/ai', '/tools', '/settings', '/'].includes(pathname);
 
   useEffect(() => {
     const checkIsMobile = () => {
@@ -30,7 +30,7 @@ export function MainLayout({ children }: MainLayoutProps) {
     return () => window.removeEventListener('resize', checkIsMobile);
   }, []);
 
-  const handleTabChange = (tab: 'contacts' | 'groups' | 'customFields' | 'globalCustomFields' | 'analytics') => {
+  const handleTabChange = (tab: 'contacts' | 'groups' | 'customFields' | 'globalCustomFields' | 'analytics' | 'ai') => {
     if (tab === 'contacts') {
       window.location.href = '/';
     } else if (tab === 'groups') {
@@ -41,6 +41,8 @@ export function MainLayout({ children }: MainLayoutProps) {
       window.location.href = '/custom-fields-global';
     } else if (tab === 'analytics') {
       window.location.href = '/analytics';
+    } else if (tab === 'ai') {
+      window.location.href = '/ai';
     }
   };
 
@@ -69,7 +71,8 @@ export function MainLayout({ children }: MainLayoutProps) {
               pathname === '/groups' ? 'groups' :
               pathname === '/custom-fields' ? 'customFields' :
               pathname === '/custom-fields-global' ? 'globalCustomFields' :
-              pathname === '/analytics' ? 'analytics' : 'contacts'
+              pathname === '/analytics' ? 'analytics' :
+              pathname === '/ai' ? 'ai' : 'contacts'
             }
             onTabChange={handleTabChange}
             onOpenSettings={handleOpenSettings}
@@ -91,7 +94,8 @@ export function MainLayout({ children }: MainLayoutProps) {
             pathname === '/groups' ? 'groups' :
             pathname === '/custom-fields' ? 'customFields' :
             pathname === '/custom-fields-global' ? 'globalCustomFields' :
-            pathname === '/analytics' ? 'analytics' : 'contacts'
+            pathname === '/analytics' ? 'analytics' :
+            pathname === '/ai' ? 'ai' : 'contacts'
           }
           onTabChange={handleTabChange}
           onOpenSettings={handleOpenSettings}
