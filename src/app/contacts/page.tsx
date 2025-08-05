@@ -19,11 +19,13 @@ export default function ContactsPage() {
 
   const fetchContacts = async () => {
     try {
-      const allContacts = await ContactService.getAllContacts();
-      setContacts(allContacts);
+      const response = await ContactService.getAllContacts();
+      // Make sure we're setting the contacts array, not the whole response
+      setContacts(Array.isArray(response) ? response : response?.data || []);
     } catch (error) {
       toast.error("بارگذاری مخاطبین با شکست مواجه شد.");
       console.error("Error fetching contacts:", error);
+      setContacts([]); // Ensure contacts is always an array
     }
   };
 
@@ -115,13 +117,22 @@ export default function ContactsPage() {
         onEditContact={handleEdit}
         onDeleteContact={handleDelete}
       />
-      {/* Floating Add Contact Button */}
-      <Button
-        className="fixed bottom-8 left-8 rounded-full h-14 w-14 shadow-lg flex items-center justify-center z-40"
-        onClick={handleAddContactClick}
-      >
-        <Plus size={24} />
-      </Button>
+      <ContactList
+        contacts={filteredContacts}
+        groups={groups}
+        onEditContact={handleEdit}
+        onDeleteContact={handleDelete}
+      />
+
+      {/* Floating Add Contact Button - Positioned above mobile nav */}
+      <div className="fixed right-8 z-[60]" style={{ bottom: 'calc(env(safe-area-inset-bottom, 0px) + 5.5rem)' }}>
+        <Button
+          className="rounded-full h-14 w-14 shadow-lg flex items-center justify-center"
+          onClick={handleAddContactClick}
+        >
+          <Plus size={24} />
+        </Button>
+      </div>
     </>
   );
 }

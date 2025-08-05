@@ -203,12 +203,19 @@ export const ContactService = {
   
   // ===== DEDUPLICATION =====
   async findDuplicateContacts(): Promise<Array<{field: string; value: string; contacts: Contact[]}>> {
+    // Convert to array immediately to work with array methods
     const contacts = await db.contacts.toArray();
     const duplicates: Array<{field: string; value: string; contacts: Contact[]}> = [];
     
     // Helper to find duplicates by a specific field
     const findDuplicatesByField = (field: keyof Contact) => {
       const seen = new Map<string, Contact[]>();
+      
+      // Ensure we're working with an array
+      if (!Array.isArray(contacts)) {
+        console.error('Expected contacts to be an array, got:', typeof contacts);
+        return;
+      }
       
       contacts.forEach(contact => {
         const value = contact[field];
@@ -233,20 +240,25 @@ export const ContactService = {
       });
       
       // Add groups with more than one contact
-      seen.forEach((contacts, value) => {
-        if (contacts.length > 1) {
+      seen.forEach((contactList, value) => {
+        if (contactList.length > 1) {
           duplicates.push({
             field: field as string,
             value,
-            contacts
+            contacts: contactList
           });
         }
       });
     };
     
-    // Check for duplicates by name and phone numbers
-    findDuplicatesByField('firstName');
-    findDuplicatesByField('phoneNumbers');
+    try {
+      // Check for duplicates by name and phone numbers
+      findDuplicatesByField('firstName');
+      findDuplicatesByField('phoneNumbers');
+    } catch (error) {
+      console.error('Error in findDuplicateContacts:', error);
+      throw error; // Re-throw to handle in the UI
+    }
     
     return duplicates;
   },

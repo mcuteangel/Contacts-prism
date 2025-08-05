@@ -28,11 +28,14 @@ export default function Home() {
 
   const fetchContacts = async () => {
     try {
-      const allContacts = await ContactService.getAllContacts();
-      setContacts(allContacts);
+      const response = await ContactService.getAllContacts();
+      // Handle both array and paginated responses
+      const contactsData = Array.isArray(response) ? response : response?.data || [];
+      setContacts(contactsData);
     } catch (error) {
       toast.error("بارگذاری مخاطبین با شکست مواجه شد.");
       console.error("Error fetching contacts:", error);
+      setContacts([]); // Ensure contacts is always an array
     }
   };
 
