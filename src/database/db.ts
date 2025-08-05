@@ -1,17 +1,20 @@
+// ===== IMPORTS & DEPENDENCIES =====
 import Dexie, { type Table } from 'dexie';
 
+// ===== TYPES & INTERFACES =====
 export interface Contact {
   id?: number;
   firstName: string;
-  lastName?: string; // Added
-  phoneNumbers: { type: string; number: string }[]; // Changed structure
+  lastName?: string;
+  phoneNumbers: { type: string; number: string }[];
+  searchablePhoneNumbers: string[]; // New field for efficient indexing
   gender?: 'male' | 'female' | 'other';
   notes?: string;
-  position?: string; // Added
-  address?: string; // Added
-  groupId?: number; // Added for linking to groups
-  customFields?: { name: string; value: string; type: 'text' | 'number' | 'date' | 'list' }[]; // Structured custom fields
-  avatar?: string; // Base64 string for local avatar
+  position?: string;
+  address?: string;
+  groupId?: number;
+  customFields?: { name: string; value: string; type: 'text' | 'number' | 'date' | 'list' }[];
+  avatar?: string;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -23,25 +26,34 @@ export interface Group {
   updatedAt: Date;
 }
 
+// ===== CORE BUSINESS LOGIC =====
 export class PrismContactsDB extends Dexie {
   contacts!: Table<Contact>;
   groups!: Table<Group>;
 
   constructor() {
     super('PrismContactsDB');
-    // Version 2: Changed Contact schema significantly
-    this.version(2).stores({
-      contacts: '++id, firstName, lastName, *phoneNumbers.number, position, groupId, createdAt, updatedAt', // Updated indexes
+    
+    // Increment the version number due to schema change
+    this.version(3).stores({
+      contacts: '++id, firstName, lastName, *searchablePhoneNumbers, position, groupId, createdAt, updatedAt', // Corrected multi-entry index
       groups: '++id, name, createdAt, updatedAt',
     }).upgrade(async tx => {
-      // Migration logic for existing data from version 1 to 2
-      // This is a destructive migration for phoneNumbers and name,
-      // as the structure changes fundamentally.
-      // For a real app, you'd write complex logic to transform old data.
-      // For this example, we'll just clear and re-add if needed, or assume fresh start.
-      console.log("Database schema upgraded to version 2. Existing contact data might need manual migration if structure changed significantly.");
+        // Migration logic to add the new `searchablePhoneNumbers` field to existing contacts
+        return tx.table('contacts').toCollection().modify(contact => {
+            if (contact.phoneNumbers && !contact.searchablePhoneNumbers) {
+                contact.searchablePhoneNumbers = contact.phoneNumbers.map(pn => pn.number);
+            }
+        });
+    });
+
+    // Previous versions for backward compatibility (if needed)
+    this.version(2).stores({
+      contacts: '++id, firstName, lastName, *phoneNumbers.number, position, groupId, createdAt, updatedAt',
+      groups: '++id, name, createdAt, updatedAt',
     });
   }
 }
 
+// ===== INITIALIZATION & STARTUP =====
 export const db = new PrismContactsDB();
