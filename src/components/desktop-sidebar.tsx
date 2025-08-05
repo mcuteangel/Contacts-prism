@@ -14,7 +14,7 @@ interface DesktopSidebarProps {
 }
 
 export function DesktopSidebar({ activeTab, onTabChange, onOpenSettings, onCollapseChange }: DesktopSidebarProps) {
-  const [isCollapsed, setIsCollapsed] = useState(false);
+  const [isCollapsed, setIsCollapsed] = useState(true); // تغییر به true برای حالت پیش‌فرض جمع شده
 
   const toggleCollapse = () => {
     const newCollapsedState = !isCollapsed;
