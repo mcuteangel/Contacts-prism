@@ -13,12 +13,24 @@ interface MainLayoutProps {
 }
 
 export function MainLayout({ children }: MainLayoutProps) {
-  const { isMobile } = useIsMobile();
   const pathname = usePathname();
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
+  const [isMobile, setIsMobile] = useState<boolean | undefined>(undefined);
 
   // تعیین اینکه آیا صفحه فعلی یکی از صفحات اصلی است
   const isMainPage = ['/contacts', '/groups', '/custom-fields', '/tools', '/settings', '/'].includes(pathname);
+
+  // فقط در سمت کلاینت مقدار isMobile را تنظیم کن
+  useEffect(() => {
+    const checkIsMobile = () => {
+      setIsMobile(window.innerWidth < 768);
+    };
+    
+    checkIsMobile();
+    window.addEventListener('resize', checkIsMobile);
+    
+    return () => window.removeEventListener('resize', checkIsMobile);
+  }, []);
 
   const handleTabChange = (tab: 'contacts' | 'groups' | 'customFields') => {
     if (tab === 'contacts') {
@@ -33,6 +45,15 @@ export function MainLayout({ children }: MainLayoutProps) {
   const handleOpenSettings = () => {
     window.location.href = '/settings';
   };
+
+  // تا زمانی که isMobile تعیین نشده، هیچ محتوایی را رندر نکن
+  if (isMobile === undefined) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-primary"></div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen flex flex-col bg-gradient-to-br from-blue-100 to-purple-100 dark:from-gray-900 dark:to-black">
