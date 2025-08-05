@@ -130,7 +130,7 @@ export function DesktopSidebar({ activeTab, onTabChange, onOpenSettings, onColla
           onClick={() => onTabChange('tools')}
         >
           <Wrench size={20} />
-          {!isCollapsed && <span className="text-sm">ابزارspan>}
+          {!isCollapsed && <span className="text-sm">ابزار</span>}
         </Button>
         <Separator className="my-2" />
         <Button
