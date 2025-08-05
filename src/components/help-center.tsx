@@ -251,7 +251,7 @@ export function HelpCenter() {
                   </div>
                   
                   <div className="space-y-2">
-                    <Label htmlFor="message">پیامLabel>
+                    <Label htmlFor="message">پیام</Label>
                     <Textarea
                       id="message"
                       value={contactForm.message}
