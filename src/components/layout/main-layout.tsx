@@ -17,7 +17,7 @@ export function MainLayout({ children }: MainLayoutProps) {
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
   const [isMobile, setIsMobile] = useState<boolean | undefined>(undefined);
 
-  const isMainPage = ['/contacts', '/groups', '/custom-fields', '/custom-fields-global', '/analytics', '/ai', '/tools', '/settings', '/'].includes(pathname);
+  const isMainPage = ['/contacts', '/groups', '/custom-fields', '/custom-fields-global', '/analytics', '/ai', '/help', '/tools', '/settings', '/'].includes(pathname);
 
   useEffect(() => {
     const checkIsMobile = () => {
@@ -30,7 +30,7 @@ export function MainLayout({ children }: MainLayoutProps) {
     return () => window.removeEventListener('resize', checkIsMobile);
   }, []);
 
-  const handleTabChange = (tab: 'contacts' | 'groups' | 'customFields' | 'globalCustomFields' | 'analytics' | 'ai') => {
+  const handleTabChange = (tab: 'contacts' | 'groups' | 'customFields' | 'globalCustomFields' | 'analytics' | 'ai' | 'help') => {
     if (tab === 'contacts') {
       window.location.href = '/';
     } else if (tab === 'groups') {
@@ -43,6 +43,8 @@ export function MainLayout({ children }: MainLayoutProps) {
       window.location.href = '/analytics';
     } else if (tab === 'ai') {
       window.location.href = '/ai';
+    } else if (tab === 'help') {
+      window.location.href = '/help';
     }
   };
 
@@ -72,7 +74,8 @@ export function MainLayout({ children }: MainLayoutProps) {
               pathname === '/custom-fields' ? 'customFields' :
               pathname === '/custom-fields-global' ? 'globalCustomFields' :
               pathname === '/analytics' ? 'analytics' :
-              pathname === '/ai' ? 'ai' : 'contacts'
+              pathname === '/ai' ? 'ai' :
+              pathname === '/help' ? 'help' : 'contacts'
             }
             onTabChange={handleTabChange}
             onOpenSettings={handleOpenSettings}
@@ -95,7 +98,8 @@ export function MainLayout({ children }: MainLayoutProps) {
             pathname === '/custom-fields' ? 'customFields' :
             pathname === '/custom-fields-global' ? 'globalCustomFields' :
             pathname === '/analytics' ? 'analytics' :
-            pathname === '/ai' ? 'ai' : 'contacts'
+            pathname === '/ai' ? 'ai' :
+            pathname === '/help' ? 'help' : 'contacts'
           }
           onTabChange={handleTabChange}
           onOpenSettings={handleOpenSettings}

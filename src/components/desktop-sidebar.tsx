@@ -2,13 +2,13 @@
 
 import React, { useState } from "react";
 import { Button } from "@/components/ui/button";
-import { Users, Folder, ListPlus, Settings, ChevronLeft, ChevronRight, BarChart3, Brain } from "lucide-react";
+import { Users, Folder, ListPlus, Settings, ChevronLeft, ChevronRight, BarChart3, Brain, HelpCircle } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Separator } from "@/components/ui/separator";
 
 interface DesktopSidebarProps {
-  activeTab: 'contacts' | 'groups' | 'customFields' | 'globalCustomFields' | 'analytics' | 'ai';
-  onTabChange: (tab: 'contacts' | 'groups' | 'customFields' | 'globalCustomFields' | 'analytics' | 'ai') => void;
+  activeTab: 'contacts' | 'groups' | 'customFields' | 'globalCustomFields' | 'analytics' | 'ai' | 'help';
+  onTabChange: (tab: 'contacts' | 'groups' | 'customFields' | 'globalCustomFields' | 'analytics' | 'ai' | 'help') => void;
   onOpenSettings: () => void;
   onCollapseChange?: (collapsed: boolean) => void;
 }
@@ -109,6 +109,17 @@ export function DesktopSidebar({ activeTab, onTabChange, onOpenSettings, onColla
         >
           <Brain size={20} />
           {!isCollapsed && <span className="text-sm">هوش مصنوعی</span>}
+        </Button>
+        <Button
+          variant="ghost"
+          className={cn(
+            "justify-start gap-3 px-3 py-2 text-foreground hover:bg-accent hover:text-accent-foreground",
+            activeTab === 'help' && "bg-primary text-primary-foreground hover:bg-primary hover:text-primary-foreground"
+          )}
+          onClick={() => onTabChange('help')}
+        >
+          <HelpCircle size={20} />
+          {!isCollapsed && <span className="text-sm">راهنما</span>}
         </Button>
         <Separator className="my-2" />
         <Button
