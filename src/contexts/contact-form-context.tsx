@@ -37,7 +37,7 @@ export function ContactFormProvider({ children }: { children: ReactNode }) {
       closeContactForm
     }}>
       {children}
-    </ContactContext.Provider>
+    </ContactFormContext.Provider>
   );
 }
 
