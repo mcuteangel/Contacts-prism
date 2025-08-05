@@ -57,39 +57,43 @@ export default function GroupsPage() {
   };
 
   return (
-    <div className="p-4 sm:p-8">
-      <h1 className="text-3xl font-bold text-primary-foreground mb-6">مدیریت گروه‌ها</h1>
-      <div className="flex gap-2 mb-6">
-        <Input
-          placeholder="نام گروه جدید"
-          value={newGroupName}
-          onChange={(e) => setNewGroupName(e.target.value)}
-          onKeyDown={(e) => {
-            if (e.key === 'Enter') {
-              handleAddGroup();
-              e.preventDefault();
-            }
-          }}
-        />
-        <Button onClick={handleAddGroup}>
-          <Plus size={18} className="ml-2" /> افزودن
-        </Button>
-      </div>
+    <div className="min-h-screen bg-gradient-to-br from-blue-100 to-purple-100 dark:from-gray-900 dark:to-black">
+      <div className="p-4 sm:p-8">
+        <h1 className="text-3xl font-bold text-primary-foreground mb-6">مدیریت گروه‌ها</h1>
+        <div className="glass p-6 rounded-lg shadow-lg backdrop-blur-md">
+          <div className="flex gap-2 mb-6">
+            <Input
+              placeholder="نام گروه جدید"
+              value={newGroupName}
+              onChange={(e) => setNewGroupName(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') {
+                  handleAddGroup();
+                  e.preventDefault();
+                }
+              }}
+            />
+            <Button onClick={handleAddGroup}>
+              <Plus size={18} className="ml-2" /> افزودن
+            </Button>
+          </div>
 
-      {groups.length === 0 ? (
-        <p className="text-center text-muted-foreground">گروهی یافت نشد. یک گروه جدید اضافه کنید!</p>
-      ) : (
-        <div className="grid gap-3">
-          {groups.map((group) => (
-            <div key={group.id} className="glass p-3 rounded-lg flex justify-between items-center">
-              <span className="font-medium">{group.name}</span>
-              <Button variant="destructive" size="icon" onClick={() => handleDeleteGroup(group.id!)}>
-                <Trash2 size={16} />
-              </Button>
+          {groups.length === 0 ? (
+            <p className="text-center text-muted-foreground">گروهی یافت نشد. یک گروه جدید اضافه کنید!</p>
+          ) : (
+            <div className="grid gap-3">
+              {groups.map((group) => (
+                <div key={group.id} className="glass p-3 rounded-lg flex justify-between items-center">
+                  <span className="font-medium">{group.name}</span>
+                  <Button variant="destructive" size="icon" onClick={() => handleDeleteGroup(group.id!)}>
+                    <Trash2 size={16} />
+                  </Button>
+                </div>
+              ))}
             </div>
-          ))}
+          )}
         </div>
-      )}
+      </div>
     </div>
   );
 }
