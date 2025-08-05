@@ -7,6 +7,9 @@ import { Header } from "./header";
 import { MobileNav } from "@/components/mobile-nav";
 import { DesktopSidebar } from "@/components/desktop-sidebar";
 import { Toaster } from "sonner";
+import { useContactForm } from "@/contexts/contact-form-context";
+import { Button } from "@/components/ui/button";
+import { Plus } from "lucide-react";
 
 interface MainLayoutProps {
   children: React.ReactNode;
@@ -16,7 +19,9 @@ export function MainLayout({ children }: MainLayoutProps) {
   const pathname = usePathname();
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
   const [isMobile, setIsMobile] = useState<boolean | undefined>(undefined);
+  const { openContactForm } = useContactForm();
 
+  // دکمه افزودن مخاطب باید در تمام صفحات اصلی نمایش داده شود
   const isMainPage = ['/contacts', '/groups', '/custom-fields', '/custom-fields-global', '/analytics', '/ai', '/help', '/tools', '/settings', '/'].includes(pathname);
 
   useEffect(() => {
@@ -55,6 +60,16 @@ export function MainLayout({ children }: MainLayoutProps) {
   const handleOpenSettings = () => {
     window.location.href = '/settings';
   };
+
+  // گوش دادن به رویداد برای باز کردن فرم مخاطب
+  useEffect(() => {
+    const handleOpenContactForm = () => {
+      openContactForm();
+    };
+
+    window.addEventListener('open-contact-form', handleOpenContactForm);
+    return () => window.removeEventListener('open-contact-form', handleOpenContactForm);
+  }, [openContactForm]);
 
   if (isMobile === undefined) {
     return (
@@ -95,6 +110,16 @@ export function MainLayout({ children }: MainLayoutProps) {
           </div>
         </div>
       </div>
+
+      {/* دکمه افزودن مخاطب ثابت در تمام صفحات اصلی */}
+      {isMainPage && (
+        <Button
+          className="fixed bottom-8 left-8 rounded-full h-14 w-14 shadow-lg flex items-center justify-center z-40"
+          onClick={() => openContactForm()}
+        >
+          <Plus size={24} />
+        </Button>
+      )}
 
       {isMobile && isMainPage && (
         <MobileNav 

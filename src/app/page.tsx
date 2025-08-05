@@ -8,19 +8,15 @@ import { Toaster, toast } from "sonner";
 import { ContactListHeader } from "@/components/contact-list-header";
 import { ContactFormDialog } from "@/components/contact-form-dialog";
 import { ContactList } from "@/components/contact-list";
-import { Button } from "@/components/ui/button";
-import { Plus } from "lucide-react";
-import { GroupsManagement } from "@/components/groups-management";
-import { CustomFieldsManagement } from "@/components/custom-fields-management";
-import { useIsMobile } from "@/hooks/use-mobile";
+import { useContactForm } from "@/contexts/contact-form-context";
+import { useIsMobile } from "@/hooks/use-is-mobile";
 
 export default function Home() {
   const [contacts, setContacts] = useState<Contact[]>([]);
   const [groups, setGroups] = useState<Group[]>([]);
   const [searchTerm, setSearchTerm] = useState("");
-  const [isContactFormDialogOpen, setIsContactFormDialogOpen] = useState(false);
-  const [editingContact, setEditingContact] = useState<Contact | null>(null);
   const [mounted, setMounted] = useState(false);
+  const { isContactFormOpen, editingContact, closeContactForm } = useContactForm();
 
   const isMobile = useIsMobile();
 
@@ -50,14 +46,9 @@ export default function Home() {
     }
   };
 
-  const handleAddContactClick = () => {
-    setEditingContact(null);
-    setIsContactFormDialogOpen(true);
-  };
-
   const handleContactSaved = () => {
     fetchContacts();
-    setEditingContact(null);
+    closeContactForm();
   };
 
   const handleDelete = async (id: number) => {
@@ -74,8 +65,7 @@ export default function Home() {
   };
 
   const handleEdit = (contact: Contact) => {
-    setEditingContact(contact);
-    setIsContactFormDialogOpen(true);
+    // این حالت توسط context مدیریت می‌شود
   };
 
   const handleAddGroup = async (groupName: string) => {
@@ -137,23 +127,14 @@ export default function Home() {
       </div>
 
       <ContactFormDialog
-        isOpen={isContactFormDialogOpen}
-        onOpenChange={setIsContactFormDialogOpen}
+        isOpen={isContactFormOpen}
+        onOpenChange={closeContactForm}
         editingContact={editingContact}
         onContactSaved={handleContactSaved}
         groups={groups}
         onAddGroup={handleAddGroup}
         onGroupsRefreshed={fetchGroups}
       />
-
-      {isMobile && (
-        <Button
-          className="fixed bottom-24 left-8 rounded-full h-14 w-14 shadow-lg flex items-center justify-center z-20"
-          onClick={handleAddContactClick}
-        >
-          <Plus size={24} />
-        </Button>
-      )}
 
       <MadeWithDyad />
     </div>
