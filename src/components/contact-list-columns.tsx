@@ -27,7 +27,7 @@ import {
 interface Column {
   id: string;
   label: string;
-  icon: React.ComponentType<{ size?: number; className?: string }>;
+  icon: React.ComponentType<{ size?: number }>;
   description: string;
   visible: boolean;
   width?: string;
@@ -169,7 +169,9 @@ export function ContactListColumns({
                   return (
                     <div key={column.id} className="flex items-center justify-between p-3 border rounded-lg">
                       <div className="flex items-center gap-3">
-                        <Icon size={18} className="text-primary" />
+                        <div className="text-primary">
+                          <Icon size={18} />
+                        </div>
                         <div>
                           <div className="font-medium">{column.label}</div>
                           <div className="text-sm text-muted-foreground">{column.description}</div>
@@ -200,7 +202,9 @@ export function ContactListColumns({
                     return (
                       <div key={available.id} className="flex items-center justify-between p-3 border rounded-lg bg-muted/50">
                         <div className="flex items-center gap-3">
-                          <Icon size={18} className="text-muted-foreground" />
+                          <div className="text-muted-foreground">
+                            <Icon size={18} />
+                          </div>
                           <div>
                             <div className="font-medium">{available.label}</div>
                             <div className="text-sm text-muted-foreground">{available.description}</div>
@@ -284,7 +288,9 @@ export function ContactListColumns({
                             <Badge variant="outline" className="w-8 h-8 flex items-center justify-center text-xs">
                               {index + 1}
                             </Badge>
-                            <Icon size={18} className="text-primary" />
+                            <div className="text-primary">
+                              <Icon size={18} />
+                            </div>
                             <span className="font-medium">{column.label}</span>
                           </div>
                           <div className="flex gap-1">

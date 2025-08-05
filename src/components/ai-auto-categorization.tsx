@@ -5,22 +5,19 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
-import { Progress } from "@/components/ui/progress";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { 
-  RefreshCw, 
-  CheckCircle, 
-  AlertCircle, 
-  Users, 
-  Search,
-  Filter,
-  Zap,
-  Tag,
-  Building2
-} from "lucide-react";
 import { ContactService } from "@/services/contact-service";
 import { type Contact, type Group } from "@/database/db";
+import { 
+  Tags, 
+  Search, 
+  Sparkles, 
+  CheckCircle,
+  User,
+  Building2,
+  Briefcase,
+  Phone
+} from "lucide-react";
+import { toast } from "sonner";
 
 interface CategorizationResult {
   contactId: number;
@@ -29,50 +26,36 @@ interface CategorizationResult {
   reasons: string[];
 }
 
-export function AIContactCategorization() {
+export function AIAutoCategorization() {
   const [contacts, setContacts] = useState<Contact[]>([]);
   const [groups, setGroups] = useState<Group[]>([]);
   const [results, setResults] = useState<CategorizationResult[]>([]);
-  const [loading, setLoading] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
-  const [selectedGroupId, setSelectedGroupId] = useState<number | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [processing, setProcessing] = useState(false);
+  const [applying, setApplying] = useState(false);
 
   useEffect(() => {
-    loadData();
+    const fetchData = async () => {
+      try {
+        const [allContacts, allGroups] = await Promise.all([
+          ContactService.getAllContacts(),
+          ContactService.getAllGroups()
+        ]);
+        setContacts(allContacts);
+        setGroups(allGroups);
+      } catch (error) {
+        console.error("Error fetching data:", error);
+        toast.error("خطا در بارگذاری داده‌ها");
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchData();
   }, []);
 
-  const loadData = async () => {
-    try {
-      const [allContacts, allGroups] = await Promise.all([
-        ContactService.getAllContacts(),
-        ContactService.getAllGroups()
-      ]);
-      setContacts(allContacts);
-      setGroups(allGroups);
-    } catch (error) {
-      console.error("Error loading data:", error);
-    }
-  };
-
-  const categorizeContacts = async () => {
-    setLoading(true);
-    try {
-      const categorizationResults: CategorizationResult[] = [];
-      
-      for (const contact of contacts) {
-        const result = suggestCategorization(contact, groups);
-        categorizationResults.push(result);
-      }
-      
-      setResults(categorizationResults);
-    } catch (error) {
-      console.error("Error categorizing contacts:", error);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const suggestCategorization = (contact: Contact, availableGroups: Group[]): CategorizationResult => {
+  const analyzeContact = (contact: Contact, availableGroups: Group[]): CategorizationResult => {
     let bestGroupId: number | null = null;
     let bestConfidence = 0;
     const reasons: string[] = [];
@@ -116,16 +99,18 @@ export function AIContactCategorization() {
       }
     }
 
-    // Check phone number patterns
+    // Check phone-based groups (for regional groups)
     if (contact.phoneNumbers.length > 0) {
-      const phoneGroups = availableGroups.filter(g =>
-        contact.phoneNumbers.some(p => p.number.includes(g.name))
-      );
+      const phone = contact.phoneNumbers[0].number;
+      const phoneGroups = availableGroups.filter(g => {
+        // Simple check for area codes in group names
+        return g.name.includes("۰۲۱") && phone.startsWith("021");
+      });
       
       if (phoneGroups.length > 0 && bestConfidence < 0.6) {
         bestGroupId = phoneGroups[0].id;
         bestConfidence = 0.6;
-        reasons.push(`شماره تلفن: ${contact.phoneNumbers[0].number}`);
+        reasons.push("کد شهری");
       }
     }
 
@@ -137,24 +122,56 @@ export function AIContactCategorization() {
     };
   };
 
-  const applyCategorization = async () => {
-    if (selectedGroupId === null) return;
+  const handleAnalyzeAll = async () => {
+    if (contacts.length === 0 || groups.length === 0) {
+      toast.error("ابتدا مخاطبین و گروه‌ها را ایجاد کنید");
+      return;
+    }
 
-    setLoading(true);
+    setProcessing(true);
     try {
+      const analysisResults: CategorizationResult[] = [];
+      
+      for (const contact of contacts) {
+        const result = analyzeContact(contact, groups);
+        analysisResults.push(result);
+      }
+      
+      // Sort by confidence (highest first)
+      analysisResults.sort((a, b) => b.confidence - a.confidence);
+      setResults(analysisResults);
+      toast.success(`${analysisResults.length} مخاطب تحلیل شد`);
+    } catch (error) {
+      console.error("Error analyzing contacts:", error);
+      toast.error("خطا در تحلیل مخاطبین");
+    } finally {
+      setProcessing(false);
+    }
+  };
+
+  const handleApplySuggestions = async () => {
+    if (results.length === 0) return;
+    
+    setApplying(true);
+    try {
+      let appliedCount = 0;
+      
       for (const result of results) {
-        if (result.suggestedGroupId === selectedGroupId) {
-          await ContactService.updateContact(result.contactId, { groupId: selectedGroupId });
+        if (result.suggestedGroupId !== null) {
+          await ContactService.updateContact(result.contactId, {
+            groupId: result.suggestedGroupId
+          });
+          appliedCount++;
         }
       }
       
-      // Refresh contacts
-      await loadData();
+      toast.success(`${appliedCount} مخاطب دسته‌بندی شد`);
       setResults([]);
     } catch (error) {
-      console.error("Error applying categorization:", error);
+      console.error("Error applying suggestions:", error);
+      toast.error("خطا در اعمال پیشنهادات");
     } finally {
-      setLoading(false);
+      setApplying(false);
     }
   };
 
@@ -162,114 +179,181 @@ export function AIContactCategorization() {
     contacts.find(c => c.id === result.contactId)?.name.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-6">
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Zap size={20} />
-            دسته‌بندی خودکار هوش مصنوعی
-          </CardTitle>
-          <CardDescription>
-            با هوش مصنوعی مخاطبان را به گروه‌های مناسب دسته‌بندی کنید
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="flex gap-4">
-            <div className="flex-1">
-              <Input
-                placeholder="جستجوی مخاطبان..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-              />
-            </div>
-            <Button onClick={categorizeContacts} disabled={loading}>
-              <RefreshCw size={16} className={`mr-2 ${loading ? 'animate-spin' : ''}`} />
-              دسته‌بندی خودکار
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+        <div>
+          <h2 className="text-2xl font-bold flex items-center gap-2">
+            <Tags className="h-6 w-6" />
+            دسته‌بندی خودکار مخاطبین
+          </h2>
+          <p className="text-muted-foreground">
+            پیشنهاد گروه‌بندی مخاطبین با استفاده از هوش مصنوعی
+          </p>
+        </div>
+        
+        <div className="flex gap-2">
+          <Button
+            onClick={handleAnalyzeAll}
+            disabled={processing || contacts.length === 0}
+          >
+            {processing ? (
+              <>
+                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                در حال تحلیل...
+              </>
+            ) : (
+              <>
+                <Sparkles className="h-4 w-4 ml-2" />
+                تحلیل همه مخاطبین
+              </>
+            )}
+          </Button>
+          
+          {results.length > 0 && (
+            <Button
+              variant="default"
+              onClick={handleApplySuggestions}
+              disabled={applying}
+            >
+              {applying ? (
+                <>
+                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                  در حال اعمال...
+                </>
+              ) : (
+                "اعمال پیشنهادات"
+              )}
             </Button>
-          </div>
-        </CardContent>
-      </Card>
+          )}
+        </div>
+      </div>
 
-      {results.length > 0 && (
+      {results.length === 0 ? (
+        <Card>
+          <CardContent className="py-12 text-center">
+            <Sparkles className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
+            <h3 className="text-lg font-medium mb-2">تحلیل دسته‌بندی مخاطبین</h3>
+            <p className="text-muted-foreground mb-4">
+              با کلیک بر روی دکمه "تحلیل همه مخاطبین" می‌توانید پیشنهادات دسته‌بندی را دریافت کنید
+            </p>
+            <Button
+              onClick={handleAnalyzeAll}
+              disabled={processing || contacts.length === 0}
+            >
+              {processing ? (
+                <>
+                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                  در حال تحلیل...
+                </>
+              ) : (
+                "تحلیل همه مخاطبین"
+              )}
+            </Button>
+          </CardContent>
+        </Card>
+      ) : (
         <Card>
           <CardHeader>
-            <CardTitle>
-              {results.length} مخاطب برای دسته‌بندی یافت شد
-            </CardTitle>
-            <CardDescription>
-              گروه مورد نظر را انتخاب و تغییرات را اعمال کنید
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="mb-4">
-              <label className="block text-sm font-medium mb-2">گروه مقصد:</label>
-              <select
-                value={selectedGroupId || ''}
-                onChange={(e) => setSelectedGroupId(Number(e.target.value) || null)}
-                className="w-full p-2 border rounded"
-              >
-                <option value="">گروه را انتخاب کنید</option>
-                {groups.map(group => (
-                  <option key={group.id} value={group.id}>
-                    {group.name}
-                  </option>
-                ))}
-              </select>
+            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+              <div>
+                <CardTitle>پیشنهادات دسته‌بندی</CardTitle>
+                <CardDescription>
+                  {results.length} مخاطب با پیشنهادات دسته‌بندی
+                </CardDescription>
+              </div>
+              
+              <div className="flex gap-2 w-full sm:w-auto">
+                <div className="relative w-full sm:w-64">
+                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
+                  <Input
+                    placeholder="جستجوی مخاطبین..."
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    className="pl-10"
+                  />
+                </div>
+              </div>
             </div>
-
-            <div className="space-y-4 max-h-96 overflow-y-auto">
+          </CardHeader>
+          
+          <CardContent>
+            <div className="space-y-4">
               {filteredResults.map((result) => {
                 const contact = contacts.find(c => c.id === result.contactId);
+                const group = groups.find(g => g.id === result.suggestedGroupId);
+                
                 if (!contact) return null;
-
+                
                 return (
-                  <div key={result.contactId} className="border rounded-lg p-4">
-                    <div className="flex items-center justify-between mb-4">
-                      <div>
-                        <h4 className="font-semibold">{contact.name}</h4>
-                        <p className="text-sm text-muted-foreground">
-                          {result.confidence * 100}% اطمینان
-                        </p>
+                  <div 
+                    key={result.contactId} 
+                    className="border rounded-lg p-4 bg-background hover:bg-muted/50 transition-all"
+                  >
+                    <div className="flex items-start gap-4">
+                      <div className="flex-1 grid grid-cols-1 md:grid-cols-3 gap-4">
+                        <div className="space-y-2">
+                          <div>
+                            <h4 className="font-semibold">{contact.name}</h4>
+                            <p className="text-sm text-muted-foreground">
+                              {contact.phoneNumbers.length > 0 
+                                ? contact.phoneNumbers[0].number 
+                                : "شماره‌ای ثبت نشده"}
+                            </p>
+                          </div>
+                        </div>
+                        
+                        <div className="space-y-2">
+                          <div>
+                            <p className="text-sm font-medium">گروه پیشنهادی</p>
+                            {group ? (
+                              <Badge variant="default">{group.name}</Badge>
+                            ) : (
+                              <Badge variant="secondary">بدون گروه</Badge>
+                            )}
+                          </div>
+                        </div>
+                        
+                        <div className="space-y-2">
+                          <div>
+                            <p className="text-sm font-medium">میزان اطمینان</p>
+                            <div className="flex items-center gap-2">
+                              <div className="w-full bg-secondary rounded-full h-2">
+                                <div 
+                                  className="bg-primary h-2 rounded-full transition-all duration-300"
+                                  style={{ width: `${result.confidence * 100}%` }}
+                                ></div>
+                              </div>
+                              <span className="text-sm font-medium w-12">
+                                {Math.round(result.confidence * 100)}%
+                              </span>
+                            </div>
+                          </div>
+                        </div>
                       </div>
-                      <Badge variant={result.confidence > 0.7 ? "default" : "secondary"}>
-                        {result.confidence * 100}% شباهت
-                      </Badge>
+                      
+                      <div className="text-center">
+                        <div className="flex flex-wrap gap-1">
+                          {result.reasons.map((reason, idx) => (
+                            <Badge key={idx} variant="outline" className="text-xs">
+                              {reason}
+                            </Badge>
+                          ))}
+                        </div>
+                      </div>
                     </div>
-
-                    <div className="space-y-2">
-                      <h5 className="font-medium">دلایل پیشنهاد:</h5>
-                      <div className="flex flex-wrap gap-2">
-                        {result.reasons.map((reason, index) => (
-                          <Badge key={index} variant="outline">
-                            {reason}
-                          </Badge>
-                        ))}
-                      </div>
-                    </div>
-
-                    {result.suggestedGroupId && (
-                      <div className="mt-4">
-                        <p className="text-sm">
-                          پیشنهاد: <span className="font-medium">
-                            {groups.find(g => g.id === result.suggestedGroupId)?.name}
-                          </span>
-                        </p>
-                      </div>
-                    )}
                   </div>
                 );
               })}
             </div>
-
-            {selectedGroupId && (
-              <div className="mt-6 flex justify-end">
-                <Button onClick={applyCategorization} disabled={loading}>
-                  <CheckCircle size={16} className={`mr-2 ${loading ? 'animate-spin' : ''}`} />
-                  اعمال دسته‌بندی به {filteredResults.length} مخاطب
-                </Button>
-              </div>
-            )}
           </CardContent>
         </Card>
       )}

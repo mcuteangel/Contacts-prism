@@ -5,6 +5,8 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
+import { Slider } from "@/components/ui/slider";
+import { Input } from "@/components/ui/input";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Palette, Sun, Moon, Monitor, Droplets, Circle, Square, Hexagon } from "lucide-react";
 import { useTheme } from "next-themes";
@@ -149,69 +151,71 @@ export function ThemeSelector({ isOpen, onOpenChange }: ThemeSelectorProps) {
                 </CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                  <div className="space-y-2">
-                    <Label>رنگ اصلی</Label>
-                    <div className="flex items-center gap-2">
-                      <input
-                        type="color"
-                        value={`hsl(${selectedColors.primary})`}
-                        onChange={(e) => {
-                          const hsl = e.target.value;
-                          handleCustomColorChange('primary', hsl);
-                        }}
-                        className="w-12 h-12 rounded border-2 border-border"
-                      />
-                      <input
-                        value={selectedColors.primary}
-                        onChange={(e) => handleCustomColorChange('primary', e.target.value)}
-                        placeholder="HSL value"
-                        className="w-full px-3 py-2 border rounded"
-                      />
+                <div>
+                  <Label className="text-base font-medium mb-3 block">تنظیمات رنگ</Label>
+                  <Card className="p-4">
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                      <div className="space-y-2">
+                        <Label>رنگ اصلی</Label>
+                        <div className="flex items-center gap-2">
+                          <input
+                            type="color"
+                            value={`hsl(${selectedColors.primary})`}
+                            onChange={(e) => {
+                              const hsl = e.target.value;
+                              handleCustomColorChange('primary', hsl);
+                            }}
+                            className="w-12 h-12 rounded border-2 border-border"
+                          />
+                          <Input
+                            value={selectedColors.primary}
+                            onChange={(e) => handleCustomColorChange('primary', e.target.value)}
+                            placeholder="HSL value"
+                          />
+                        </div>
+                      </div>
+                      
+                      <div className="space-y-2">
+                        <Label>رنگ ثانویه</Label>
+                        <div className="flex items-center gap-2">
+                          <input
+                            type="color"
+                            value={`hsl(${selectedColors.secondary})`}
+                            onChange={(e) => {
+                              const hsl = e.target.value;
+                              handleCustomColorChange('secondary', hsl);
+                            }}
+                            className="w-12 h-12 rounded border-2 border-border"
+                          />
+                          <Input
+                            value={selectedColors.secondary}
+                            onChange={(e) => handleCustomColorChange('secondary', e.target.value)}
+                            placeholder="HSL value"
+                          />
+                        </div>
+                      </div>
+                      
+                      <div className="space-y-2">
+                        <Label>رنگ تأکید</Label>
+                        <div className="flex items-center gap-2">
+                          <input
+                            type="color"
+                            value={`hsl(${selectedColors.accent})`}
+                            onChange={(e) => {
+                              const hsl = e.target.value;
+                              handleCustomColorChange('accent', hsl);
+                            }}
+                            className="w-12 h-12 rounded border-2 border-border"
+                          />
+                          <Input
+                            value={selectedColors.accent}
+                            onChange={(e) => handleCustomColorChange('accent', e.target.value)}
+                            placeholder="HSL value"
+                          />
+                        </div>
+                      </div>
                     </div>
-                  </div>
-                  
-                  <div className="space-y-2">
-                    <Label>رنگ ثانویه</Label>
-                    <div className="flex items-center gap-2">
-                      <input
-                        type="color"
-                        value={`hsl(${selectedColors.secondary})`}
-                        onChange={(e) => {
-                          const hsl = e.target.value;
-                          handleCustomColorChange('secondary', hsl);
-                        }}
-                        className="w-12 h-12 rounded border-2 border-border"
-                      />
-                      <input
-                        value={selectedColors.secondary}
-                        onChange={(e) => handleCustomColorChange('secondary', e.target.value)}
-                        placeholder="HSL value"
-                        className="w-full px-3 py-2 border rounded"
-                      />
-                    </div>
-                  </div>
-                  
-                  <div className="space-y-2">
-                    <Label>رنگ تأکید</Label>
-                    <div className="flex items-center gap-2">
-                      <input
-                        type="color"
-                        value={`hsl(${selectedColors.accent})`}
-                        onChange={(e) => {
-                          const hsl = e.target.value;
-                          handleCustomColorChange('accent', hsl);
-                        }}
-                        className="w-12 h-12 rounded border-2 border-border"
-                      />
-                      <input
-                        value={selectedColors.accent}
-                        onChange={(e) => handleCustomColorChange('accent', e.target.value)}
-                        placeholder="HSL value"
-                        className="w-full px-3 py-2 border rounded"
-                      />
-                    </div>
-                  </div>
+                  </Card>
                 </div>
               </CardContent>
             </Card>
@@ -246,13 +250,12 @@ export function ThemeSelector({ isOpen, onOpenChange }: ThemeSelectorProps) {
                   <>
                     <div className="space-y-3">
                       <Label>شفافیت: {glassOpacity[0]}%</Label>
-                      <input
-                        type="range"
-                        min="10"
-                        max="100"
-                        step="5"
-                        value={glassOpacity[0]}
-                        onChange={(e) => setGlassOpacity([parseInt(e.target.value)])}
+                      <Slider
+                        value={glassOpacity}
+                        onValueChange={setGlassOpacity}
+                        max={100}
+                        min={10}
+                        step={5}
                         className="w-full"
                       />
                       <p className="text-sm text-muted-foreground">
@@ -262,13 +265,12 @@ export function ThemeSelector({ isOpen, onOpenChange }: ThemeSelectorProps) {
 
                     <div className="space-y-3">
                       <Label>مقدار تار شدن: {blurAmount[0]}px</Label>
-                      <input
-                        type="range"
-                        min="0"
-                        max="30"
-                        step="1"
-                        value={blurAmount[0]}
-                        onChange={(e) => setBlurAmount([parseInt(e.target.value)])}
+                      <Slider
+                        value={blurAmount}
+                        onValueChange={setBlurAmount}
+                        max={30}
+                        min={0}
+                        step={1}
                         className="w-full"
                       />
                       <p className="text-sm text-muted-foreground">
@@ -295,28 +297,26 @@ export function ThemeSelector({ isOpen, onOpenChange }: ThemeSelectorProps) {
                   {shapePresets.map((preset) => {
                     const Icon = preset.icon;
                     return (
-                      <button
+                      <Button
                         key={preset.name}
-                        className={`flex flex-col items-center gap-2 h-auto py-4 border rounded ${
-                          selectedShape === preset.value ? 'bg-primary text-primary-foreground' : 'bg-muted'
-                        }`}
+                        variant={selectedShape === preset.value ? "default" : "outline"}
+                        className="flex flex-col items-center gap-2 h-auto py-4"
                         onClick={() => applyShapePreset(preset.value)}
                       >
                         <Icon size={24} />
                         <span className="text-sm">{preset.name}</span>
-                      </button>
+                      </Button>
                     );
                   })}
                 </div>
 
                 <div className="space-y-2">
                   <Label>شخصی‌سازی گوشه‌ها</Label>
-                  <input
-                    type="text"
+                  <Input
+                    type="number"
                     value={selectedShape}
                     onChange={(e) => applyShapePreset(e.target.value)}
                     placeholder="مقدار radius (px یا %)"
-                    className="w-full px-3 py-2 border rounded"
                   />
                 </div>
               </CardContent>
@@ -334,9 +334,10 @@ export function ThemeSelector({ isOpen, onOpenChange }: ThemeSelectorProps) {
               <CardContent>
                 <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
                   {colorPresets.map((preset) => (
-                    <button
+                    <Button
                       key={preset.name}
-                      className="flex flex-col items-center gap-2 h-auto py-4 border rounded bg-muted"
+                      variant="outline"
+                      className="flex flex-col items-center gap-2 h-auto py-4"
                       onClick={() => applyColorPreset(preset)}
                     >
                       <div className="flex gap-1">
@@ -354,7 +355,7 @@ export function ThemeSelector({ isOpen, onOpenChange }: ThemeSelectorProps) {
                         />
                       </div>
                       <span className="text-sm">{preset.name}</span>
-                    </button>
+                    </Button>
                   ))}
                 </div>
               </CardContent>
@@ -369,11 +370,12 @@ export function ThemeSelector({ isOpen, onOpenChange }: ThemeSelectorProps) {
               </CardHeader>
               <CardContent>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <button
-                    className="h-auto p-4 border rounded"
+                  <Button
+                    variant="outline"
+                    className="h-auto p-4"
                     onClick={() => {
                       setTheme("light");
-                      applyColorPreset(colorPresets[0]);
+                      applyColorPreset(colorPresets[0]); // Blue
                       setGlassOpacity([70]);
                       setBlurAmount([12]);
                     }}
@@ -389,13 +391,14 @@ export function ThemeSelector({ isOpen, onOpenChange }: ThemeSelectorProps) {
                         <div className="w-4 h-4 rounded bg-blue-200" />
                       </div>
                     </div>
-                  </button>
+                  </Button>
 
-                  <button
-                    className="h-auto p-4 border rounded"
+                  <Button
+                    variant="outline"
+                    className="h-auto p-4"
                     onClick={() => {
                       setTheme("dark");
-                      applyColorPreset(colorPresets[2]);
+                      applyColorPreset(colorPresets[2]); // Purple
                       setGlassOpacity([80]);
                       setBlurAmount([16]);
                     }}
@@ -411,7 +414,7 @@ export function ThemeSelector({ isOpen, onOpenChange }: ThemeSelectorProps) {
                         <div className="w-4 h-4 rounded bg-purple-800" />
                       </div>
                     </div>
-                  </button>
+                  </Button>
                 </div>
               </CardContent>
             </Card>
@@ -419,25 +422,16 @@ export function ThemeSelector({ isOpen, onOpenChange }: ThemeSelectorProps) {
         </Tabs>
 
         <div className="flex justify-between gap-2 mt-6">
-          <button 
-            className="px-4 py-2 border rounded"
-            onClick={resetToDefaults}
-          >
+          <Button variant="outline" onClick={resetToDefaults}>
             بازگشت به پیش‌فرض
-          </button>
+          </Button>
           <div className="flex gap-2">
-            <button 
-              className="px-4 py-2 border rounded"
-              onClick={() => onOpenChange(false)}
-            >
+            <Button variant="outline" onClick={() => onOpenChange(false)}>
               انصراف
-            </button>
-            <button 
-              className="px-4 py-2 bg-primary text-primary-foreground rounded"
-              onClick={() => onOpenChange(false)}
-            >
+            </Button>
+            <Button onClick={() => onOpenChange(false)}>
               ذخیره تغییرات
-            </button>
+            </Button>
           </div>
         </div>
       </div>
