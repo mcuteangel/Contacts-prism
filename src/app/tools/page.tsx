@@ -36,7 +36,7 @@ export default function ToolsPage() {
         try {
           const jsonString = e.target?.result as string;
           await ContactService.importContacts(jsonString);
-          toast.success("مخاطبین با موفقیت ورودی گرفته شدند!");
+          toast.success("مخاطبین با موفقیت ورودی گرفتند!");
           // No direct refresh needed here, as the contacts page will re-fetch on mount
         } catch (error) {
           toast.error("ورودی گرفتن از مخاطبین با شکست مواجه شد. لطفاً از معتبر بودن فایل JSON اطمینان حاصل کنید.");

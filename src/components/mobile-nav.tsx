@@ -2,12 +2,12 @@
 
 import React from "react";
 import { Button } from "@/components/ui/button";
-import { Users, Folder, ListPlus, Settings, BarChart3, Brain, HelpCircle } from "lucide-react";
+import { Users, Folder, ListPlus, Settings, BarChart3, Brain, HelpCircle, Wrench, SlidersHorizontal } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 interface MobileNavProps {
-  activeTab: 'contacts' | 'groups' | 'customFields' | 'globalCustomFields' | 'analytics' | 'ai' | 'help';
-  onTabChange: (tab: 'contacts' | 'groups' | 'customFields' | 'globalCustomFields' | 'analytics' | 'ai' | 'help') => void;
+  activeTab: 'contacts' | 'groups' | 'customFields' | 'globalCustomFields' | 'analytics' | 'ai' | 'help' | 'tools' | 'settings';
+  onTabChange: (tab: 'contacts' | 'groups' | 'customFields' | 'globalCustomFields' | 'analytics' | 'ai' | 'help' | 'tools' | 'settings') => void;
   onOpenSettings: () => void;
 }
 
@@ -93,10 +93,24 @@ export function MobileNav({ activeTab, onTabChange, onOpenSettings }: MobileNavP
       </Button>
       <Button
         variant="ghost"
-        className="flex flex-col items-center gap-1 h-auto py-2 text-foreground hover:text-primary"
-        onClick={onOpenSettings}
+        className={cn(
+          "flex flex-col items-center gap-1 h-auto py-2 text-foreground hover:text-primary",
+          activeTab === 'tools' && "text-primary"
+        )}
+        onClick={() => onTabChange('tools')}
       >
-        <Settings size={20} />
+        <Wrench size={20} />
+        <span className="text-xs">ابزار</span>
+      </Button>
+      <Button
+        variant="ghost"
+        className={cn(
+          "flex flex-col items-center gap-1 h-auto py-2 text-foreground hover:text-primary",
+          activeTab === 'settings' && "text-primary"
+        )}
+        onClick={() => onTabChange('settings')}
+      >
+        <SlidersHorizontal size={20} />
         <span className="text-xs">تنظیمات</span>
       </Button>
     </nav>

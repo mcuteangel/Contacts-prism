@@ -2,13 +2,13 @@
 
 import React, { useState } from "react";
 import { Button } from "@/components/ui/button";
-import { Users, Folder, ListPlus, Settings, ChevronLeft, ChevronRight, BarChart3, Brain, HelpCircle } from "lucide-react";
+import { Users, Folder, ListPlus, Settings, ChevronLeft, ChevronRight, BarChart3, Brain, HelpCircle, Wrench, SlidersHorizontal } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Separator } from "@/components/ui/separator";
 
 interface DesktopSidebarProps {
-  activeTab: 'contacts' | 'groups' | 'customFields' | 'globalCustomFields' | 'analytics' | 'ai' | 'help';
-  onTabChange: (tab: 'contacts' | 'groups' | 'customFields' | 'globalCustomFields' | 'analytics' | 'ai' | 'help') => void;
+  activeTab: 'contacts' | 'groups' | 'customFields' | 'globalCustomFields' | 'analytics' | 'ai' | 'help' | 'tools' | 'settings';
+  onTabChange: (tab: 'contacts' | 'groups' | 'customFields' | 'globalCustomFields' | 'analytics' | 'ai' | 'help' | 'tools' | 'settings') => void;
   onOpenSettings: () => void;
   onCollapseChange?: (collapsed: boolean) => void;
 }
@@ -121,16 +121,27 @@ export function DesktopSidebar({ activeTab, onTabChange, onOpenSettings, onColla
           <HelpCircle size={20} />
           {!isCollapsed && <span className="text-sm">راهنما</span>}
         </Button>
+        <Button
+          variant="ghost"
+          className={cn(
+            "justify-start gap-3 px-3 py-2 text-foreground hover:bg-accent hover:text-accent-foreground",
+            activeTab === 'tools' && "bg-primary text-primary-foreground hover:bg-primary hover:text-primary-foreground"
+          )}
+          onClick={() => onTabChange('tools')}
+        >
+          <Wrench size={20} />
+          {!isCollapsed && <span className="text-sm">ابزارspan>}
+        </Button>
         <Separator className="my-2" />
         <Button
           variant="ghost"
           className={cn(
             "justify-start gap-3 px-3 py-2 text-foreground hover:bg-accent hover:text-accent-foreground",
-            isCollapsed && "justify-center"
+            activeTab === 'settings' && "bg-primary text-primary-foreground hover:bg-primary hover:text-primary-foreground"
           )}
-          onClick={onOpenSettings}
+          onClick={() => onTabChange('settings')}
         >
-          <Settings size={20} />
+          <SlidersHorizontal size={20} />
           {!isCollapsed && <span className="text-sm">تنظیمات</span>}
         </Button>
       </nav>

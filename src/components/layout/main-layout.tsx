@@ -30,7 +30,7 @@ export function MainLayout({ children }: MainLayoutProps) {
     return () => window.removeEventListener('resize', checkIsMobile);
   }, []);
 
-  const handleTabChange = (tab: 'contacts' | 'groups' | 'customFields' | 'globalCustomFields' | 'analytics' | 'ai' | 'help') => {
+  const handleTabChange = (tab: 'contacts' | 'groups' | 'customFields' | 'globalCustomFields' | 'analytics' | 'ai' | 'help' | 'tools' | 'settings') => {
     if (tab === 'contacts') {
       window.location.href = '/';
     } else if (tab === 'groups') {
@@ -45,6 +45,10 @@ export function MainLayout({ children }: MainLayoutProps) {
       window.location.href = '/ai';
     } else if (tab === 'help') {
       window.location.href = '/help';
+    } else if (tab === 'tools') {
+      window.location.href = '/tools';
+    } else if (tab === 'settings') {
+      window.location.href = '/settings';
     }
   };
 
@@ -75,7 +79,9 @@ export function MainLayout({ children }: MainLayoutProps) {
               pathname === '/custom-fields-global' ? 'globalCustomFields' :
               pathname === '/analytics' ? 'analytics' :
               pathname === '/ai' ? 'ai' :
-              pathname === '/help' ? 'help' : 'contacts'
+              pathname === '/help' ? 'help' :
+              pathname === '/tools' ? 'tools' :
+              pathname === '/settings' ? 'settings' : 'contacts'
             }
             onTabChange={handleTabChange}
             onOpenSettings={handleOpenSettings}
@@ -99,7 +105,9 @@ export function MainLayout({ children }: MainLayoutProps) {
             pathname === '/custom-fields-global' ? 'globalCustomFields' :
             pathname === '/analytics' ? 'analytics' :
             pathname === '/ai' ? 'ai' :
-            pathname === '/help' ? 'help' : 'contacts'
+            pathname === '/help' ? 'help' :
+            pathname === '/tools' ? 'tools' :
+            pathname === '/settings' ? 'settings' : 'contacts'
           }
           onTabChange={handleTabChange}
           onOpenSettings={handleOpenSettings}
