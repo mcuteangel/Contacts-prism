@@ -26,7 +26,7 @@ export function DesktopSidebar({ activeTab, onTabChange, onOpenSettings, onColla
 
   return (
     <aside className={cn(
-      "fixed top-0 right-0 h-screen bg-background/80 backdrop-blur-md border-r border-border shadow-lg flex flex-col z-40 transition-all duration-300",
+      "fixed top-0 right-0 h-screen glass border-r border-border shadow-lg flex flex-col z-40 transition-all duration-300",
       isCollapsed ? "w-16" : "w-64"
     )}>
       {/* Header with collapse button */}
