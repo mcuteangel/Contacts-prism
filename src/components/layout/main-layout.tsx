@@ -13,7 +13,7 @@ interface MainLayoutProps {
 }
 
 export function MainLayout({ children }: MainLayoutProps) {
-  const { isMobile, isTablet } = useIsMobile();
+  const { isMobile } = useIsMobile();
   const pathname = usePathname();
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
 
@@ -59,7 +59,7 @@ export function MainLayout({ children }: MainLayoutProps) {
       </div>
 
       {/* موبایل و تبلت ناوبری - روی موبایل و تبلت و صفحات اصلی نمایش داده شود */}
-      {(isMobile || isTablet) && isMainPage && (
+      {isMobile && isMainPage && (
         <MobileNav 
           activeTab={pathname === '/contacts' || pathname === '/' ? 'contacts' : pathname === '/groups' ? 'groups' : 'customFields'}
           onTabChange={handleTabChange}
