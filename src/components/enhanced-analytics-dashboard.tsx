@@ -2,24 +2,16 @@
 
 import React, { useEffect, useState } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import {
-  PieChart, Pie, Cell, ResponsiveContainer,
-  BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend,
-  LineChart, Line, AreaChart, Area,
-  RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis, Radar,
-  ScatterChart, Scatter
-} from "recharts";
 import { ContactService } from "@/services/contact-service";
 import { type Contact, type Group } from "@/database/db";
-import {
-  Users, Phone, Building2, MapPin, TrendingUp, TrendingDown,
-  Calendar, Clock, Star, Heart, Activity, Target
-} from "lucide-react";
-
-const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#8884D8', '#82CA9D'];
+import { TimeRangeSelector } from "./analytics/time-range-selector";
+import { AnalyticsTabs } from "./analytics/analytics-tabs";
+import { OverviewTab } from "./analytics/overview-tab";
+import { DemographicsTab } from "./analytics/demographics-tab";
+import { GroupsTab } from "./analytics/groups-tab";
+import { TrendsTab } from "./analytics/trends-tab";
+import { ActivityTab } from "./analytics/activity-tab";
 
 interface ContactTrend {
   date: string;
@@ -37,6 +29,7 @@ export function EnhancedAnalyticsDashboard() {
   const [groups, setGroups] = useState<Group[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedTimeRange, setSelectedTimeRange] = useState("30d");
+  const [activeTab, setActiveTab] = useState("overview");
 
   useEffect(() => {
     const fetchData = async () => {
@@ -85,16 +78,14 @@ export function EnhancedAnalyticsDashboard() {
   const genderData = [
     { name: 'مرد', value: contacts.filter(c => c.gender === 'male').length, fill: '#0088FE' },
     { name: 'زن', value: contacts.filter(c => c.gender === 'female').length, fill: '#FF8042' },
-    { name: 'سایر', value: contacts.filter(c => c.gender === 'other').length, fill: '#
-
-8884D8' }
+    { name: 'سایر', value: contacts.filter(c => c.gender === 'other').length, fill: '#8884D8' }
   ].filter(item => item.value > 0);
 
   // Group distribution
   const groupData = groups.map(group => ({
     name: group.name,
     contacts: contacts.filter(c => c.groupId === group.id).length,
-    fill: COLORS[groups.indexOf(group) % COLORS.length]
+    fill: `hsl(${(groups.indexOf(group) * 60) % 360}, 70%, 50%)`
   }));
 
   // Phone type distribution
@@ -166,8 +157,8 @@ export function EnhancedAnalyticsDashboard() {
   }));
 
   // Calculate growth rates
-  const totalGrowth = ((contacts.length - 100) / 100 * 100).toFixed(1); // Mock calculation
-  const monthlyGrowth = ((contacts.length - contacts.length * 0.8) / (contacts.length * 0.8) * 100).toFixed(1); // Mock calculation
+  const totalGrowth = ((totalContacts - 100) / 100 * 100).toFixed(1);
+  const monthlyGrowth = ((totalContacts - totalContacts * 0.8) / (totalContacts * 0.8) * 100).toFixed(1);
 
   return (
     <div className="p-4 sm:p-8">
@@ -178,474 +169,51 @@ export function EnhancedAnalyticsDashboard() {
             تحلیل جامع داده‌های مخاطبین و روندهای رشد
           </p>
         </div>
-        <div className="flex gap-2">
-          <Button
-            variant={selectedTimeRange === "7d" ? "default" : "outline"}
-            size="sm"
-            onClick={() => setSelectedTimeRange("7d")}
-          >
-            ۷ روز
-          </Button>
-          <Button
-            variant={selectedTimeRange === "30d" ? "default" : "outline"}
-            size="sm"
-            onClick={() => setSelectedTimeRange("30d")}
-          >
-            ۳۰ روز
-          </Button>
-          <Button
-            variant={selectedTimeRange === "90d" ? "default" : "outline"}
-            size="sm"
-            onClick={() => setSelectedTimeRange("90d")}
-          >
-            ۹۰ روز
-          </Button>
-        </div>
+        <TimeRangeSelector 
+          selectedRange={selectedTimeRange} 
+          onRangeChange={setSelectedTimeRange} 
+        />
       </div>
 
-      {/* Key Metrics */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">مجموع مخاطبین</CardTitle>
-            <Users className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{totalContacts.toLocaleString()}</div>
-            <p className="text-xs text-muted-foreground flex items-center gap-1">
-              <TrendingUp size={12} className="text-green-500" />
-              +{totalGrowth}% از ماه قبل
-            </p>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">میانگین شماره‌ها</CardTitle>
-            <Phone className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">
-              {totalContacts > 0 ? (totalPhoneNumbers / totalContacts).toFixed(1) : 0}
-            </div>
-            <p className="text-xs text-muted-foreground">
-              به ازای هر مخاطب
-            </p>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">اطلاعات تکمیلی</CardTitle>
-            <Activity className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">
-              {Math.round((contactsWithPosition + contactsWithAddress + contactsWithNotes) / 3)}%
-            </div>
-            <p className="text-xs text-muted-foreground">
-              میانگین تکمیل اطلاعات
-            </p>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">فیلدهای سفارشی</CardTitle>
-            <Target className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">
-              {Math.round((contactsWithCustomFields / totalContacts) * 100)}%
-            </div>
-            <p className="text-xs text-muted-foreground">
-              استفاده از فیلدهای سفارشی
-            </p>
-          </CardContent>
-        </Card>
-      </div>
-
-      <Tabs defaultValue="overview" className="w-full">
-        <TabsList className="grid w-full grid-cols-5">
-          <TabsTrigger value="overview">نمای کلی</TabsTrigger>
-          <TabsTrigger value="demographics">جمعیت‌شناسی</TabsTrigger>
-          <TabsTrigger value="groups">گروه‌ها</TabsTrigger>
-          <TabsTrigger value="trends">روندها</TabsTrigger>
-          <TabsTrigger value="activity">فعالیت</TabsTrigger>
-        </TabsList>
-
-        <TabsContent value="overview" className="mt-6 space-y-6">
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            <Card>
-              <CardHeader>
-                <CardTitle>توزیع جنسیت</CardTitle>
-                <CardDescription>توزیع مخاطبین بر اساس جنسیت</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <ResponsiveContainer width="100%" height={300}>
-                  <PieChart>
-                    <Pie
-                      data={genderData}
-                      cx="50%"
-                      cy="50%"
-                      labelLine={false}
-                      label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
-                      outerRadius={80}
-                      fill="#8884d8"
-                      dataKey="value"
-                    >
-                      {genderData.map((entry, index) => (
-                        <Cell key={`cell-${index}`} fill={entry.fill} />
-                      ))}
-                    </Pie>
-                    <Tooltip />
-                  </PieChart>
-                </ResponsiveContainer>
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader>
-                <CardTitle>محبوب‌ترین مشاغل</CardTitle>
-                <CardDescription>تعداد مخاطبین بر اساس سمت/تخصص</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <ResponsiveContainer width="100%" height={300}>
-                  <BarChart data={positionData}>
-                    <CartesianGrid strokeDasharray="3 3" />
-                    <XAxis dataKey="name" angle={-45} textAnchor="end" height={100} />
-                    <YAxis />
-                    <Tooltip />
-                    <Bar dataKey="value" fill="#8884d8" />
-                  </BarChart>
-                </ResponsiveContainer>
-              </CardContent>
-            </Card>
-          </div>
-
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            <Card>
-              <CardHeader>
-                <CardTitle>استفاده از فیلدهای سفارشی</CardTitle>
-                <CardDescription>محبوب‌ترین فیلدهای سفارشی</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <ResponsiveContainer width="100%" height={300}>
-                  <RadarChart cx="50%" cy="50%" outerRadius="80%" data={customFieldsUsage}>
-                    <PolarGrid />
-                    <PolarAngleAxis dataKey="name" />
-                    <PolarRadiusAxis />
-                    <Radar name="استفاده" dataKey="value" stroke="#8884d8" fill="#8884d8" fillOpacity={0.6} />
-                    <Tooltip />
-                  </RadarChart>
-                </ResponsiveContainer>
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader>
-                <CardTitle>نوع شماره‌های تلفن</CardTitle>
-                <CardDescription>تعداد شماره‌های تلفن بر اساس نوع</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <ResponsiveContainer width="100%" height={300}>
-                  <AreaChart data={phoneTypeData}>
-                    <CartesianGrid strokeDasharray="3 3" />
-                    <XAxis dataKey="name" />
-                    <YAxis />
-                    <Tooltip />
-                    <Area type="monotone" dataKey="value" stroke="#8884d8" fill="#8884d8" fillOpacity={0.6} />
-                  </AreaChart>
-                </ResponsiveContainer>
-              </CardContent>
-            </Card>
-          </div>
+      <AnalyticsTabs activeTab={activeTab} onTabChange={setActiveTab}>
+        <TabsContent value="overview">
+          <OverviewTab
+            totalContacts={totalContacts}
+            totalGroups={totalGroups}
+            totalPhoneNumbers={totalPhoneNumbers}
+            contactsWithAddress={contactsWithAddress}
+            contactsWithPosition={contactsWithPosition}
+            contactsWithNotes={contactsWithNotes}
+            contactsWithCustomFields={contactsWithCustomFields}
+            totalGrowth={totalGrowth}
+            monthlyGrowth={monthlyGrowth}
+            genderData={genderData}
+            positionData={positionData}
+            customFieldsUsage={customFieldsUsage}
+            phoneTypeData={phoneTypeData}
+          />
         </TabsContent>
 
-        <TabsContent value="demographics" className="mt-6 space-y-6">
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            <Card>
-              <CardHeader>
-                <CardTitle>توزیگ سنی (تخمینی)</CardTitle>
-                <CardDescription>تخمین توزیگ سنی مخاطبین</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-4">
-                  <div className="flex justify-between items-center">
-                    <span>۱۸-۲۵ سال</span>
-                    <div className="flex items-center gap-2">
-                      <div className="w-32 bg-secondary rounded-full h-2">
-                        <div className="bg-primary h-2 rounded-full" style={{ width: '15%' }}></div>
-                      </div>
-                      <span className="text-sm">15%</span>
-                    </div>
-                  </div>
-                  <div className="flex justify-between items-center">
-                    <span>۲۶-۳۵ سال</span>
-                    <div className="flex items-center gap-2">
-                      <div className="w-32 bg-secondary rounded-full h-2">
-                        <div className="bg-primary h-2 rounded-full" style={{ width: '35%' }}></div>
-                      </div>
-                      <span className="text-sm">35%</span>
-                    </div>
-                  </div>
-                  <div className="flex justify-between items-center">
-                    <span>۳۶-۴۵ سال</span>
-                    <div className="flex items-center gap-2">
-                      <div className="w-32 bg-secondary rounded-full h-2">
-                        <div className="bg-primary h-2 rounded-full" style={{ width: '30%' }}></div>
-                      </div>
-                      <span className="text-sm">30%</span>
-                    </div>
-                  </div>
-                  <div className="flex justify-between items-center">
-                    <span>۴۶+ سال</span>
-                    <div className="flex items-center gap-2">
-                      <div className="w-32 bg-secondary rounded-full h-2">
-                        <div className="bg-primary h-2 rounded-full" style={{ width: '20%' }}></div>
-                      </div>
-                      <span className="text-sm">20%</span>
-                    </div>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader>
-                <CardTitle>تحلیل ارتباطی</CardTitle>
-                <CardDescription>تحلیل الگوهای ارتباطی مخاطبین</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-4">
-                  <div className="flex items-center justify-between p-3 border rounded-lg">
-                    <div className="flex items-center gap-3">
-                      <Phone className="h-5 w-5 text-primary" />
-                      <div>
-                        <div className="font-medium">تماس‌های فعال</div>
-                        <div className="text-sm text-muted-foreground">مخاطبان با شماره موبایل</div>
-                      </div>
-                    </div>
-                    <Badge variant="secondary">
-                      {Math.round((contacts.filter(c => c.phoneNumbers.some(p => p.type === 'Mobile')).length / totalContacts) * 100)}%
-                    </Badge>
-                  </div>
-                  
-                  <div className="flex items-center justify-between p-3 border rounded-lg">
-                    <div className="flex items-center gap-3">
-                      <Building2 className="h-5 w-5 text-primary" />
-                      <div>
-                        <div className="font-medium">شغلی فعال</div>
-                        <div className="text-sm text-muted-foreground">مخاطبان با سمت ثبت شده</div>
-                      </div>
-                    </div>
-                    <Badge variant="secondary">
-                      {Math.round((contactsWithPosition / totalContacts) * 100)}%
-                    </Badge>
-                  </div>
-                  
-                  <div className="flex items-center justify-between p-3 border rounded-lg">
-                    <div className="flex items-center gap-3">
-                      <MapPin className="h-5 w-5 text-primary" />
-                      <div>
-                        <div className="font-medium">آدرس‌های ثبت شده</div>
-                        <div className="text-sm text-muted-foreground">مخاطبان با آدرس</div>
-                      </div>
-                    </div>
-                    <Badge variant="secondary">
-                      {Math.round((contactsWithAddress / totalContacts) * 100)}%
-                    </Badge>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          </div>
+        <TabsContent value="demographics">
+          <DemographicsTab contacts={contacts} totalContacts={totalContacts} />
         </TabsContent>
 
-        <TabsContent value="groups" className="mt-6 space-y-6">
-          <Card>
-            <CardHeader>
-              <CardTitle>توزیع گروه‌ها</CardTitle>
-              <CardDescription>تعداد مخاطبین در هر گروه</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <ResponsiveContainer width="100%" height={400}>
-                <BarChart data={groupData}>
-                  <CartesianGrid strokeDasharray="3 3" />
-                  <XAxis dataKey="name" angle={-45} textAnchor="end" height={100} />
-                  <YAxis />
-                  <Tooltip />
-                  <Bar dataKey="contacts" fill="#8884d8" />
-                </BarChart>
-              </ResponsiveContainer>
-            </CardContent>
-          </Card>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {groupData.map((group, index) => (
-              <Card key={group.name}>
-                <CardContent className="pt-6">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <h3 className="font-semibold">{group.name}</h3>
-                      <p className="text-2xl font-bold text-primary">{group.contacts} مخاطب</p>
-                    </div>
-                    <div className="w-12 h-12 rounded-full flex items-center justify-center" style={{ backgroundColor: `${group.fill}20` }}>
-                      <div className="w-8 h-8 rounded-full" style={{ backgroundColor: group.fill }}></div>
-                    </div>
-                  </div>
-                  <div className="mt-2">
-                    <div className="w-full bg-secondary rounded-full h-2">
-                      <div 
-                        className="bg-primary h-2 rounded-full transition-all duration-300" 
-                        style={{ width: `${(group.contacts / Math.max(...groupData.map(g => g.contacts))) * 100}%` }}
-                      ></div>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-            ))}
-          </div>
+        <TabsContent value="groups">
+          <GroupsTab groupData={groupData} />
         </TabsContent>
 
-        <TabsContent value="trends" className="mt-6 space-y-6">
-          <Card>
-            <CardHeader>
-              <CardTitle>روند رشد مخاطبین</CardTitle>
-              <CardDescription>تعداد مخاطبان اضافه شده و به‌روزرسانی شده در طول زمان</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <ResponsiveContainer width="100%" height={400}>
-                <LineChart data={trendData}>
-                  <CartesianGrid strokeDasharray="3 3" />
-                  <XAxis dataKey="date" />
-                  <YAxis />
-                  <Tooltip />
-                  <Legend />
-                  <Line type="monotone" dataKey="added" stroke="#8884d8" strokeWidth={2} name="افزوده شده" />
-                  <Line type="monotone" dataKey="updated" stroke="#82ca9d" strokeWidth={2} name="به‌روزرسانی شده" />
-                </LineChart>
-              </ResponsiveContainer>
-            </CardContent>
-          </Card>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <Card>
-              <CardHeader>
-                <CardTitle>نرخ رشد ماهانه</CardTitle>
-                <CardDescription>تغییرات ماهانه در تعداد مخاطبین</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="text-center">
-                  <div className="text-4xl font-bold text-green-500 mb-2">+{monthlyGrowth}%</div>
-                  <p className="text-muted-foreground">رشد نسبت به ماه قبل</p>
-                  <div className="mt-4 flex justify-center gap-4">
-                    <div className="text-center">
-                      <div className="text-2xl font-bold">{contacts.length}</div>
-                      <p className="text-sm text-muted-foreground">مجموع</p>
-                    </div>
-                    <div className="text-center">
-                      <div className="text-2xl font-bold text-green-500">+{Math.round(contacts.length * 0.2)}</div>
-                      <p className="text-sm text-muted-foreground">این ماه</p>
-                    </div>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader>
-                <CardTitle>پیش‌بینی رشد</CardTitle>
-                <CardDescription>پیش‌بینی تعداد مخاطبان در ۳ ماه آینده</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-3">
-                  <div className="flex justify-between items-center">
-                    <span>ماه آینده</span>
-                    <Badge variant="outline">{Math.round(contacts.length * 1.1).toLocaleString()}</Badge>
-                  </div>
-                  <div className="flex justify-between items-center">
-                    <span>۲ ماه آینده</span>
-                    <Badge variant="outline">{Math.round(contacts.length * 1.2).toLocaleString()}</Badge>
-                  </div>
-                  <div className="flex justify-between items-center">
-                    <span>۳ ماه آینده</span>
-                    <Badge variant="outline">{Math.round(contacts.length * 1.3).toLocaleString()}</Badge>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          </div>
+        <TabsContent value="trends">
+          <TrendsTab 
+            trendData={trendData}
+            totalContacts={totalContacts}
+            monthlyGrowth={monthlyGrowth}
+          />
         </TabsContent>
 
-        <TabsContent value="activity" className="mt-6 space-y-6">
-          <Card>
-            <CardHeader>
-              <CardTitle>فعالیت ساعتی</CardTitle>
-              <CardDescription>تعداد فعالیت‌های مخاطبین بر اساس ساعت روز</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <ResponsiveContainer width="100%" height={300}>
-                <AreaChart data={activityData}>
-                  <CartesianGrid strokeDasharray="3 3" />
-                  <XAxis dataKey="hour" />
-                  <YAxis />
-                  <Tooltip />
-                  <Area type="monotone" dataKey="contacts" stroke="#8884d8" fill="#8884d8" fillOpacity={0.6} />
-                </AreaChart>
-              </ResponsiveContainer>
-            </CardContent>
-          </Card>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <Card>
-              <CardHeader>
-                <CardTitle>ساعات پیک</CardTitle>
-                <CardDescription>ساعات با بیشترین فعالیت مخاطبین</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-3">
-                  <div className="flex items-center justify-between p-2 bg-primary/10 rounded">
-                    <span className="font-medium">صبح‌ها (۹-۱۲)</span>
-                    <Badge>ساعات پیک</Badge>
-                  </div>
-                  <div className="flex items-center justify-between p-2 bg-secondary rounded">
-                    <span>بعدازظهر‌ها (۱۴-۱۷)</span>
-                    <Badge variant="secondary">ساعات متوسط</Badge>
-                  </div>
-                  <div className="flex items-center justify-between p-2 bg-muted rounded">
-                    <span>عصر‌ها (۱۸-۲۱)</span>
-                    <Badge variant="outline">ساعات آرام</Badge>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader>
-                <CardTitle>تحلیل تعامل</CardTitle>
-                <CardDescription>تحلیل الگوهای تعامل با مخاطبین</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-4">
-                  <div className="text-center">
-                    <div className="text-3xl font-bold text-primary mb-2">{totalPhoneNumbers}</div>
-                    <p className="text-muted-foreground">مجموع شماره‌های تلفن</p>
-                  </div>
-                  <div className="text-center">
-                    <div className="text-3xl font-bold text-green-500 mb-2">{Math.round(totalPhoneNumbers / totalContacts)}</div>
-                    <p className="text-muted-foreground">میانگین شماره در هر مخاطب</p>
-                  </div>
-                  <div className="text-center">
-                    <div className="text-3xl font-bold text-blue-500 mb-2">{groups.length}</div>
-                    <p className="text-muted-foreground">تعداد گروه‌ها</p>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          </div>
+        <TabsContent value="activity">
+          <ActivityTab activityData={activityData} />
         </TabsContent>
-      </Tabs>
+      </AnalyticsTabs>
     </div>
   );
 }
