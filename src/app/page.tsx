@@ -1,7 +1,7 @@
 "use client";
 
-import { MadeWithDyad } from "@/components/made-with-dyad";
-import { useEffect, useState } from "react";
+// ===== IMPORTS & DEPENDENCIES =====
+import React, { useEffect, useState, useCallback } from "react";
 import { ContactService } from "@/services/contact-service";
 import { type Contact, type Group } from "@/database/db";
 import { Toaster, toast } from "sonner";
@@ -11,47 +11,96 @@ import { ContactList } from "@/components/contact-list";
 import { useContactForm } from "@/contexts/contact-form-context";
 import { useIsMobile } from "@/hooks/use-is-mobile";
 
+// ===== UTILITY FUNCTIONS (HOOKS) =====
+/**
+ * A custom hook to debounce a value.
+ * It delays updating the value until after a specified delay has passed without any new changes.
+ * @param value The value to debounce.
+ * @param delay The debounce delay in milliseconds.
+ * @returns The debounced value.
+ */
+function useDebounce<T>(value: T, delay: number): T {
+  const [debouncedValue, setDebouncedValue] = useState<T>(value);
+
+  useEffect(() => {
+    const handler = setTimeout(() => {
+      setDebouncedValue(value);
+    }, delay);
+
+    // Cleanup function to clear the timeout if the value changes before the delay is over.
+    return () => {
+      clearTimeout(handler);
+    };
+  }, [value, delay]);
+
+  return debouncedValue;
+}
+
+// ===== CORE BUSINESS LOGIC (MAIN COMPONENT) =====
 export default function Home() {
   const [contacts, setContacts] = useState<Contact[]>([]);
   const [groups, setGroups] = useState<Group[]>([]);
   const [searchTerm, setSearchTerm] = useState("");
   const [mounted, setMounted] = useState(false);
-  const { isContactFormOpen, editingContact, closeContactForm } = useContactForm();
-
+  const [isLoading, setIsLoading] = useState(true);
+  
+  // Use the global state from context for the form dialog
+  const { isContactFormOpen, editingContact, setEditingContact, closeContactForm } = useContactForm();
   const isMobile = useIsMobile();
 
-  useEffect(() => {
-    setMounted(true);
-    fetchContacts();
-    fetchGroups();
-  }, []);
+  // Debounce the search term to avoid excessive database queries while typing
+  const debouncedSearchTerm = useDebounce(searchTerm, 300);
 
-  const fetchContacts = async () => {
+  const fetchContacts = useCallback(async (query: string) => {
+    setIsLoading(true);
     try {
-      const response = await ContactService.getAllContacts();
+      // Use the efficient search service which queries Dexie with indexes
+      const response = await ContactService.searchContacts(query);
       // Handle both array and paginated responses
       const contactsData = Array.isArray(response) ? response : response?.data || [];
       setContacts(contactsData);
     } catch (error) {
       toast.error("بارگذاری مخاطبین با شکست مواجه شد.");
       console.error("Error fetching contacts:", error);
-      setContacts([]); // Ensure contacts is always an array
+      setContacts([]);
+    } finally {
+      setIsLoading(false);
     }
-  };
+  }, []);
 
-  const fetchGroups = async () => {
+  const fetchGroups = useCallback(async () => {
     try {
       const allGroups = await ContactService.getAllGroups();
       setGroups(allGroups);
     } catch (error) {
       toast.error("بارگذاری گروه‌ها با شکست مواجه شد.");
       console.error("Error fetching groups:", error);
+      setGroups([]);
     }
+  }, []);
+
+  // Fetch groups only once on mount
+  useEffect(() => {
+    fetchGroups();
+  }, [fetchGroups]);
+
+  // Fetch contacts whenever the debounced search term changes
+  useEffect(() => {
+    fetchContacts(debouncedSearchTerm);
+  }, [debouncedSearchTerm, fetchContacts]);
+
+  const refreshData = () => {
+    fetchContacts(debouncedSearchTerm);
+    fetchGroups();
   };
 
   const handleContactSaved = () => {
-    fetchContacts();
+    refreshData();
     closeContactForm();
+  };
+  
+  const handleEdit = (contact: Contact) => {
+    setEditingContact(contact);
   };
 
   const handleDelete = async (id: number) => {
@@ -59,7 +108,7 @@ export default function Home() {
       try {
         await ContactService.deleteContact(id);
         toast.success("مخاطب با موفقیت حذف شد!");
-        fetchContacts();
+        refreshData();
       } catch (error) {
         toast.error("حذف مخاطب با شکست مواجه شد.");
         console.error("Error deleting contact:", error);
@@ -67,40 +116,28 @@ export default function Home() {
     }
   };
 
-  const handleEdit = (contact: Contact) => {
-    // این حالت توسط context مدیریت می‌شود
-  };
-
   const handleAddGroup = async (groupName: string) => {
     try {
       await ContactService.addGroup(groupName);
       toast.success("گروه با موفقیت اضافه شد!");
-      fetchGroups();
+      fetchGroups(); // Re-fetch groups to update the dialog
     } catch (error) {
       toast.error("افزودن گروه با شکست مواجه شد.");
       console.error("Error adding group:", error);
     }
   };
-
-  const filteredContacts = contacts.filter(contact =>
-    contact.firstName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    (contact.lastName?.toLowerCase().includes(searchTerm.toLowerCase()) ?? false) ||
-    contact.phoneNumbers.some(pn => pn.number.includes(searchTerm) || pn.type.toLowerCase().includes(searchTerm.toLowerCase())) ||
-    (contact.notes && contact.notes.toLowerCase().includes(searchTerm.toLowerCase())) ||
-    (contact.position && contact.position.toLowerCase().includes(searchTerm.toLowerCase())) ||
-    (contact.address && contact.address.toLowerCase().includes(searchTerm.toLowerCase())) ||
-    (contact.customFields && contact.customFields.some(cf => cf.name.toLowerCase().includes(searchTerm.toLowerCase()) || cf.value.toLowerCase().includes(searchTerm.toLowerCase())))
-  );
-
-  if (!mounted) {
+  
+  // Loading skeleton for initial load
+  if (isLoading && contacts.length === 0) {
     return (
       <div className="min-h-screen flex flex-col bg-gradient-to-br from-blue-100 to-purple-100 dark:from-gray-900 dark:to-black">
         <div className="flex-grow w-full max-w-4xl mx-auto p-4 sm:p-8 pt-20 pb-20 sm:pt-24 sm:pb-24">
           <div className="glass p-6 rounded-lg shadow-lg backdrop-blur-md">
             <div className="animate-pulse space-y-4">
-              <div className="h-4 bg-gray-200 rounded w-3/4"></div>
-              <div className="h-4 bg-gray-200 rounded w-1/2"></div>
-              <div className="h-32 bg-gray-200 rounded"></div>
+              <div className="h-10 bg-gray-300 dark:bg-gray-700 rounded w-full mb-6"></div>
+              <div className="h-20 bg-gray-300 dark:bg-gray-700 rounded"></div>
+              <div className="h-20 bg-gray-300 dark:bg-gray-700 rounded"></div>
+              <div className="h-20 bg-gray-300 dark:bg-gray-700 rounded"></div>
             </div>
           </div>
         </div>
@@ -120,7 +157,7 @@ export default function Home() {
               onSearchChange={setSearchTerm}
             />
             <ContactList
-              contacts={filteredContacts}
+              contacts={contacts}
               groups={groups}
               onEditContact={handleEdit}
               onDeleteContact={handleDelete}
@@ -131,7 +168,7 @@ export default function Home() {
 
       <ContactFormDialog
         isOpen={isContactFormOpen}
-        onOpenChange={closeContactForm}
+        onOpenChange={(isOpen) => !isOpen && closeContactForm()}
         editingContact={editingContact}
         onContactSaved={handleContactSaved}
         groups={groups}
@@ -139,7 +176,6 @@ export default function Home() {
         onGroupsRefreshed={fetchGroups}
       />
 
-      <MadeWithDyad />
     </div>
   );
 }
