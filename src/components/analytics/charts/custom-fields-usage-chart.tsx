@@ -20,7 +20,9 @@ export function CustomFieldsUsageChart({ customFieldsUsage }: CustomFieldsUsageC
           <Target size={18} />
           استفاده از فیلدهای سفارشی
         </CardTitle>
-        <CardDescription>محبوب‌ترین فیلدهای سفارشی</CardDescription>
+        <CardDescription>
+          محبوب‌ترین فیلدهای سفارشی
+        </CardDescription>
       </CardHeader>
       <CardContent>
         <ResponsiveContainer width="100%" height={300}>

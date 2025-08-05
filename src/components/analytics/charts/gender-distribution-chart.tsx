@@ -13,8 +13,6 @@ interface GenderDistributionChartProps {
   }>;
 }
 
-const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#8884D8'];
-
 export function GenderDistributionChart({ genderData }: GenderDistributionChartProps) {
   return (
     <Card>
@@ -23,7 +21,9 @@ export function GenderDistributionChart({ genderData }: GenderDistributionChartP
           <Users size={18} />
           توزیع جنسیت
         </CardTitle>
-        <CardDescription>توزیع مخاطبین بر اساس جنسیت</CardDescription>
+        <CardDescription>
+          توزیع مخاطبین بر اساس جنسیت
+        </CardDescription>
       </CardHeader>
       <CardContent>
         <ResponsiveContainer width="100%" height={300}>

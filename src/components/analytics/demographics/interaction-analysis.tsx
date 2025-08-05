@@ -1,7 +1,7 @@
 "use client";
 
 import React from "react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Phone, Building2, MapPin } from "lucide-react";
 
@@ -47,9 +47,9 @@ export function InteractionAnalysis({ contacts, totalContacts }: InteractionAnal
     <Card>
       <CardHeader>
         <CardTitle>تحلیل ارتباطی</CardTitle>
-        <div className="text-sm text-muted-foreground">
+        <CardDescription>
           تحلیل الگوهای ارتباطی مخاطبین
-        </div>
+        </CardDescription>
       </CardHeader>
       <CardContent>
         <div className="space-y-4">

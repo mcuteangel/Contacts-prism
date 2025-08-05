@@ -176,7 +176,7 @@ export function EnhancedAnalyticsDashboard() {
       </div>
 
       <AnalyticsTabs activeTab={activeTab} onTabChange={setActiveTab}>
-        <TabsContent value="overview">
+        <div value="overview">
           <OverviewTab
             totalContacts={totalContacts}
             totalGroups={totalGroups}
@@ -192,27 +192,27 @@ export function EnhancedAnalyticsDashboard() {
             customFieldsUsage={customFieldsUsage}
             phoneTypeData={phoneTypeData}
           />
-        </TabsContent>
+        </div>
 
-        <TabsContent value="demographics">
+        <div value="demographics">
           <DemographicsTab contacts={contacts} totalContacts={totalContacts} />
-        </TabsContent>
+        </div>
 
-        <TabsContent value="groups">
+        <div value="groups">
           <GroupsTab groupData={groupData} />
-        </TabsContent>
+        </div>
 
-        <TabsContent value="trends">
+        <div value="trends">
           <TrendsTab 
             trendData={trendData}
             totalContacts={totalContacts}
             monthlyGrowth={monthlyGrowth}
           />
-        </TabsContent>
+        </div>
 
-        <TabsContent value="activity">
+        <div value="activity">
           <ActivityTab activityData={activityData} />
-        </TabsContent>
+        </div>
       </AnalyticsTabs>
     </div>
   );

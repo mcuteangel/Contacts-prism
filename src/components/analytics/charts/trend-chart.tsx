@@ -1,7 +1,7 @@
 "use client";
 
 import React from "react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from "recharts";
 import { TrendingUp } from "lucide-react";
 
@@ -21,7 +21,9 @@ export function TrendChart({ trendData }: TrendChartProps) {
           <TrendingUp size={18} />
           روند رشد مخاطبین
         </CardTitle>
-        <CardDescription>تعداد مخاطبان اضافه شده و به‌روزرسانی شده در طول زمان</CardDescription>
+        <CardDescription>
+          تعداد مخاطبان اضافه شده و به‌روزرسانی شده در طول زمان
+        </CardDescription>
       </CardHeader>
       <CardContent>
         <ResponsiveContainer width="100%" height={400}>

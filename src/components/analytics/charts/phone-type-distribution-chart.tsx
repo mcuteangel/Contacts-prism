@@ -1,7 +1,7 @@
 "use client";
 
 import React from "react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
 import { Phone } from "lucide-react";
 
@@ -20,7 +20,9 @@ export function PhoneTypeDistributionChart({ phoneTypeData }: PhoneTypeDistribut
           <Phone size={18} />
           نوع شماره‌های تلفن
         </CardTitle>
-        <CardDescription>تعداد شماره‌های تلفن بر اساس نوع</CardDescription>
+        <CardDescription>
+          تعداد شماره‌های تلفن بر اساس نوع
+        </CardDescription>
       </CardHeader>
       <CardContent>
         <ResponsiveContainer width="100%" height={300}>

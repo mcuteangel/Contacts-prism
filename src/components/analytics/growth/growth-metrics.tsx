@@ -1,7 +1,7 @@
 "use client";
 
 import React from "react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { TrendingUp, TrendingDown } from "lucide-react";
 
@@ -19,9 +19,9 @@ export function GrowthMetrics({ totalContacts, monthlyGrowth }: GrowthMetricsPro
     <Card>
       <CardHeader>
         <CardTitle>نرخ رشد ماهانه</CardTitle>
-        <div className="text-sm text-muted-foreground">
+        <CardDescription>
           تغییرات ماهانه در تعداد مخاطبین
-        </div>
+        </CardDescription>
       </CardHeader>
       <CardContent>
         <div className="text-center mb-6">

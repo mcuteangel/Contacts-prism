@@ -1,7 +1,7 @@
 "use client";
 
 import React from "react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Calendar } from "lucide-react";
 
 interface AgeDistributionProps {
@@ -21,11 +21,11 @@ export function AgeDistribution({ totalContacts }: AgeDistributionProps) {
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
           <Calendar size={18} />
-          توزیگ سنی (تخمینی)
+          توزیع سنی (تخمینی)
         </CardTitle>
-        <div className="text-sm text-muted-foreground">
-          تخمین توزیگ سنی مخاطبین
-        </div>
+        <CardDescription>
+          تخمین توزیع سنی مخاطبین
+        </CardDescription>
       </CardHeader>
       <CardContent>
         <div className="space-y-4">

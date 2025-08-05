@@ -1,7 +1,7 @@
 "use client";
 
 import React from "react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
 import { Users } from "lucide-react";
 
@@ -21,9 +21,9 @@ export function GroupDistributionChart({ groupData }: GroupDistributionChartProp
           <Users size={18} />
           توزیع گروه‌ها
         </CardTitle>
-        <div className="text-sm text-muted-foreground">
+        <CardDescription>
           تعداد مخاطبین در هر گروه
-        </div>
+        </CardDescription>
       </CardHeader>
       <CardContent>
         <ResponsiveContainer width="100%" height={400}>

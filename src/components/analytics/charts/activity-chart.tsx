@@ -1,7 +1,7 @@
 "use client";
 
 import React from "react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
 import { Clock } from "lucide-react";
 
@@ -20,7 +20,9 @@ export function ActivityChart({ activityData }: ActivityChartProps) {
           <Clock size={18} />
           فعالیت ساعتی
         </CardTitle>
-        <CardDescription>تعداد فعالیت‌های مخاطبین بر اساس ساعت روز</CardDescription>
+        <CardDescription>
+          تعداد فعالیت‌های مخاطبین بر اساس ساعت روز
+        </CardDescription>
       </CardHeader>
       <CardContent>
         <ResponsiveContainer width="100%" height={300}>

@@ -20,7 +20,9 @@ export function PositionDistributionChart({ positionData }: PositionDistribution
           <Building2 size={18} />
           محبوب‌ترین مشاغل
         </CardTitle>
-        <CardDescription>تعداد مخاطبین بر اساس سمت/تخصص</CardDescription>
+        <CardDescription>
+          تعداد مخاطبین بر اساس سمت/تخصص
+        </CardDescription>
       </CardHeader>
       <CardContent>
         <ResponsiveContainer width="100%" height={300}>
