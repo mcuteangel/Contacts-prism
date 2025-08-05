@@ -10,6 +10,9 @@ import { Toaster } from "sonner";
 import { useContactForm } from "@/contexts/contact-form-context";
 import { Button } from "@/components/ui/button";
 import { Plus } from "lucide-react";
+import { AppLock } from "@/components/app-lock";
+import { EnhancedThemeSelector } from "@/components/enhanced-theme-selector";
+import { ContactListColumns } from "@/components/contact-list-columns";
 
 interface MainLayoutProps {
   children: React.ReactNode;
@@ -19,6 +22,9 @@ export function MainLayout({ children }: MainLayoutProps) {
   const pathname = usePathname();
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
   const [isMobile, setIsMobile] = useState<boolean | undefined>(undefined);
+  const [isAppLockOpen, setIsAppLockOpen] = useState(false);
+  const [isThemeSelectorOpen, setIsThemeSelectorOpen] = useState(false);
+  const [isColumnSelectorOpen, setIsColumnSelectorOpen] = useState(false);
   const { openContactForm } = useContactForm();
 
   // دکمه افزودن مخاطب باید در تمام صفحات اصلی نمایش داده شود
@@ -34,6 +40,14 @@ export function MainLayout({ children }: MainLayoutProps) {
     
     return () => window.removeEventListener('resize', checkIsMobile);
   }, []);
+
+  useEffect(() => {
+    // Check if app lock is enabled
+    const savedPassword = localStorage.getItem('app-password');
+    if (savedPassword && !isAppLockOpen) {
+      setIsAppLockOpen(true);
+    }
+  }, [isAppLockOpen]);
 
   const handleTabChange = (tab: 'contacts' | 'groups' | 'customFields' | 'globalCustomFields' | 'analytics' | 'ai' | 'help' | 'tools' | 'settings') => {
     if (tab === 'contacts') {
@@ -82,7 +96,23 @@ export function MainLayout({ children }: MainLayoutProps) {
   return (
     <div className="min-h-screen flex flex-col bg-gradient-to-br from-blue-100 to-purple-100 dark:from-gray-900 dark:to-black">
       <Toaster richColors position="top-center" />
-      <Header />
+      
+      {/* App Lock Dialog */}
+      <AppLock 
+        isOpen={isAppLockOpen} 
+        onOpenChange={(open) => {
+          if (!open) {
+            setIsAppLockOpen(false);
+          }
+        }} 
+      />
+      
+      <Header 
+        onContactsRefreshed={() => {}}
+        onOpenAppLock={() => setIsAppLockOpen(true)}
+        onOpenThemeSelector={() => setIsThemeSelectorOpen(true)}
+        onOpenColumnSelector={() => setIsColumnSelectorOpen(true)}
+      />
       
       <div className="flex flex-1">
         {!isMobile && (
@@ -112,7 +142,7 @@ export function MainLayout({ children }: MainLayoutProps) {
       </div>
 
       {/* دکمه افزودن مخاطب ثابت در تمام صفحات اصلی */}
-      {isMainPage && (
+      {isMainPage && !isAppLockOpen && (
         <Button
           className="fixed bottom-8 left-8 rounded-full h-14 w-14 shadow-lg flex items-center justify-center z-40"
           onClick={() => openContactForm()}
@@ -121,7 +151,7 @@ export function MainLayout({ children }: MainLayoutProps) {
         </Button>
       )}
 
-      {isMobile && isMainPage && (
+      {isMobile && isMainPage && !isAppLockOpen && (
         <MobileNav 
           activeTab={
             pathname === '/contacts' || pathname === '/' ? 'contacts' :
@@ -138,6 +168,30 @@ export function MainLayout({ children }: MainLayoutProps) {
           onOpenSettings={handleOpenSettings}
         />
       )}
+
+      {/* Enhanced Theme Selector */}
+      <EnhancedThemeSelector 
+        isOpen={isThemeSelectorOpen} 
+        onOpenChange={setIsThemeSelectorOpen} 
+      />
+
+      {/* Contact List Columns Customization */}
+      <ContactListColumns 
+        isOpen={isColumnSelectorOpen}
+        onOpenChange={setIsColumnSelectorOpen}
+        onColumnsChange={(columns) => {
+          // Handle column changes
+          console.log('Columns updated:', columns);
+        }}
+        defaultColumns={[
+          { id: 'name', label: 'نام و نام خانوادگی', icon: require('lucide-react').User, description: 'نام کامل مخاطب', visible: true, order: 0 },
+          { id: 'phones', label: 'شماره‌ها', icon: require('lucide-react').Phone, description: 'شماره‌های تلفن مخاطب', visible: true, order: 1 },
+          { id: 'position', label: 'سمت', icon: require('lucide-react').Briefcase, description: 'سمت شغلی مخاطب', visible: true, order: 2 },
+          { id: 'address', label: 'آدرس', icon: require('lucide-react').MapPin, description: 'آدرس مخاطب', visible: true, order: 3 },
+          { id: 'group', label: 'گروه', icon: require('lucide-react').Tag, description: 'گروه مخاطب', visible: true, order: 4 },
+          { id: 'notes', label: 'یادداشت‌ها', icon: require('lucide-react').FileText, description: 'یادداشت‌های مخاطب', visible: true, order: 5 },
+        ]}
+      />
     </div>
   );
 }
