@@ -9,7 +9,7 @@ import { DesktopSidebar } from "@/components/desktop-sidebar";
 import { Toaster } from "sonner";
 import { useContactForm } from "@/contexts/contact-form-context";
 import { Button } from "@/components/ui/button";
-import { Plus } from "lucide-react";
+import { Plus, User, Phone, Briefcase, MapPin, Layout } from "lucide-react"; // Added icon imports
 import { AppLock } from "@/components/app-lock";
 import { ThemeSelector } from "@/components/theme-selector";
 import { ContactListColumns } from "@/components/contact-list-columns";
