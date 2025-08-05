@@ -9,7 +9,7 @@ import { DesktopSidebar } from "@/components/desktop-sidebar";
 import { Toaster } from "sonner";
 import { useContactForm } from "@/contexts/contact-form-context";
 import { Button } from "@/components/ui/button";
-import { Plus, User, Phone, Briefcase, MapPin, Layout } from "lucide-react"; // Added icon imports
+import { Plus } from "lucide-react";
 import { AppLock } from "@/components/app-lock";
 import { ThemeSelector } from "@/components/theme-selector";
 import { ContactListColumns } from "@/components/contact-list-columns";
@@ -95,64 +95,81 @@ export function MainLayout({ children }: MainLayoutProps) {
 
   return (
     <div className="min-h-screen flex flex-col bg-gradient-to-br from-blue-100 to-purple-100 dark:from-gray-900 dark:to-black">
-      <Toaster richColors position="top-center" />
-      <Header 
-        onContactsRefreshed={() => { /* This prop is not directly used here, but passed down */ }} 
-        onOpenAppLock={() => setIsAppLockOpen(true)}
-        onOpenThemeSelector={() => setIsThemeSelectorOpen(true)}
-        onOpenColumnSelector={() => setIsColumnSelectorOpen(true)}
-      />
+      <AppLock isOpen={isAppLockOpen} onOpenChange={setIsAppLockOpen} />
+      <ThemeSelector isOpen={isThemeSelectorOpen} onOpenChange={setIsThemeSelectorOpen} />
       
       {isMobile ? (
-        <MobileNav
-          activeTab={pathname.substring(1) as any || 'contacts'}
-          onTabChange={handleTabChange}
-          onOpenSettings={handleOpenSettings}
-        />
+        <>
+          <Header 
+            onContactsRefreshed={() => window.location.reload()}
+            onOpenAppLock={() => setIsAppLockOpen(true)}
+            onOpenThemeSelector={() => setIsThemeSelectorOpen(true)}
+            onOpenColumnSelector={() => setIsColumnSelectorOpen(true)}
+          />
+          <main className="flex-grow pt-16 pb-16 p-4">
+            {children}
+          </main>
+          <MobileNav 
+            activeTab={
+              pathname === '/' ? 'contacts' :
+              pathname === '/groups' ? 'groups' :
+              pathname === '/custom-fields' ? 'customFields' :
+              pathname === '/custom-fields-global' ? 'globalCustomFields' :
+              pathname === '/analytics' ? 'analytics' :
+              pathname === '/ai' ? 'ai' :
+              pathname === '/help' ? 'help' :
+              pathname === '/tools' ? 'tools' :
+              'settings'
+            }
+            onTabChange={handleTabChange}
+            onOpenSettings={handleOpenSettings}
+          />
+        </>
       ) : (
-        <DesktopSidebar
-          activeTab={pathname.substring(1) as any || 'contacts'}
-          onTabChange={handleTabChange}
-          onOpenSettings={handleOpenSettings}
-          onCollapseChange={setIsSidebarCollapsed}
-        />
+        <div className="flex flex-1">
+          <DesktopSidebar 
+            activeTab={
+              pathname === '/' ? 'contacts' :
+              pathname === '/groups' ? 'groups' :
+              pathname === '/custom-fields' ? 'customFields' :
+              pathname === '/custom-fields-global' ? 'globalCustomFields' :
+              pathname === '/analytics' ? 'analytics' :
+              pathname === '/ai' ? 'ai' :
+              pathname === '/help' ? 'help' :
+              pathname === '/tools' ? 'tools' :
+              'settings'
+            }
+            onTabChange={handleTabChange}
+            onOpenSettings={handleOpenSettings}
+            onCollapseChange={setIsSidebarCollapsed}
+          />
+          <div className="flex-1 flex flex-col">
+            <Header 
+              onContactsRefreshed={() => window.location.reload()}
+              onOpenAppLock={() => setIsAppLockOpen(true)}
+              onOpenThemeSelector={() => setIsThemeSelectorOpen(true)}
+              onOpenColumnSelector={() => setIsColumnSelectorOpen(true)}
+            />
+            <main className={`flex-grow pt-16 p-4 ${isSidebarCollapsed ? 'ml-16' : 'ml-64'} transition-all duration-300`}>
+              {children}
+            </main>
+          </div>
+        </div>
       )}
-
-      <main className={`flex-1 p-4 sm:p-8 transition-all duration-300 ${
-        isMobile 
-          ? "pb-20" 
-          : isSidebarCollapsed 
-            ? "mr-16 pt-20" 
-            : "mr-64 pt-20"
-      }`}>
-        {children}
-      </main>
-
+      
       {isMainPage && (
         <Button
           className="fixed bottom-8 left-8 rounded-full h-14 w-14 shadow-lg flex items-center justify-center z-40"
-          onClick={() => openContactForm()}
+          onClick={() => {
+            // Dispatch event to open contact form
+            window.dispatchEvent(new CustomEvent('open-contact-form'));
+          }}
         >
           <Plus size={24} />
         </Button>
       )}
-
-      <AppLock isOpen={isAppLockOpen} onOpenChange={setIsAppLockOpen} />
-      <ThemeSelector isOpen={isThemeSelectorOpen} onOpenChange={setIsThemeSelectorOpen} />
-      <ContactListColumns 
-        isOpen={isColumnSelectorOpen} 
-        onOpenChange={setIsColumnSelectorOpen} 
-        onColumnsChange={() => { /* Implement column saving logic */ }}
-        defaultColumns={[
-          { id: 'firstName', label: 'نام', icon: User, description: 'نام مخاطب', visible: true, order: 0 },
-          { id: 'lastName', label: 'نام خانوادگی', icon: User, description: 'نام خانوادگی مخاطب', visible: true, order: 1 },
-          { id: 'phoneNumbers', label: 'شماره تلفن', icon: Phone, description: 'شماره‌های تماس مخاطب', visible: true, order: 2 },
-          { id: 'position', label: 'سمت', icon: Briefcase, description: 'سمت یا تخصص مخاطب', visible: true, order: 3 },
-          { id: 'address', label: 'آدرس', icon: MapPin, description: 'آدرس پستی مخاطب', visible: true, order: 4 },
-          { id: 'notes', label: 'یادداشت‌ها', icon: Layout, description: 'یادداشت‌های مربوط به مخاطب', visible: true, order: 5 },
-          { id: 'customFields', label: 'فیلدهای سفارشی', icon: Layout, description: 'فیلدهای سفارشی مخاطب', visible: true, order: 6 },
-        ]}
-      />
+      
+      <Toaster richColors position="top-center" />
     </div>
   );
 }

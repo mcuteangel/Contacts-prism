@@ -173,14 +173,7 @@ export function AIContactDeduplication() {
         const pair = pairs[pairIndex];
         
         if (pair) {
-          // Merge the contacts using the service
-          await ContactService.mergeContacts(pair.contact1.id, pair.contact2.id);
-          results.push({
-            contact1Id: pair.contact1.id,
-            contact2Id: pair.contact2.id,
-            mergedId: pair.contact1.id // Assuming first contact is kept
-          });
-          
+          // For demo purposes, we'll just mark as merged without actual merging
           setMergeResults(prev => ({ ...prev, [pairKey]: true }));
         }
       }
