@@ -20,7 +20,6 @@ export function TrendsTab({ trendData, totalContacts, monthlyGrowth }: TrendsTab
       <TrendChart trendData={trendData} />
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         <GrowthMetrics totalContacts={totalContacts} monthlyGrowth={monthlyGrowth} />
-        {/* Add another chart component here if needed */}
       </div>
     </div>
   );

@@ -1,11 +1,12 @@
 "use client";
 
-import React from "react";
+import React, { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
-import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
-import { Sun, Moon, Monitor, Palette } from "lucide-react";
+import { Switch } from "@/components/ui/switch";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Palette, Sun, Moon, Monitor, Droplets, Circle, Square, Hexagon } from "lucide-react";
 import { useTheme } from "next-themes";
 
 interface ThemeSelectorProps {
@@ -13,126 +14,431 @@ interface ThemeSelectorProps {
   onOpenChange: (open: boolean) => void;
 }
 
+interface ColorPreset {
+  name: string;
+  colors: {
+    primary: string;
+    secondary: string;
+    accent: string;
+  };
+}
+
+const colorPresets: ColorPreset[] = [
+  {
+    name: "آبی",
+    colors: {
+      primary: "221.2 83.2% 53.3%",
+      secondary: "210.4 40% 98%",
+      accent: "221.2 83.2% 53.3%"
+    }
+  },
+  {
+    name: "سبز",
+    colors: {
+      primary: "142.1 76.2% 36.3%",
+      secondary: "142.1 76.2% 96%",
+      accent: "142.1 76.2% 36.3%"
+    }
+  },
+  {
+    name: "بنفش",
+    colors: {
+      primary: "262.4 83.3% 57.8%",
+      secondary: "262.4 83.3% 97%",
+      accent: "262.4 83.3% 57.8%"
+    }
+  },
+  {
+    name: "نارنجی",
+    colors: {
+      primary: "24.6 95% 53.1%",
+      secondary: "24.6 95% 96%",
+      accent: "24.6 95% 53.1%"
+    }
+  },
+  {
+    name: "قرمز",
+    colors: {
+      primary: "0 84.2% 60.2%",
+      secondary: "0 84.2% 96%",
+      accent: "0 84.2% 60.2%"
+    }
+  }
+];
+
+const shapePresets = [
+  { name: "دایره", icon: Circle, value: "50%" },
+  { name: "مربع", icon: Square, value: "0.375rem" },
+  { name: "هشتگ", icon: Hexagon, value: "0.5rem" }
+];
+
 export function ThemeSelector({ isOpen, onOpenChange }: ThemeSelectorProps) {
   const { theme, setTheme } = useTheme();
+  const [glassOpacity, setGlassOpacity] = useState([70]);
+  const [blurAmount, setBlurAmount] = useState([12]);
+  const [selectedColors, setSelectedColors] = useState({
+    primary: "221.2 83.2% 53.3%",
+    secondary: "210.4 40% 98%",
+    accent: "221.2 83.2% 53.3%"
+  });
+  const [selectedShape, setSelectedShape] = useState("0.5rem");
+  const [isGlassEnabled, setIsGlassEnabled] = useState(true);
 
-  const themes = [
-    {
-      id: "light",
-      name: "روشن",
-      icon: Sun,
-      description: "تم روشن با پس‌زمینه روشن"
-    },
-    {
-      id: "dark",
-      name: "تاریک",
-      icon: Moon,
-      description: "تم تاریک با پس‌زمینه تیره"
-    },
-    {
-      id: "system",
-      name: "سیستم",
-      icon: Monitor,
-      description: "همگام با تنظیمات سیستم"
-    }
-  ];
+  const applyColorPreset = (preset: ColorPreset) => {
+    setSelectedColors(preset.colors);
+    document.documentElement.style.setProperty('--primary', preset.colors.primary);
+    document.documentElement.style.setProperty('--secondary', preset.colors.secondary);
+    document.documentElement.style.setProperty('--accent', preset.colors.accent);
+  };
 
-  const handleThemeChange = (newTheme: string) => {
-    setTheme(newTheme);
+  const applyShapePreset = (shape: string) => {
+    setSelectedShape(shape);
+    document.documentElement.style.setProperty('--radius', shape);
+  };
+
+  const handleCustomColorChange = (colorType: string, value: string) => {
+    setSelectedColors(prev => ({ ...prev, [colorType]: value }));
+    document.documentElement.style.setProperty(`--${colorType}`, value);
+  };
+
+  const resetToDefaults = () => {
+    setSelectedColors({
+      primary: "221.2 83.2% 53.3%",
+      secondary: "210.4 40% 98%",
+      accent: "221.2 83.2% 53.3%"
+    });
+    setGlassOpacity([70]);
+    setBlurAmount([12]);
+    setSelectedShape("0.5rem");
+    setIsGlassEnabled(true);
+    
+    document.documentElement.style.setProperty('--primary', "221.2 83.2% 53.3%");
+    document.documentElement.style.setProperty('--secondary', "210.4 40% 98%");
+    document.documentElement.style.setProperty('--accent', "221.2 83.2% 53.3%");
+    document.documentElement.style.setProperty('--radius', "0.5rem");
   };
 
   return (
     <div className={`fixed inset-0 z-50 flex items-center justify-center ${isOpen ? 'block' : 'hidden'}`}>
       <div className="fixed inset-0 bg-black/50" onClick={() => onOpenChange(false)} />
-      <div className="glass p-6 rounded-lg shadow-lg backdrop-blur-md max-w-md w-full mx-4">
-        <div className="flex justify-between items-center mb-4">
-          <h2 className="text-2xl font-bold text-primary-foreground">شخصی‌سازی ظاهر</h2>
+      <div className="glass p-6 rounded-lg shadow-lg backdrop-blur-md max-w-2xl w-full mx-4 max-h-[90vh] overflow-y-auto">
+        <div className="flex justify-between items-center mb-6">
+          <h2 className="text-2xl font-bold text-primary-foreground flex items-center gap-2">
+            <Palette size={24} />
+            شخصی‌سازی ظاهر
+          </h2>
           <Button variant="ghost" size="icon" onClick={() => onOpenChange(false)}>
-            <Palette size={20} />
+            <Hexagon size={20} />
           </Button>
         </div>
-        
-        <div className="space-y-4">
-          <div>
-            <Label className="text-base font-medium mb-3 block">انتخاب تم</Label>
-            <RadioGroup value={theme} onValueChange={handleThemeChange}>
-              <div className="grid grid-cols-1 gap-3">
-                {themes.map((themeOption) => {
-                  const Icon = themeOption.icon;
-                  return (
-                    <Card 
-                      key={themeOption.id}
-                      className={`cursor-pointer transition-all ${
-                        theme === themeOption.id 
-                          ? "ring-2 ring-primary ring-offset-2" 
-                          : "hover:bg-accent"
-                      }`}
-                      onClick={() => handleThemeChange(themeOption.id)}
-                    >
-                      <CardContent className="p-4 flex items-center gap-3">
-                        <RadioGroupItem value={themeOption.id} id={themeOption.id} />
-                        <div className="flex items-center gap-3">
-                          <Icon size={24} className="text-primary" />
-                          <div>
-                            <div className="font-medium">{themeOption.name}</div>
-                            <div className="text-sm text-muted-foreground">
-                              {themeOption.description}
-                            </div>
-                          </div>
-                        </div>
-                      </CardContent>
-                    </Card>
-                  );
-                })}
-              </div>
-            </RadioGroup>
-          </div>
 
-          <div>
-            <Label className="text-base font-medium mb-3 block">تنظیمات رنگLabel>
-            <Card className="p-4">
-              <div className="space-y-3">
-                <div className="flex items-center justify-between">
-                  <span className="text-sm">رنگ اصلی</span>
-                  <div className="flex gap-2">
-                    <Button 
-                      size="sm" 
-                      variant="outline"
-                      className="w-8 h-8 rounded-full bg-blue-600"
-                      onClick={() => document.documentElement.style.setProperty('--primary', '221.2 83.2% 53.3%')}
-                    />
-                    <Button 
-                      size="sm" 
-                      variant="outline"
-                      className="w-8 h-8 rounded-full bg-green-600"
-                      onClick={() => document.documentElement.style.setProperty('--primary', '142.1 76.2% 36.3%')}
-                    />
-                    <Button 
-                      size="sm" 
-                      variant="outline"
-                      className="w-8 h-8 rounded-full bg-purple-600"
-                      onClick={() => document.documentElement.style.setProperty('--primary', '262.4 83.3% 57.8%')}
-                    />
+        <Tabs defaultValue="colors" className="w-full">
+          <TabsList className="grid w-full grid-cols-4">
+            <TabsTrigger value="colors">رنگ‌ها</TabsTrigger>
+            <TabsTrigger value="effects">افکت‌ها</TabsTrigger>
+            <TabsTrigger value="shapes">اشکال</TabsTrigger>
+            <TabsTrigger value="presets">پیش‌فرض‌ها</TabsTrigger>
+          </TabsList>
+
+          <TabsContent value="colors" className="mt-6 space-y-6">
+            <Card>
+              <CardHeader>
+                <CardTitle>رنگ‌های اصلی</CardTitle>
+                <CardDescription>
+                  رنگ‌های اصلی برنامه را شخصی‌سازی کنید
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div className="space-y-2">
+                    <Label>رنگ اصلی</Label>
+                    <div className="flex items-center gap-2">
+                      <input
+                        type="color"
+                        value={`hsl(${selectedColors.primary})`}
+                        onChange={(e) => {
+                          const hsl = e.target.value;
+                          handleCustomColorChange('primary', hsl);
+                        }}
+                        className="w-12 h-12 rounded border-2 border-border"
+                      />
+                      <input
+                        value={selectedColors.primary}
+                        onChange={(e) => handleCustomColorChange('primary', e.target.value)}
+                        placeholder="HSL value"
+                        className="w-full px-3 py-2 border rounded"
+                      />
+                    </div>
+                  </div>
+                  
+                  <div className="space-y-2">
+                    <Label>رنگ ثانویه</Label>
+                    <div className="flex items-center gap-2">
+                      <input
+                        type="color"
+                        value={`hsl(${selectedColors.secondary})`}
+                        onChange={(e) => {
+                          const hsl = e.target.value;
+                          handleCustomColorChange('secondary', hsl);
+                        }}
+                        className="w-12 h-12 rounded border-2 border-border"
+                      />
+                      <input
+                        value={selectedColors.secondary}
+                        onChange={(e) => handleCustomColorChange('secondary', e.target.value)}
+                        placeholder="HSL value"
+                        className="w-full px-3 py-2 border rounded"
+                      />
+                    </div>
+                  </div>
+                  
+                  <div className="space-y-2">
+                    <Label>رنگ تأکید</Label>
+                    <div className="flex items-center gap-2">
+                      <input
+                        type="color"
+                        value={`hsl(${selectedColors.accent})`}
+                        onChange={(e) => {
+                          const hsl = e.target.value;
+                          handleCustomColorChange('accent', hsl);
+                        }}
+                        className="w-12 h-12 rounded border-2 border-border"
+                      />
+                      <input
+                        value={selectedColors.accent}
+                        onChange={(e) => handleCustomColorChange('accent', e.target.value)}
+                        placeholder="HSL value"
+                        className="w-full px-3 py-2 border rounded"
+                      />
+                    </div>
                   </div>
                 </div>
-                <div className="flex items-center justify-between">
-                  <span className="text-sm">حالت شیشه‌ای</span>
-                  <Button variant="outline" size="sm">
-                    فعال
-                  </Button>
-                </div>
-              </div>
+              </CardContent>
             </Card>
-          </div>
-        </div>
+          </TabsContent>
 
-        <div className="flex justify-end gap-2 mt-6">
-          <Button variant="outline" onClick={() => onOpenChange(false)}>
-            انصراف
-          </Button>
-          <Button onClick={() => onOpenChange(false)}>
-            ذخیره تغییرات
-          </Button>
+          <TabsContent value="effects" className="mt-6 space-y-6">
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Droplets size={20} />
+                  افکت‌های شیشه‌ای
+                </CardTitle>
+                <CardDescription>
+                  تنظیمات افکت شیشه‌ای برای پس‌زمینه‌ها
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-6">
+                <div className="flex items-center justify-between">
+                  <div className="space-y-0.5">
+                    <Label>فعال‌سازی افکت شیشه‌ای</Label>
+                    <p className="text-sm text-muted-foreground">
+                      افکت شیشه‌ای را برای المان‌ها فعال یا غیرفعال کنید
+                    </p>
+                  </div>
+                  <Switch
+                    checked={isGlassEnabled}
+                    onCheckedChange={setIsGlassEnabled}
+                  />
+                </div>
+
+                {isGlassEnabled && (
+                  <>
+                    <div className="space-y-3">
+                      <Label>شفافیت: {glassOpacity[0]}%</Label>
+                      <input
+                        type="range"
+                        min="10"
+                        max="100"
+                        step="5"
+                        value={glassOpacity[0]}
+                        onChange={(e) => setGlassOpacity([parseInt(e.target.value)])}
+                        className="w-full"
+                      />
+                      <p className="text-sm text-muted-foreground">
+                        میزان شفافیت پس‌زمینه شیشه‌ای
+                      </p>
+                    </div>
+
+                    <div className="space-y-3">
+                      <Label>مقدار تار شدن: {blurAmount[0]}px</Label>
+                      <input
+                        type="range"
+                        min="0"
+                        max="30"
+                        step="1"
+                        value={blurAmount[0]}
+                        onChange={(e) => setBlurAmount([parseInt(e.target.value)])}
+                        className="w-full"
+                      />
+                      <p className="text-sm text-muted-foreground">
+                        میزان تار شدن پس‌زمینه (blur)
+                      </p>
+                    </div>
+                  </>
+                )}
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          <TabsContent value="shapes" className="mt-6 space-y-6">
+            <Card>
+              <CardHeader>
+                <CardTitle>اشکال و گوشه‌ها</CardTitle>
+                <CardDescription>
+                  شکل المان‌ها و گوشه‌های گرد را تنظیم کنید
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <Label>شکل پیش‌فرض</Label>
+                <div className="grid grid-cols-3 gap-3">
+                  {shapePresets.map((preset) => {
+                    const Icon = preset.icon;
+                    return (
+                      <button
+                        key={preset.name}
+                        className={`flex flex-col items-center gap-2 h-auto py-4 border rounded ${
+                          selectedShape === preset.value ? 'bg-primary text-primary-foreground' : 'bg-muted'
+                        }`}
+                        onClick={() => applyShapePreset(preset.value)}
+                      >
+                        <Icon size={24} />
+                        <span className="text-sm">{preset.name}</span>
+                      </button>
+                    );
+                  })}
+                </div>
+
+                <div className="space-y-2">
+                  <Label>شخصی‌سازی گوشه‌ها</Label>
+                  <input
+                    type="text"
+                    value={selectedShape}
+                    onChange={(e) => applyShapePreset(e.target.value)}
+                    placeholder="مقدار radius (px یا %)"
+                    className="w-full px-3 py-2 border rounded"
+                  />
+                </div>
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          <TabsContent value="presets" className="mt-6 space-y-6">
+            <Card>
+              <CardHeader>
+                <CardTitle>پیش‌فرض‌های رنگی</CardTitle>
+                <CardDescription>
+                  از ترکیب‌های رنگی از پیش تعریف شده استفاده کنید
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+                  {colorPresets.map((preset) => (
+                    <button
+                      key={preset.name}
+                      className="flex flex-col items-center gap-2 h-auto py-4 border rounded bg-muted"
+                      onClick={() => applyColorPreset(preset)}
+                    >
+                      <div className="flex gap-1">
+                        <div 
+                          className="w-6 h-6 rounded-full border"
+                          style={{ backgroundColor: `hsl(${preset.colors.primary})` }}
+                        />
+                        <div 
+                          className="w-6 h-6 rounded-full border"
+                          style={{ backgroundColor: `hsl(${preset.colors.secondary})` }}
+                        />
+                        <div 
+                          className="w-6 h-6 rounded-full border"
+                          style={{ backgroundColor: `hsl(${preset.colors.accent})` }}
+                        />
+                      </div>
+                      <span className="text-sm">{preset.name}</span>
+                    </button>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader>
+                <CardTitle>تم‌های کامل</CardTitle>
+                <CardDescription>
+                  ترکیب کامل رنگ و افکت را انتخاب کنید
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <button
+                    className="h-auto p-4 border rounded"
+                    onClick={() => {
+                      setTheme("light");
+                      applyColorPreset(colorPresets[0]);
+                      setGlassOpacity([70]);
+                      setBlurAmount([12]);
+                    }}
+                  >
+                    <div className="text-left w-full">
+                      <h4 className="font-semibold mb-2">روشن مدرن</h4>
+                      <p className="text-sm text-muted-foreground mb-3">
+                        تم روشن با افکت شیشه‌ای و رنگ آبی
+                      </p>
+                      <div className="flex gap-1">
+                        <div className="w-4 h-4 rounded bg-blue-500" />
+                        <div className="w-4 h-4 rounded bg-blue-100" />
+                        <div className="w-4 h-4 rounded bg-blue-200" />
+                      </div>
+                    </div>
+                  </button>
+
+                  <button
+                    className="h-auto p-4 border rounded"
+                    onClick={() => {
+                      setTheme("dark");
+                      applyColorPreset(colorPresets[2]);
+                      setGlassOpacity([80]);
+                      setBlurAmount([16]);
+                    }}
+                  >
+                    <div className="text-left w-full">
+                      <h4 className="font-semibold mb-2">تاریک گلاسی</h4>
+                      <p className="text-sm text-muted-foreground mb-3">
+                        تم تاریک با افکت شیشه‌ای قوی و رنگ بنفش
+                      </p>
+                      <div className="flex gap-1">
+                        <div className="w-4 h-4 rounded bg-purple-500" />
+                        <div className="w-4 h-4 rounded bg-purple-900" />
+                        <div className="w-4 h-4 rounded bg-purple-800" />
+                      </div>
+                    </div>
+                  </button>
+                </div>
+              </CardContent>
+            </Card>
+          </TabsContent>
+        </Tabs>
+
+        <div className="flex justify-between gap-2 mt-6">
+          <button 
+            className="px-4 py-2 border rounded"
+            onClick={resetToDefaults}
+          >
+            بازگشت به پیش‌فرض
+          </button>
+          <div className="flex gap-2">
+            <button 
+              className="px-4 py-2 border rounded"
+              onClick={() => onOpenChange(false)}
+            >
+              انصراف
+            </button>
+            <button 
+              className="px-4 py-2 bg-primary text-primary-foreground rounded"
+              onClick={() => onOpenChange(false)}
+            >
+              ذخیره تغییرات
+            </button>
+          </div>
         </div>
       </div>
     </div>

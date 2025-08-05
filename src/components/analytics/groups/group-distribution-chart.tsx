@@ -14,8 +14,6 @@ interface GroupDistributionChartProps {
 }
 
 export function GroupDistributionChart({ groupData }: GroupDistributionChartProps) {
-  const maxContacts = Math.max(...groupData.map(g => g.contacts));
-
   return (
     <Card>
       <CardHeader>
@@ -23,7 +21,9 @@ export function GroupDistributionChart({ groupData }: GroupDistributionChartProp
           <Users size={18} />
           توزیع گروه‌ها
         </CardTitle>
-        <CardDescription>تعداد مخاطبین در هر گروه</CardDescription>
+        <div className="text-sm text-muted-foreground">
+          تعداد مخاطبین در هر گروه
+        </div>
       </CardHeader>
       <CardContent>
         <ResponsiveContainer width="100%" height={400}>

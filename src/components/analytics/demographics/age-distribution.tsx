@@ -23,7 +23,9 @@ export function AgeDistribution({ totalContacts }: AgeDistributionProps) {
           <Calendar size={18} />
           توزیگ سنی (تخمینی)
         </CardTitle>
-        <CardDescription>تخمین توزیگ سنی مخاطبین</CardDescription>
+        <div className="text-sm text-muted-foreground">
+          تخمین توزیگ سنی مخاطبین
+        </div>
       </CardHeader>
       <CardContent>
         <div className="space-y-4">

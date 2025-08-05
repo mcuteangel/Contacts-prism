@@ -41,7 +41,7 @@ export function GroupCards({ groupData }: GroupCardsProps) {
             
             <div className="space-y-2">
               <div className="flex justify-between text-sm">
-                <span>پوششspan>
+                <span>پوشش</span>
                 <Badge variant="outline">
                   {Math.round((group.contacts / maxContacts) * 100)}%
                 </Badge>

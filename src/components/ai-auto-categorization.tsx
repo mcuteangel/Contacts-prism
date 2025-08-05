@@ -1,76 +1,103 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import { Progress } from "@/components/ui/progress";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { 
+  RefreshCw, 
+  CheckCircle, 
+  AlertCircle, 
+  Users, 
+  Search,
+  Filter,
+  Zap,
+  Tag,
+  Building2
+} from "lucide-react";
 import { ContactService } from "@/services/contact-service";
 import { type Contact, type Group } from "@/database/db";
-import { Brain, RefreshCw, Tag, Users, Building2, Phone } from "lucide-react";
 
-interface CategorizationSuggestion {
+interface CategorizationResult {
   contactId: number;
-  contactName: string;
-  suggestedGroup: string;
+  suggestedGroupId: number | null;
   confidence: number;
   reasons: string[];
 }
 
-export function AIAutoCategorization() {
-  const [suggestions, setSuggestions] = useState<CategorizationSuggestion[]>([]);
-  const [isAnalyzing, setIsAnalyzing] = useState(false);
-  const [selectedSuggestions, setSelectedSuggestions] = useState<Set<string>>(new Set());
+export function AIContactCategorization() {
+  const [contacts, setContacts] = useState<Contact[]>([]);
   const [groups, setGroups] = useState<Group[]>([]);
+  const [results, setResults] = useState<CategorizationResult[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [searchTerm, setSearchTerm] = useState("");
+  const [selectedGroupId, setSelectedGroupId] = useState<number | null>(null);
 
   useEffect(() => {
-    fetchGroups();
+    loadData();
   }, []);
 
-  const fetchGroups = async () => {
+  const loadData = async () => {
     try {
-      const allGroups = await ContactService.getAllGroups();
+      const [allContacts, allGroups] = await Promise.all([
+        ContactService.getAllContacts(),
+        ContactService.getAllGroups()
+      ]);
+      setContacts(allContacts);
       setGroups(allGroups);
     } catch (error) {
-      console.error("Error fetching groups:", error);
+      console.error("Error loading data:", error);
     }
   };
 
-  const analyzeAndCategorize = async () => {
-    setIsAnalyzing(true);
+  const categorizeContacts = async () => {
+    setLoading(true);
     try {
-      const contacts = await ContactService.getAllContacts();
-      const newSuggestions: CategorizationSuggestion[] = [];
-
+      const categorizationResults: CategorizationResult[] = [];
+      
       for (const contact of contacts) {
-        if (!contact.groupId) { // Only categorize contacts without groups
-          const suggestion = suggestGroupForContact(contact);
-          if (suggestion.confidence > 0.6) {
-            newSuggestions.push(suggestion);
-          }
-        }
+        const result = suggestCategorization(contact, groups);
+        categorizationResults.push(result);
       }
-
-      setSuggestions(newSuggestions);
+      
+      setResults(categorizationResults);
     } catch (error) {
       console.error("Error categorizing contacts:", error);
     } finally {
-      setIsAnalyzing(false);
+      setLoading(false);
     }
   };
 
-  const suggestGroupForContact = (contact: Contact): CategorizationSuggestion => {
-    let bestGroup = "عمومی";
+  const suggestCategorization = (contact: Contact, availableGroups: Group[]): CategorizationResult => {
+    let bestGroupId: number | null = null;
     let bestConfidence = 0;
     const reasons: string[] = [];
 
+    // Check name-based groups
+    if (contact.name) {
+      const nameGroups = availableGroups.filter(g =>
+        contact.name!.toLowerCase().includes(g.name.toLowerCase())
+      );
+      
+      if (nameGroups.length > 0) {
+        bestGroupId = nameGroups[0].id;
+        bestConfidence = 0.7;
+        reasons.push(`نام: ${contact.name}`);
+      }
+    }
+
     // Check company-based groups
     if (contact.company) {
-      const companyGroup = groups.find(g => 
+      const companyGroup = availableGroups.find(g =>
         g.name.toLowerCase().includes(contact.company!.toLowerCase())
       );
+      
       if (companyGroup) {
-        bestGroup = companyGroup.name;
+        bestGroupId = companyGroup.id;
         bestConfidence = 0.9;
         reasons.push(`شرکت: ${contact.company}`);
       }
@@ -78,183 +105,173 @@ export function AIAutoCategorization() {
 
     // Check position-based groups
     if (contact.position) {
-      const positionGroup = groups.find(g => 
-        g.name.toLowerCase().includes(contact.position!.toLowerCase())
+      const positionGroups = availableGroups.filter(g =>
+        contact.position!.toLowerCase().includes(g.name.toLowerCase())
       );
-      if (positionGroup && bestConfidence < 0.8) {
-        bestGroup = positionGroup.name;
+      
+      if (positionGroups.length > 0 && bestConfidence < 0.8) {
+        bestGroupId = positionGroups[0].id;
         bestConfidence = 0.8;
         reasons.push(`سمت: ${contact.position}`);
       }
     }
 
     // Check phone number patterns
-    if (contact.phoneNumbers.some(pn => pn.type === 'Work')) {
-      const workGroup = groups.find(g => g.name.toLowerCase().includes('کار'));
-      if (workGroup && bestConfidence < 0.7) {
-        bestGroup = workGroup.name;
-        bestConfidence = 0.7;
-        reasons.push("شماره کاری");
-      }
-    }
-
-    // Check phone number patterns for mobile
-    if (contact.phoneNumbers.some(pn => pn.type === 'Mobile')) {
-      const mobileGroup = groups.find(g => g.name.toLowerCase().includes('موبایل'));
-      if (mobileGroup && bestConfidence < 0.6) {
-        bestGroup = mobileGroup.name;
+    if (contact.phoneNumbers.length > 0) {
+      const phoneGroups = availableGroups.filter(g =>
+        contact.phoneNumbers.some(p => p.number.includes(g.name))
+      );
+      
+      if (phoneGroups.length > 0 && bestConfidence < 0.6) {
+        bestGroupId = phoneGroups[0].id;
         bestConfidence = 0.6;
-        reasons.push("شماره موبایل");
+        reasons.push(`شماره تلفن: ${contact.phoneNumbers[0].number}`);
       }
     }
 
     return {
-      contactId: contact.id!,
-      contactName: `${contact.firstName} ${contact.lastName}`,
-      suggestedGroup: bestGroup,
+      contactId: contact.id,
+      suggestedGroupId: bestGroupId,
       confidence: bestConfidence,
       reasons
     };
   };
 
-  const toggleSuggestionSelection = (contactId: number) => {
-    const newSelected = new Set(selectedSuggestions);
-    const key = `contact-${contactId}`;
-    if (newSelected.has(key)) {
-      newSelected.delete(key);
-    } else {
-      newSelected.add(key);
-    }
-    setSelectedSuggestions(newSelected);
-  };
+  const applyCategorization = async () => {
+    if (selectedGroupId === null) return;
 
-  const applySelectedSuggestions = async () => {
-    for (const contactId of selectedSuggestions.keys().map(key => parseInt(key.split('-')[1]))) {
-      const suggestion = suggestions.find(s => s.contactId === contactId);
-      if (suggestion) {
-        try {
-          const targetGroup = groups.find(g => g.name === suggestion.suggestedGroup);
-          if (targetGroup) {
-            await ContactService.updateContact(contactId, { groupId: targetGroup.id });
-          }
-        } catch (error) {
-          console.error(`Error categorizing contact ${contactId}:`, error);
+    setLoading(true);
+    try {
+      for (const result of results) {
+        if (result.suggestedGroupId === selectedGroupId) {
+          await ContactService.updateContact(result.contactId, { groupId: selectedGroupId });
         }
       }
+      
+      // Refresh contacts
+      await loadData();
+      setResults([]);
+    } catch (error) {
+      console.error("Error applying categorization:", error);
+    } finally {
+      setLoading(false);
     }
-    
-    setSelectedSuggestions(new Set());
-    await analyzeAndCategorize(); // Refresh suggestions
   };
 
+  const filteredResults = results.filter(result =>
+    contacts.find(c => c.id === result.contactId)?.name.toLowerCase().includes(searchTerm.toLowerCase())
+  );
+
   return (
-    <div className="p-4 sm:p-8">
-      <div className="flex justify-between items-center mb-6">
-        <h1 className="text-3xl font-bold text-primary-foreground">دسته‌بندی خودکار مخاطبین</h1>
-        <Button onClick={analyzeAndCategorize} disabled={isAnalyzing}>
-          {isAnalyzing ? (
-            <RefreshCw className="mr-2 h-4 w-4 animate-spin" />
-          ) : (
-            <Brain className="mr-2 h-4 w-4" />
-          )}
-          {isAnalyzing ? "در حال تحلیل..." : "تحلیل و دسته‌بندی"}
-        </Button>
-      </div>
-
-      <Alert className="mb-6">
-        <Brain className="h-4 w-4" />
-        <AlertDescription>
-          این قابلیت به صورت خودکار مخاطبین بدون گروه را بر اساس اطلاعات شغلی، شرکت و شماره تلفن دسته‌بندی می‌کند.
-          پیشنهادات بر اساس الگوهای موجود در گروه‌های شما ایجاد می‌شوند.
-        </AlertDescription>
-      </Alert>
-
-      {suggestions.length === 0 ? (
-        <Card>
-          <CardContent className="pt-6">
-            <div className="text-center">
-              <Tag className="mx-auto h-12 w-12 text-green-500" />
-              <h3 className="mt-2 text-lg font-semibold">هیچ پیشنهادی برای دسته‌بندی وجود ندارد</h3>
-              <p className="text-muted-foreground">
-                همه مخاطبین شما در گروه‌های مناسب قرار دارند یا گروهی برای دسته‌بندی وجود ندارد.
-              </p>
+    <div className="space-y-6">
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Zap size={20} />
+            دسته‌بندی خودکار هوش مصنوعی
+          </CardTitle>
+          <CardDescription>
+            با هوش مصنوعی مخاطبان را به گروه‌های مناسب دسته‌بندی کنید
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="flex gap-4">
+            <div className="flex-1">
+              <Input
+                placeholder="جستجوی مخاطبان..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+              />
             </div>
-          </CardContent>
-        </Card>
-      ) : (
-        <div className="space-y-4">
-          {suggestions.map((suggestion, index) => {
-            const isSelected = selectedSuggestions.has(`contact-${suggestion.contactId}`);
-            const targetGroup = groups.find(g => g.name === suggestion.suggestedGroup);
+            <Button onClick={categorizeContacts} disabled={loading}>
+              <RefreshCw size={16} className={`mr-2 ${loading ? 'animate-spin' : ''}`} />
+              دسته‌بندی خودکار
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
 
-            return (
-              <Card key={index} className={isSelected ? "ring-2 ring-primary" : ""}>
-                <CardHeader>
-                  <div className="flex justify-between items-start">
-                    <div>
-                      <CardTitle className="text-lg">
-                        {suggestion.contactName}
-                      </CardTitle>
-                      <CardDescription>
-                        پیشنهاد گروه: {suggestion.suggestedGroup} 
-                        <Badge variant="outline" className="ml-2">
-                          {(suggestion.confidence * 100).toFixed(0)}% اطمینان
-                        </Badge>
-                      </CardDescription>
+      {results.length > 0 && (
+        <Card>
+          <CardHeader>
+            <CardTitle>
+              {results.length} مخاطب برای دسته‌بندی یافت شد
+            </CardTitle>
+            <CardDescription>
+              گروه مورد نظر را انتخاب و تغییرات را اعمال کنید
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="mb-4">
+              <label className="block text-sm font-medium mb-2">گروه مقصد:</label>
+              <select
+                value={selectedGroupId || ''}
+                onChange={(e) => setSelectedGroupId(Number(e.target.value) || null)}
+                className="w-full p-2 border rounded"
+              >
+                <option value="">گروه را انتخاب کنید</option>
+                {groups.map(group => (
+                  <option key={group.id} value={group.id}>
+                    {group.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div className="space-y-4 max-h-96 overflow-y-auto">
+              {filteredResults.map((result) => {
+                const contact = contacts.find(c => c.id === result.contactId);
+                if (!contact) return null;
+
+                return (
+                  <div key={result.contactId} className="border rounded-lg p-4">
+                    <div className="flex items-center justify-between mb-4">
+                      <div>
+                        <h4 className="font-semibold">{contact.name}</h4>
+                        <p className="text-sm text-muted-foreground">
+                          {result.confidence * 100}% اطمینان
+                        </p>
+                      </div>
+                      <Badge variant={result.confidence > 0.7 ? "default" : "secondary"}>
+                        {result.confidence * 100}% شباهت
+                      </Badge>
                     </div>
-                    <div className="flex items-center gap-2">
-                      <input
-                        type="checkbox"
-                        checked={isSelected}
-                        onChange={() => toggleSuggestionSelection(suggestion.contactId)}
-                        className="w-4 h-4"
-                      />
-                    </div>
-                  </div>
-                </CardHeader>
-                <CardContent>
-                  <div className="space-y-3">
-                    <div>
-                      <h4 className="font-medium text-sm mb-1">دلایل پیشنهاد:</h4>
-                      <div className="flex flex-wrap gap-1">
-                        {suggestion.reasons.map((reason, idx) => (
-                          <Badge key={idx} variant="outline" className="text-xs">
+
+                    <div className="space-y-2">
+                      <h5 className="font-medium">دلایل پیشنهاد:</h5>
+                      <div className="flex flex-wrap gap-2">
+                        {result.reasons.map((reason, index) => (
+                          <Badge key={index} variant="outline">
                             {reason}
                           </Badge>
                         ))}
                       </div>
                     </div>
-                    
-                    <div className="flex items-center gap-4 text-sm">
-                      <div className="flex items-center gap-1">
-                        <Users className="h-4 w-4" />
-                        <span>گروه فعلی: ندارد</span>
-                      </div>
-                      <div className="flex items-center gap-1">
-                        <Tag className="h-4 w-4" />
-                        <span>گروه پیشنهادی: {targetGroup?.name || suggestion.suggestedGroup}</span>
-                      </div>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-            );
-          })}
 
-          {selectedSuggestions.size > 0 && (
-            <div className="flex justify-end gap-2">
-              <Alert>
-                <Tag className="h-4 w-4" />
-                <AlertDescription>
-                  {selectedSuggestions.size} مخاطب برای دسته‌بندی انتخاب شده‌اند.
-                </AlertDescription>
-              </Alert>
-              <Button onClick={applySelectedSuggestions}>
-                اعمال دسته‌بندی برای {selectedSuggestions.size} مخاطب
-              </Button>
+                    {result.suggestedGroupId && (
+                      <div className="mt-4">
+                        <p className="text-sm">
+                          پیشنهاد: <span className="font-medium">
+                            {groups.find(g => g.id === result.suggestedGroupId)?.name}
+                          </span>
+                        </p>
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
             </div>
-          )}
-        </div>
+
+            {selectedGroupId && (
+              <div className="mt-6 flex justify-end">
+                <Button onClick={applyCategorization} disabled={loading}>
+                  <CheckCircle size={16} className={`mr-2 ${loading ? 'animate-spin' : ''}`} />
+                  اعمال دسته‌بندی به {filteredResults.length} مخاطب
+                </Button>
+              </div>
+            )}
+          </CardContent>
+        </Card>
       )}
     </div>
   );

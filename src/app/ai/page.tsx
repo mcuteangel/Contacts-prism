@@ -1,34 +1,34 @@
 "use client";
 
-import React, { useState } from "react";
+import React from "react";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { AIContactDeduplication } from "@/components/ai-contact-deduplication";
-import { AIAutoCategorization } from "@/components/ai-auto-categorization";
+import { AIContactCategorization } from "@/components/ai-auto-categorization";
 
 export default function AIPage() {
-  const [activeTab, setActiveTab] = useState("deduplication");
-
   return (
     <div className="p-4 sm:p-8">
-      <div className="mb-6">
-        <h1 className="text-3xl font-bold text-primary-foreground mb-2">هوش مصنوعی و اتوماسیون</h1>
+      <div className="mb-8">
+        <h1 className="text-3xl font-bold text-primary-foreground mb-2">هوش مصنوعی</h1>
         <p className="text-muted-foreground">
-          از قابلیت‌های هوش مصنوعی برای مدیریت بهتر مخاطبین خود استفاده کنید
+          از قابلیت‌های هوش مصنوعی برای مدیریت بهتر مخاطبان استفاده کنید
         </p>
       </div>
 
-      <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+      <Tabs defaultValue="deduplication" className="w-full">
         <TabsList className="grid w-full grid-cols-2">
-          <TabsTrigger value="deduplication">شناسایی تکراری‌ها</TabsTrigger>
+          <TabsTrigger value="deduplication">تشخیص تکراری‌ها</TabsTrigger>
           <TabsTrigger value="categorization">دسته‌بندی خودکار</TabsTrigger>
         </TabsList>
-        
+
         <TabsContent value="deduplication" className="mt-6">
           <AIContactDeduplication />
         </TabsContent>
-        
+
         <TabsContent value="categorization" className="mt-6">
-          <AIAutoCategorization />
+          <AIContactCategorization />
         </TabsContent>
       </Tabs>
     </div>

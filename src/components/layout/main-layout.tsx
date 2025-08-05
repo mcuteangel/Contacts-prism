@@ -27,9 +27,6 @@ export function MainLayout({ children }: MainLayoutProps) {
   const [isColumnSelectorOpen, setIsColumnSelectorOpen] = useState(false);
   const { openContactForm } = useContactForm();
 
-  // دکمه افزودن مخاطب باید در تمام صفحات اصلی نمایش داده شود
-  const isMainPage = ['/contacts', '/groups', '/custom-fields', '/custom-fields-global', '/analytics', '/ai', '/help', '/tools', '/settings', '/'].includes(pathname);
-
   useEffect(() => {
     const checkIsMobile = () => {
       setIsMobile(window.innerWidth < 768);
@@ -42,7 +39,6 @@ export function MainLayout({ children }: MainLayoutProps) {
   }, []);
 
   useEffect(() => {
-    // Check if app lock is enabled
     const savedPassword = localStorage.getItem('app-password');
     if (savedPassword && !isAppLockOpen) {
       setIsAppLockOpen(true);
@@ -75,7 +71,6 @@ export function MainLayout({ children }: MainLayoutProps) {
     window.location.href = '/settings';
   };
 
-  // گوش دادن به رویداد برای باز کردن فرم مخاطب
   useEffect(() => {
     const handleOpenContactForm = () => {
       openContactForm();
@@ -93,19 +88,11 @@ export function MainLayout({ children }: MainLayoutProps) {
     );
   }
 
+  const isMainPage = ['/contacts', '/groups', '/custom-fields', '/custom-fields-global', '/analytics', '/ai', '/help', '/tools', '/settings', '/'].includes(pathname);
+
   return (
     <div className="min-h-screen flex flex-col bg-gradient-to-br from-blue-100 to-purple-100 dark:from-gray-900 dark:to-black">
       <Toaster richColors position="top-center" />
-      
-      {/* App Lock Dialog */}
-      <AppLock 
-        isOpen={isAppLockOpen} 
-        onOpenChange={(open) => {
-          if (!open) {
-            setIsAppLockOpen(false);
-          }
-        }} 
-      />
       
       <Header 
         onContactsRefreshed={() => {}}
@@ -141,7 +128,6 @@ export function MainLayout({ children }: MainLayoutProps) {
         </div>
       </div>
 
-      {/* دکمه افزودن مخاطب ثابت در تمام صفحات اصلی */}
       {isMainPage && !isAppLockOpen && (
         <Button
           className="fixed bottom-8 left-8 rounded-full h-14 w-14 shadow-lg flex items-center justify-center z-40"
@@ -169,24 +155,21 @@ export function MainLayout({ children }: MainLayoutProps) {
         />
       )}
 
-      {/* Enhanced Theme Selector */}
       <EnhancedThemeSelector 
         isOpen={isThemeSelectorOpen} 
         onOpenChange={setIsThemeSelectorOpen} 
       />
 
-      {/* Contact List Columns Customization */}
       <ContactListColumns 
         isOpen={isColumnSelectorOpen}
         onOpenChange={setIsColumnSelectorOpen}
         onColumnsChange={(columns) => {
-          // Handle column changes
           console.log('Columns updated:', columns);
         }}
         defaultColumns={[
           { id: 'name', label: 'نام و نام خانوادگی', icon: require('lucide-react').User, description: 'نام کامل مخاطب', visible: true, order: 0 },
           { id: 'phones', label: 'شماره‌ها', icon: require('lucide-react').Phone, description: 'شماره‌های تلفن مخاطب', visible: true, order: 1 },
-          { id: 'position', label: 'سمت', icon: require('lucide-react').Briefcase, description: 'سمت شغلی مخاطب', visible: true, order: 2 },
+          { id: 'position', label: 'سمت', icon: require('lucide-react').Building2, description: 'سمت شغلی مخاطب', visible: true, order: 2 },
           { id: 'address', label: 'آدرس', icon: require('lucide-react').MapPin, description: 'آدرس مخاطب', visible: true, order: 3 },
           { id: 'group', label: 'گروه', icon: require('lucide-react').Tag, description: 'گروه مخاطب', visible: true, order: 4 },
           { id: 'notes', label: 'یادداشت‌ها', icon: require('lucide-react').FileText, description: 'یادداشت‌های مخاطب', visible: true, order: 5 },

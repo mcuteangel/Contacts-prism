@@ -47,7 +47,9 @@ export function InteractionAnalysis({ contacts, totalContacts }: InteractionAnal
     <Card>
       <CardHeader>
         <CardTitle>تحلیل ارتباطی</CardTitle>
-        <CardDescription>تحلیل الگوهای ارتباطی مخاطبین</CardDescription>
+        <div className="text-sm text-muted-foreground">
+          تحلیل الگوهای ارتباطی مخاطبین
+        </div>
       </CardHeader>
       <CardContent>
         <div className="space-y-4">

@@ -19,28 +19,30 @@ export function GrowthMetrics({ totalContacts, monthlyGrowth }: GrowthMetricsPro
     <Card>
       <CardHeader>
         <CardTitle>نرخ رشد ماهانه</CardTitle>
-        <CardDescription>تغییرات ماهانه در تعداد مخاطبین</CardDescription>
+        <div className="text-sm text-muted-foreground">
+          تغییرات ماهانه در تعداد مخاطبین
+        </div>
       </CardHeader>
       <CardContent>
         <div className="text-center mb-6">
           <div className="text-4xl font-bold text-green-500 mb-2">+{monthlyGrowth}%</div>
-          <p className="text-muted-foreground">رشد نسبت به ماه قبل</p>
+          <div className="text-sm text-muted-foreground">رشد نسبت به ماه قبل</div>
         </div>
 
         <div className="grid grid-cols-3 gap-4 mb-6">
           <div className="text-center">
             <div className="text-2xl font-bold">{totalContacts}</div>
-            <p className="text-sm text-muted-foreground">مجموع</p>
+            <div className="text-sm text-muted-foreground">مجموع</div>
           </div>
           <div className="text-center">
             <div className="text-2xl font-bold text-green-500">+{Math.round(totalContacts * 0.2)}</div>
-            <p className="text-sm text-muted-foreground">این ماه</p>
+            <div className="text-sm text-muted-foreground">این ماه</div>
           </div>
           <div className="text-center">
             <div className="text-2xl font-bold text-blue-500">
               {currentMonthContacts - totalContacts}
             </div>
-            <p className="text-sm text-muted-foreground">رشد</p>
+            <div className="text-sm text-muted-foreground">رشد</div>
           </div>
         </div>
 
