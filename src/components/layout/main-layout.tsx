@@ -17,10 +17,8 @@ export function MainLayout({ children }: MainLayoutProps) {
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
   const [isMobile, setIsMobile] = useState<boolean | undefined>(undefined);
 
-  // تعیین اینکه آیا صفحه فعلی یکی از صفحات اصلی است
-  const isMainPage = ['/contacts', '/groups', '/custom-fields', '/tools', '/settings', '/'].includes(pathname);
+  const isMainPage = ['/contacts', '/groups', '/custom-fields', '/custom-fields-global', '/analytics', '/tools', '/settings', '/'].includes(pathname);
 
-  // فقط در سمت کلاینت مقدار isMobile را تنظیم کن
   useEffect(() => {
     const checkIsMobile = () => {
       setIsMobile(window.innerWidth < 768);
@@ -32,13 +30,17 @@ export function MainLayout({ children }: MainLayoutProps) {
     return () => window.removeEventListener('resize', checkIsMobile);
   }, []);
 
-  const handleTabChange = (tab: 'contacts' | 'groups' | 'customFields') => {
+  const handleTabChange = (tab: 'contacts' | 'groups' | 'customFields' | 'globalCustomFields' | 'analytics') => {
     if (tab === 'contacts') {
       window.location.href = '/';
     } else if (tab === 'groups') {
       window.location.href = '/groups';
     } else if (tab === 'customFields') {
       window.location.href = '/custom-fields';
+    } else if (tab === 'globalCustomFields') {
+      window.location.href = '/custom-fields-global';
+    } else if (tab === 'analytics') {
+      window.location.href = '/analytics';
     }
   };
 
@@ -46,7 +48,6 @@ export function MainLayout({ children }: MainLayoutProps) {
     window.location.href = '/settings';
   };
 
-  // تا زمانی که isMobile تعیین نشده، هیچ محتوایی را رندر نکن
   if (isMobile === undefined) {
     return (
       <div className="min-h-screen flex items-center justify-center">
@@ -61,17 +62,21 @@ export function MainLayout({ children }: MainLayoutProps) {
       <Header />
       
       <div className="flex flex-1">
-        {/* دسکتاپ سایدبار - فقط روی دسکتاپ نمایش داده شود */}
         {!isMobile && (
           <DesktopSidebar
-            activeTab={pathname === '/contacts' || pathname === '/' ? 'contacts' : pathname === '/groups' ? 'groups' : 'customFields'}
+            activeTab={
+              pathname === '/contacts' || pathname === '/' ? 'contacts' :
+              pathname === '/groups' ? 'groups' :
+              pathname === '/custom-fields' ? 'customFields' :
+              pathname === '/custom-fields-global' ? 'globalCustomFields' :
+              pathname === '/analytics' ? 'analytics' : 'contacts'
+            }
             onTabChange={handleTabChange}
             onOpenSettings={handleOpenSettings}
             onCollapseChange={(collapsed) => setIsSidebarCollapsed(collapsed)}
           />
         )}
         
-        {/* محتوای اصلی - حاشیه‌گذاری شده برای دسکتاپ */}
         <div className={`flex-grow ${!isMobile && !isSidebarCollapsed ? 'mr-64' : ''}`}>
           <div className="p-4 sm:p-8">
             {children}
@@ -79,10 +84,15 @@ export function MainLayout({ children }: MainLayoutProps) {
         </div>
       </div>
 
-      {/* موبایل و تبلت ناوبری - روی موبایل و تبلت و صفحات اصلی نمایش داده شود */}
       {isMobile && isMainPage && (
         <MobileNav 
-          activeTab={pathname === '/contacts' || pathname === '/' ? 'contacts' : pathname === '/groups' ? 'groups' : 'customFields'}
+          activeTab={
+            pathname === '/contacts' || pathname === '/' ? 'contacts' :
+            pathname === '/groups' ? 'groups' :
+            pathname === '/custom-fields' ? 'customFields' :
+            pathname === '/custom-fields-global' ? 'globalCustomFields' :
+            pathname === '/analytics' ? 'analytics' : 'contacts'
+          }
           onTabChange={handleTabChange}
           onOpenSettings={handleOpenSettings}
         />

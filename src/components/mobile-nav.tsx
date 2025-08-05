@@ -2,12 +2,12 @@
 
 import React from "react";
 import { Button } from "@/components/ui/button";
-import { Users, Folder, ListPlus, Settings } from "lucide-react";
+import { Users, Folder, ListPlus, Settings, BarChart3 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 interface MobileNavProps {
-  activeTab: 'contacts' | 'groups' | 'customFields';
-  onTabChange: (tab: 'contacts' | 'groups' | 'customFields') => void;
+  activeTab: 'contacts' | 'groups' | 'customFields' | 'globalCustomFields' | 'analytics';
+  onTabChange: (tab: 'contacts' | 'groups' | 'customFields' | 'globalCustomFields' | 'analytics') => void;
   onOpenSettings: () => void;
 }
 
@@ -45,7 +45,29 @@ export function MobileNav({ activeTab, onTabChange, onOpenSettings }: MobileNavP
         onClick={() => onTabChange('customFields')}
       >
         <ListPlus size={20} />
-        <span className="text-xs">فیلدها</span>
+        <span className="text-xs">فیلدهای شخصی</span>
+      </Button>
+      <Button
+        variant="ghost"
+        className={cn(
+          "flex flex-col items-center gap-1 h-auto py-2 text-foreground hover:text-primary",
+          activeTab === 'globalCustomFields' && "text-primary"
+        )}
+        onClick={() => onTabChange('globalCustomFields')}
+      >
+        <ListPlus size={20} />
+        <span className="text-xs">فیلدهای سراسری</span>
+      </Button>
+      <Button
+        variant="ghost"
+        className={cn(
+          "flex flex-col items-center gap-1 h-auto py-2 text-foreground hover:text-primary",
+          activeTab === 'analytics' && "text-primary"
+        )}
+        onClick={() => onTabChange('analytics')}
+      >
+        <BarChart3 size={20} />
+        <span className="text-xs">آمار</span>
       </Button>
       <Button
         variant="ghost"
