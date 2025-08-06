@@ -1,6 +1,9 @@
 "use client";
 
 import React, { useState } from "react";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { createGroupSchema, type CreateGroupInput } from "@/domain/schemas/group";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -20,17 +23,24 @@ interface AddGroupDialogProps {
 }
 
 export function AddGroupDialog({ onAddGroup, onGroupAdded }: AddGroupDialogProps) {
-  const [newGroupName, setNewGroupName] = useState("");
   const [isOpen, setIsOpen] = useState(false);
 
-  const handleAdd = async () => {
-    if (!newGroupName.trim()) {
-      toast.error("نام گروه نمی‌تواند خالی باشد.");
+  const form = useForm<CreateGroupInput>({
+    resolver: zodResolver(createGroupSchema),
+    defaultValues: { name: "" },
+  });
+
+  const handleAdd: (values: CreateGroupInput) => Promise<void> = async (values) => {
+    const parsed = createGroupSchema.safeParse(values);
+    if (!parsed.success) {
+      const msg = parsed.error.errors[0]?.message ?? "ورودی نامعتبر است";
+      toast.error(msg);
       return;
     }
     try {
-      await onAddGroup(newGroupName);
-      setNewGroupName(""); // Clear input
+      await onAddGroup(parsed.data.name.trim());
+      toast.success("گروه با موفقیت اضافه شد!");
+      form.reset({ name: "" });
       setIsOpen(false); // Close dialog
       onGroupAdded(); // Notify parent to refresh groups
     } catch (error) {
@@ -40,7 +50,7 @@ export function AddGroupDialog({ onAddGroup, onGroupAdded }: AddGroupDialogProps
   };
 
   return (
-    <Dialog open={isOpen} onOpenChange={setIsOpen}>
+    <Dialog open={isOpen} onOpenChange={(open) => { setIsOpen(open); if (!open) form.reset({ name: "" }); }}>
       <DialogTrigger asChild>
         <Button type="button" variant="outline" size="icon">
           <Plus size={16} />
@@ -50,23 +60,22 @@ export function AddGroupDialog({ onAddGroup, onGroupAdded }: AddGroupDialogProps
         <DialogHeader>
           <DialogTitle>افزودن گروه جدید</DialogTitle>
         </DialogHeader>
-        <div className="grid gap-4 py-4">
+        <form onSubmit={form.handleSubmit(handleAdd)} className="grid gap-4 py-4">
           <Input
             id="new-group-name"
             placeholder="نام گروه"
-            value={newGroupName}
-            onChange={(e) => setNewGroupName(e.target.value)}
+            {...form.register("name")}
             onKeyDown={(e) => {
               if (e.key === 'Enter') {
-                handleAdd();
+                e.currentTarget.form?.requestSubmit();
                 e.preventDefault();
               }
             }}
           />
-        </div>
-        <DialogFooter>
-          <Button type="button" onClick={handleAdd}>افزودن</Button>
-        </DialogFooter>
+          <DialogFooter>
+            <Button type="submit">افزودن</Button>
+          </DialogFooter>
+        </form>
       </DialogContent>
     </Dialog>
   );

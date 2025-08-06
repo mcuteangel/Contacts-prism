@@ -9,14 +9,27 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Trash2, Plus } from "lucide-react";
 
+// RHF + Zod for Group creation
+import { useForm, type SubmitHandler } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { createGroupSchema, type CreateGroupInput } from "@/domain/schemas/group";
+
 export default function GroupsPage() {
   const [groups, setGroups] = useState<Group[]>([]);
-  const [newGroupName, setNewGroupName] = useState("");
+  const form = useForm<CreateGroupInput>({
+    resolver: zodResolver(createGroupSchema),
+    defaultValues: { name: "" },
+  });
 
   const fetchGroups = async () => {
     try {
-      const allGroups = await ContactService.getAllGroups();
-      setGroups(allGroups);
+      const res = await ContactService.getAllGroups();
+      if (!res.ok) {
+        toast.error("بارگذاری گروه‌ها با شکست مواجه شد.");
+        console.error("Error fetching groups:", res.error);
+        return;
+      }
+      setGroups(res.data);
     } catch (error) {
       toast.error("بارگذاری گروه‌ها با شکست مواجه شد.");
       console.error("Error fetching groups:", error);
@@ -27,15 +40,17 @@ export default function GroupsPage() {
     fetchGroups();
   }, []);
 
-  const handleAddGroup = async () => {
-    if (!newGroupName.trim()) {
-      toast.error("نام گروه نمی‌تواند خالی باشد.");
+  const handleAddGroup: SubmitHandler<CreateGroupInput> = async (values) => {
+    const parsed = createGroupSchema.safeParse(values);
+    if (!parsed.success) {
+      const msg = parsed.error.errors[0]?.message ?? "ورودی نامعتبر است";
+      toast.error(msg);
       return;
     }
     try {
-      await ContactService.addGroup(newGroupName);
+      await ContactService.addGroup(parsed.data.name.trim());
       toast.success("گروه با موفقیت اضافه شد!");
-      setNewGroupName("");
+      form.reset({ name: "" });
       fetchGroups();
     } catch (error) {
       toast.error("افزودن گروه با شکست مواجه شد.");
@@ -46,7 +61,12 @@ export default function GroupsPage() {
   const handleDeleteGroup = async (id: number) => {
     if (window.confirm("آیا از حذف این گروه مطمئن هستید؟ مخاطبین مرتبط با این گروه حذف نمی‌شوند.")) {
       try {
-        await ContactService.deleteGroup(id);
+        const delRes = await ContactService.deleteGroup(id);
+        if (!delRes.ok) {
+          toast.error("حذف گروه با شکست مواجه شد.");
+          console.error("Error deleting group:", delRes.error);
+          return;
+        }
         toast.success("گروه با موفقیت حذف شد!");
         fetchGroups();
       } catch (error) {
@@ -61,22 +81,26 @@ export default function GroupsPage() {
       <div className="p-4 sm:p-8">
         <h1 className="text-3xl font-bold text-primary-foreground mb-6">مدیریت گروه‌ها</h1>
         <div className="glass p-6 rounded-lg shadow-lg backdrop-blur-md">
-          <div className="flex gap-2 mb-6">
+          <form className="flex gap-2 mb-6" onSubmit={form.handleSubmit(handleAddGroup)}>
             <Input
               placeholder="نام گروه جدید"
-              value={newGroupName}
-              onChange={(e) => setNewGroupName(e.target.value)}
+              {...form.register("name")}
               onKeyDown={(e) => {
                 if (e.key === 'Enter') {
-                  handleAddGroup();
+                  e.currentTarget.form?.requestSubmit();
                   e.preventDefault();
                 }
               }}
             />
-            <Button onClick={handleAddGroup}>
+            <Button type="submit">
               <Plus size={18} className="ml-2" /> افزودن
             </Button>
-          </div>
+          </form>
+          {form.formState.errors.name && (
+            <p className="text-right text-red-500 text-sm -mt-4 mb-4">
+              {form.formState.errors.name.message}
+            </p>
+          )}
 
           {groups.length === 0 ? (
             <p className="text-center text-muted-foreground">گروهی یافت نشد. یک گروه جدید اضافه کنید!</p>

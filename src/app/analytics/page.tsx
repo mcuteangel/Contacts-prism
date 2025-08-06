@@ -1,8 +1,8 @@
 "use client";
 
-import React from "react";
-import { EnhancedAnalyticsDashboard } from "@/components/enhanced-analytics-dashboard";
+import { redirect } from "next/navigation";
 
 export default function AnalyticsPage() {
-  return <EnhancedAnalyticsDashboard />;
+  // انتقال به بینش‌ها با تب آمار
+  redirect("/insights?tab=analytics");
 }

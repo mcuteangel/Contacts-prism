@@ -18,12 +18,14 @@ export function AnalyticsDashboard() {
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const [allContacts, allGroups] = await Promise.all([
+        const [contactsRes, groupsRes] = await Promise.all([
           ContactService.getAllContacts(),
           ContactService.getAllGroups()
         ]);
-        setContacts(allContacts);
-        setGroups(allGroups);
+        const list = contactsRes.ok ? contactsRes.data.data : [];
+        const groups = groupsRes.ok ? groupsRes.data : [];
+        setContacts(list);
+        setGroups(groups);
       } catch (error) {
         console.error("Error fetching analytics data:", error);
       } finally {

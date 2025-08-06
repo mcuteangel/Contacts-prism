@@ -160,10 +160,11 @@ export function ThemeSelector({ isOpen, onOpenChange }: ThemeSelectorProps) {
                         <div className="flex items-center gap-2">
                           <input
                             type="color"
-                            value={`hsl(${selectedColors.primary})`}
+                            value={hslToHex(selectedColors.primary)}
                             onChange={(e) => {
-                              const hsl = e.target.value;
-                              handleCustomColorChange('primary', hsl);
+                              const hex = e.target.value; // #rrggbb
+                              const next = hexToHslString(hex); // "H S% L%"
+                              handleCustomColorChange('primary', next);
                             }}
                             className="w-12 h-12 rounded border-2 border-border"
                           />
@@ -180,10 +181,11 @@ export function ThemeSelector({ isOpen, onOpenChange }: ThemeSelectorProps) {
                         <div className="flex items-center gap-2">
                           <input
                             type="color"
-                            value={`hsl(${selectedColors.secondary})`}
+                            value={hslToHex(selectedColors.secondary)}
                             onChange={(e) => {
-                              const hsl = e.target.value;
-                              handleCustomColorChange('secondary', hsl);
+                              const hex = e.target.value;
+                              const next = hexToHslString(hex);
+                              handleCustomColorChange('secondary', next);
                             }}
                             className="w-12 h-12 rounded border-2 border-border"
                           />
@@ -200,10 +202,11 @@ export function ThemeSelector({ isOpen, onOpenChange }: ThemeSelectorProps) {
                         <div className="flex items-center gap-2">
                           <input
                             type="color"
-                            value={`hsl(${selectedColors.accent})`}
+                            value={hslToHex(selectedColors.accent)}
                             onChange={(e) => {
-                              const hsl = e.target.value;
-                              handleCustomColorChange('accent', hsl);
+                              const hex = e.target.value;
+                              const next = hexToHslString(hex);
+                              handleCustomColorChange('accent', next);
                             }}
                             className="w-12 h-12 rounded border-2 border-border"
                           />
@@ -437,4 +440,83 @@ export function ThemeSelector({ isOpen, onOpenChange }: ThemeSelectorProps) {
       </div>
     </div>
   );
+}
+
+/**
+ * Utilities:
+ * - selectedColors.* ذخیره به صورت "H S% L%"
+ * - input[type=color] نیاز به "#rrggbb" دارد، پس تبدیل HSL<->HEX لازم است.
+ */
+function hslToHex(hslString: string): string {
+  // hslString format: "H S% L%"
+  try {
+    const [hStr, sStr, lStr] = hslString.split(" ");
+    const h = parseFloat(hStr);
+    const s = parseFloat(sStr.replace("%", "")) / 100;
+    const l = parseFloat(lStr.replace("%", "")) / 100;
+
+    const c = (1 - Math.abs(2 * l - 1)) * s;
+    const hp = (h % 360) / 60;
+    const x = c * (1 - Math.abs((hp % 2) - 1));
+
+    let r1 = 0, g1 = 0, b1 = 0;
+    if (0 <= hp && hp < 1) [r1, g1, b1] = [c, x, 0];
+    else if (1 <= hp && hp < 2) [r1, g1, b1] = [x, c, 0];
+    else if (2 <= hp && hp < 3) [r1, g1, b1] = [0, c, x];
+    else if (3 <= hp && hp < 4) [r1, g1, b1] = [0, x, c];
+    else if (4 <= hp && hp < 5) [r1, g1, b1] = [x, 0, c];
+    else if (5 <= hp && hp <= 6) [r1, g1, b1] = [c, 0, x];
+
+    const m = l - c / 2;
+    const r = Math.round((r1 + m) * 255);
+    const g = Math.round((g1 + m) * 255);
+    const b = Math.round((b1 + m) * 255);
+
+    return "#" + [r, g, b].map((v) => v.toString(16).padStart(2, "0")).join("");
+  } catch {
+    return "#000000";
+  }
+}
+
+function hexToHslString(hex: string): string {
+  // hex: "#rrggbb"
+  try {
+    const clean = hex.replace("#", "");
+    const r = parseInt(clean.substring(0, 2), 16) / 255;
+    const g = parseInt(clean.substring(2, 4), 16) / 255;
+    const b = parseInt(clean.substring(4, 6), 16) / 255;
+
+    const max = Math.max(r, g, b), min = Math.min(r, g, b);
+    let h = 0, s = 0;
+    const l = (max + min) / 2;
+
+    const d = max - min;
+    if (d !== 0) {
+      s = d / (1 - Math.abs(2 * l - 1));
+      switch (max) {
+        case r:
+          h = ((g - b) / d) % 6;
+          break;
+        case g:
+          h = (b - r) / d + 2;
+          break;
+        case b:
+          h = (r - g) / d + 4;
+          break;
+      }
+      h *= 60;
+      if (h < 0) h += 360;
+    } else {
+      h = 0;
+      s = 0;
+    }
+
+    return `${round(h)} ${round(s * 100)}% ${round(l * 100)}%`;
+  } catch {
+    return "0 0% 0%";
+  }
+}
+
+function round(n: number) {
+  return Math.round(n * 10) / 10;
 }

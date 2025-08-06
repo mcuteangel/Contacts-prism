@@ -2,10 +2,10 @@
 
 import React from "react";
 import { MetricsOverview } from "./metrics-overview";
-import { GenderDistributionChart } from "../charts/gender-distribution-chart";
-import { PositionDistributionChart } from "../charts/position-distribution-chart";
-import { CustomFieldsUsageChart } from "../charts/custom-fields-usage-chart";
-import { PhoneTypeDistributionChart } from "../charts/phone-type-distribution-chart";
+import { GenderDistributionChart } from "./charts/gender-distribution-chart";
+import { PositionDistributionChart } from "./charts/position-distribution-chart";
+import { CustomFieldsUsageChart } from "./charts/custom-fields-usage-chart";
+import { PhoneTypeDistributionChart } from "./charts/phone-type-distribution-chart";
 
 interface OverviewTabProps {
   totalContacts: number;

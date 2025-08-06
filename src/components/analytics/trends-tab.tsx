@@ -1,7 +1,7 @@
 "use client";
 
 import React from "react";
-import { TrendChart } from "../charts/trend-chart";
+import { TrendChart } from "./charts/trend-chart";
 import { GrowthMetrics } from "./growth/growth-metrics";
 
 interface TrendsTabProps {

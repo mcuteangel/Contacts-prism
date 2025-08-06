@@ -1,7 +1,7 @@
 "use client";
 
 import React from "react";
-import { ActivityChart } from "../charts/activity-chart";
+import { ActivityChart } from "./charts/activity-chart";
 
 interface ActivityTabProps {
   activityData: Array<{

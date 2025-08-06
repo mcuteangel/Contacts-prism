@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { useIsMobile } from "@/hooks/use-is-mobile";
 import { Header } from "./header";
 import { MobileNav } from "@/components/mobile-nav";
@@ -13,6 +13,7 @@ import { Plus } from "lucide-react";
 import { AppLock } from "@/components/app-lock";
 import { ThemeSelector } from "@/components/theme-selector";
 import { ContactListColumns } from "@/components/contact-list-columns";
+import { buildOnTabChange, mapPathnameToTab, NavTab } from "@/lib/navigation";
 
 interface MainLayoutProps {
   children: React.ReactNode;
@@ -21,58 +22,49 @@ interface MainLayoutProps {
 export function MainLayout({ children }: MainLayoutProps) {
   const pathname = usePathname();
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
-  const [isMobile, setIsMobile] = useState<boolean | undefined>(undefined);
-  const [isAppLockOpen, setIsAppLockOpen] = useState(false);
+  const isMobile = useIsMobile();
+  const [isAppLockOpen, setIsAppLockOpen] = useState(true);
+  const [isUnlocked, setIsUnlocked] = useState(false);
   const [isThemeSelectorOpen, setIsThemeSelectorOpen] = useState(false);
   const [isColumnSelectorOpen, setIsColumnSelectorOpen] = useState(false);
   const { openContactForm } = useContactForm();
 
-  // دکمه افزودن مخاطب باید در تمام صفحات اصلی نمایش داده شود
-  const isMainPage = ['/contacts', '/groups', '/custom-fields', '/custom-fields-global', '/analytics', '/ai', '/help', '/tools', '/settings', '/'].includes(pathname);
+  // Memoize the main page check to prevent recalculations
+  const isMainPage = React.useMemo(() =>
+    ['/contacts', '/groups',
+     '/analytics', '/ai', '/help', '/tools', '/settings', '/'].includes(pathname),
+    [pathname]
+  );
+
+  // حذف لاجیک تکراری تشخیص موبایل؛ از useIsMobile استفاده می‌شود
 
   useEffect(() => {
-    const checkIsMobile = () => {
-      setIsMobile(window.innerWidth < 768);
-    };
-    
-    checkIsMobile();
-    window.addEventListener('resize', checkIsMobile);
-    
-    return () => window.removeEventListener('resize', checkIsMobile);
-  }, []);
-
-  useEffect(() => {
-    // Check if app lock is enabled
+    // Check if app lock is enabled and not already unlocked in this session
     const savedPassword = localStorage.getItem('app-password');
-    if (savedPassword && !isAppLockOpen) {
-      setIsAppLockOpen(true);
+    const wasUnlocked = sessionStorage.getItem('app-unlocked') === 'true';
+    
+    if (savedPassword) {
+      if (wasUnlocked) {
+        // If app was previously unlocked in this session, keep it unlocked
+        setIsAppLockOpen(false);
+        setIsUnlocked(true);
+      } else if (!isUnlocked) {
+        // Otherwise, show the lock screen
+        setIsAppLockOpen(true);
+      }
+    } else {
+      // If no password is set, keep the app unlocked
+      setIsAppLockOpen(false);
+      setIsUnlocked(true);
     }
-  }, [isAppLockOpen]);
+  }, [isUnlocked]);
 
-  const handleTabChange = (tab: 'contacts' | 'groups' | 'customFields' | 'globalCustomFields' | 'analytics' | 'ai' | 'help' | 'tools' | 'settings') => {
-    if (tab === 'contacts') {
-      window.location.href = '/';
-    } else if (tab === 'groups') {
-      window.location.href = '/groups';
-    } else if (tab === 'customFields') {
-      window.location.href = '/custom-fields';
-    } else if (tab === 'globalCustomFields') {
-      window.location.href = '/custom-fields-global';
-    } else if (tab === 'analytics') {
-      window.location.href = '/analytics';
-    } else if (tab === 'ai') {
-      window.location.href = '/ai';
-    } else if (tab === 'help') {
-      window.location.href = '/help';
-    } else if (tab === 'tools') {
-      window.location.href = '/tools';
-    } else if (tab === 'settings') {
-      window.location.href = '/settings';
-    }
-  };
+  const router = useRouter();
+  // استفاده از util واحد برای ناوبری
+  const handleTabChange = buildOnTabChange((href: string) => router.push(href));
 
   const handleOpenSettings = () => {
-    window.location.href = '/settings';
+    router.push('/settings');
   };
 
   // گوش دادن به رویداد برای باز کردن فرم مخاطب
@@ -85,85 +77,87 @@ export function MainLayout({ children }: MainLayoutProps) {
     return () => window.removeEventListener('open-contact-form', handleOpenContactForm);
   }, [openContactForm]);
 
-  if (isMobile === undefined) {
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-primary"></div>
-      </div>
-    );
-  }
+  // با useIsMobile دیگر حالت undefined نداریم؛ اسپلش لودر حذف شد
 
   return (
     <div className="min-h-screen flex flex-col bg-gradient-to-br from-blue-100 to-purple-100 dark:from-gray-900 dark:to-black">
-      <AppLock isOpen={isAppLockOpen} onOpenChange={setIsAppLockOpen} />
+      <AppLock 
+        isOpen={isAppLockOpen} 
+        onOpenChange={(open) => {
+          if (!open) {
+            // When unlocking, set the unlocked state in session storage
+            sessionStorage.setItem('app-unlocked', 'true');
+            setIsUnlocked(true);
+          }
+          setIsAppLockOpen(open);
+        }} 
+      />
       <ThemeSelector isOpen={isThemeSelectorOpen} onOpenChange={setIsThemeSelectorOpen} />
       
       {isMobile ? (
         <>
-          <Header 
+          <Header
             onContactsRefreshed={() => window.location.reload()}
             onOpenAppLock={() => setIsAppLockOpen(true)}
             onOpenThemeSelector={() => setIsThemeSelectorOpen(true)}
             onOpenColumnSelector={() => setIsColumnSelectorOpen(true)}
           />
-          <main className="flex-grow pt-16 pb-16 p-4">
+          {/* جبران ارتفاع هدر ثابت */}
+          <div className="h-16" aria-hidden="true" />
+          <main className="flex-grow pb-20 p-4" id="main-content">
             {children}
           </main>
-          <MobileNav 
-            activeTab={
-              pathname === '/' ? 'contacts' :
-              pathname === '/groups' ? 'groups' :
-              pathname === '/custom-fields' ? 'customFields' :
-              pathname === '/custom-fields-global' ? 'globalCustomFields' :
-              pathname === '/analytics' ? 'analytics' :
-              pathname === '/ai' ? 'ai' :
-              pathname === '/help' ? 'help' :
-              pathname === '/tools' ? 'tools' :
-              'settings'
-            }
+          <MobileNav
+            activeTab={mapPathnameToTab(pathname) as NavTab}
             onTabChange={handleTabChange}
             onOpenSettings={handleOpenSettings}
           />
         </>
       ) : (
-        <div className="flex flex-1">
-          <DesktopSidebar 
-            activeTab={
-              pathname === '/' ? 'contacts' :
-              pathname === '/groups' ? 'groups' :
-              pathname === '/custom-fields' ? 'customFields' :
-              pathname === '/custom-fields-global' ? 'globalCustomFields' :
-              pathname === '/analytics' ? 'analytics' :
-              pathname === '/ai' ? 'ai' :
-              pathname === '/help' ? 'help' :
-              pathname === '/tools' ? 'tools' :
-              'settings'
-            }
-            onTabChange={handleTabChange}
-            onOpenSettings={handleOpenSettings}
-            onCollapseChange={setIsSidebarCollapsed}
-          />
-          <div className="flex-1 flex flex-col">
-            <Header 
-              onContactsRefreshed={() => window.location.reload()}
-              onOpenAppLock={() => setIsAppLockOpen(true)}
-              onOpenThemeSelector={() => setIsThemeSelectorOpen(true)}
-              onOpenColumnSelector={() => setIsColumnSelectorOpen(true)}
+        <>
+          {/* ساختار دسکتاپ با RTL/LTR داینامیک؛ از logical padding-inline استفاده می‌کنیم */}
+          <div className="flex flex-1">
+            <div className="flex-1 flex flex-col">
+              <Header
+                onContactsRefreshed={() => window.location.reload()}
+                onOpenAppLock={() => setIsAppLockOpen(true)}
+                onOpenThemeSelector={() => setIsThemeSelectorOpen(true)}
+                onOpenColumnSelector={() => setIsColumnSelectorOpen(true)}
+              />
+              {/* Spacer به اندازه ارتفاع هدر برای جلوگیری از هم‌پوشانی */}
+              <div className="h-16" aria-hidden="true" />
+              <div
+                className="flex-grow transition-[padding] duration-300 ease-in-out"
+                style={
+                  typeof document !== "undefined" && document?.documentElement?.dir === "rtl"
+                    ? { paddingRight: isSidebarCollapsed ? 64 : 256, paddingLeft: 16, paddingTop: 16, paddingBottom: 16 }
+                    : { paddingLeft: isSidebarCollapsed ? 64 : 256, paddingRight: 16, paddingTop: 16, paddingBottom: 16 }
+                }
+                id="main-content"
+              >
+                <div className="h-full">
+                  {children}
+                </div>
+              </div>
+            </div>
+            {/* سایدبار ثابت */}
+            <DesktopSidebar
+              activeTab={mapPathnameToTab(pathname) as NavTab}
+              onTabChange={handleTabChange}
+              onOpenSettings={handleOpenSettings}
+              onCollapseChange={setIsSidebarCollapsed}
             />
-            <main className={`flex-grow pt-16 p-4 ${isSidebarCollapsed ? 'ml-16' : 'ml-64'} transition-all duration-300`}>
-              {children}
-            </main>
           </div>
-        </div>
+        </>
       )}
       
       {isMainPage && (
         <Button
-          className="fixed bottom-8 left-8 rounded-full h-14 w-14 shadow-lg flex items-center justify-center z-40"
+          className="fixed bottom-24 left-6 md:left-8 rounded-full h-14 w-14 shadow-lg flex items-center justify-center z-40"
           onClick={() => {
-            // Dispatch event to open contact form
             window.dispatchEvent(new CustomEvent('open-contact-form'));
           }}
+          aria-label="ایجاد مخاطب جدید"
         >
           <Plus size={24} />
         </Button>

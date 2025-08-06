@@ -54,11 +54,15 @@ export default function Home() {
   const fetchContacts = useCallback(async (query: string) => {
     setIsLoading(true);
     try {
-      // Use the efficient search service which queries Dexie with indexes
-      const response = await ContactService.searchContacts(query);
-      // Handle both array and paginated responses
-      const contactsData = Array.isArray(response) ? response : response?.data || [];
-      setContacts(contactsData);
+      const res = await ContactService.searchContacts(query);
+      if (!res.ok) {
+        toast.error("بارگذاری مخاطبین با شکست مواجه شد.");
+        console.error("Error fetching contacts (Result):", res.error);
+        setContacts([]);
+      } else {
+        const contactsData = res.data.data ?? [];
+        setContacts(contactsData);
+      }
     } catch (error) {
       toast.error("بارگذاری مخاطبین با شکست مواجه شد.");
       console.error("Error fetching contacts:", error);
@@ -70,8 +74,11 @@ export default function Home() {
 
   const fetchGroups = useCallback(async () => {
     try {
-      const allGroups = await ContactService.getAllGroups();
-      setGroups(allGroups);
+      const res = await ContactService.getAllGroups();
+      if (!res.ok) {
+        throw new Error(res.error || "getAllGroups failed");
+      }
+      setGroups(res.data);
     } catch (error) {
       toast.error("بارگذاری گروه‌ها با شکست مواجه شد.");
       console.error("Error fetching groups:", error);
@@ -106,7 +113,12 @@ export default function Home() {
   const handleDelete = async (id: number) => {
     if (window.confirm("آیا از حذف این مخاطب مطمئن هستید؟")) {
       try {
-        await ContactService.deleteContact(id);
+        const res = await ContactService.deleteContact(id);
+        if (!res.ok) {
+          toast.error("حذف مخاطب با شکست مواجه شد.");
+          console.error("Error deleting contact (Result):", res.error);
+          return;
+        }
         toast.success("مخاطب با موفقیت حذف شد!");
         refreshData();
       } catch (error) {

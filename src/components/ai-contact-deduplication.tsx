@@ -47,13 +47,22 @@ export function AIContactDeduplication() {
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const [allContacts, allGroups] = await Promise.all([
+        const [contactsRes, groupsRes] = await Promise.all([
           ContactService.getAllContacts(),
           ContactService.getAllGroups()
         ]);
-        setContacts(allContacts);
-        setGroups(allGroups);
-        await findDuplicatePairs(allContacts);
+        const list = contactsRes.ok ? contactsRes.data.data : [];
+        setContacts(list);
+
+        if (!groupsRes.ok) {
+          console.error("Error fetching groups:", groupsRes.error);
+          toast.error("بارگذاری گروه‌ها با شکست مواجه شد.");
+          setGroups([]);
+        } else {
+          setGroups(groupsRes.data);
+        }
+
+        await findDuplicatePairs(list);
       } catch (error) {
         console.error("Error fetching data:", error);
         toast.error("خطا در بارگذاری داده‌ها");
@@ -72,31 +81,35 @@ export function AIContactDeduplication() {
 
     // Name similarity (highest weight)
     maxScore += 2;
-    if (contact1.name && contact2.name) {
-      const name1 = contact1.name.toLowerCase();
-      const name2 = contact2.name.toLowerCase();
-      if (name1 === name2) {
+    const fullName1 = [contact1.firstName || "", contact1.lastName || ""].join(" ").trim().toLowerCase();
+    const fullName2 = [contact2.firstName || "", contact2.lastName || ""].join(" ").trim().toLowerCase();
+    if (fullName1 && fullName2) {
+      if (fullName1 === fullName2) {
         score += 2;
         reasons.push("نام یکسان");
-      } else if (name1.includes(name2) || name2.includes(name1)) {
+      } else if (fullName1.includes(fullName2) || fullName2.includes(fullName1)) {
         score += 1;
         reasons.push("نام مشابه");
       }
     }
 
-    // Email similarity
+    // Email similarity (if optional email field exists in your model, otherwise skip)
     maxScore += 1;
-    if (contact1.email && contact2.email) {
-      if (contact1.email === contact2.email) {
+    const email1 = (contact1 as any).email as string | undefined;
+    const email2 = (contact2 as any).email as string | undefined;
+    if (email1 && email2) {
+      if (email1.toLowerCase() === email2.toLowerCase()) {
         score += 1;
         reasons.push("ایمیل یکسان");
       }
     }
 
-    // Company similarity
+    // Company similarity (if optional company field exists in your model, otherwise skip)
     maxScore += 1;
-    if (contact1.company && contact2.company) {
-      if (contact1.company?.toLowerCase() === contact2.company?.toLowerCase()) {
+    const company1 = (contact1 as any).company as string | undefined;
+    const company2 = (contact2 as any).company as string | undefined;
+    if (company1 && company2) {
+      if (company1.toLowerCase() === company2.toLowerCase()) {
         score += 1;
         reasons.push("شرکت مشابه");
       }
@@ -189,8 +202,10 @@ export function AIContactDeduplication() {
   };
 
   const filteredPairs = pairs.filter(pair =>
-    pair.contact1.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    pair.contact2.name.toLowerCase().includes(searchTerm.toLowerCase())
+    (pair.contact1.firstName || "").toLowerCase().includes(searchTerm.toLowerCase()) ||
+    (pair.contact2.firstName || "").toLowerCase().includes(searchTerm.toLowerCase()) ||
+    (pair.contact1.lastName || "").toLowerCase().includes(searchTerm.toLowerCase()) ||
+    (pair.contact2.lastName || "").toLowerCase().includes(searchTerm.toLowerCase())
   );
 
   if (loading) {
@@ -309,10 +324,10 @@ export function AIContactDeduplication() {
                       <div className="flex-1 grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div className="space-y-2">
                           <h4 className="font-semibold">مخاطب ۱</h4>
-                          {pair.contact1.name && <p>نام: {pair.contact1.name}</p>}
+                          <p>نام: {[pair.contact1.firstName, pair.contact1.lastName].filter(Boolean).join(" ") || "-"}</p>
                           {pair.contact1.position && <p>سمت: {pair.contact1.position}</p>}
-                          {pair.contact1.company && <p>شرکت: {pair.contact1.company}</p>}
-                          {pair.contact1.email && <p>ایمیل: {pair.contact1.email}</p>}
+                          {(pair.contact1 as any).company && <p>شرکت: {(pair.contact1 as any).company}</p>}
+                          {(pair.contact1 as any).email && <p>ایمیل: {(pair.contact1 as any).email}</p>}
                           {pair.contact1.phoneNumbers.length > 0 && (
                             <p>تلفن: {pair.contact1.phoneNumbers[0].number}</p>
                           )}
@@ -320,10 +335,10 @@ export function AIContactDeduplication() {
                         
                         <div className="space-y-2">
                           <h4 className="font-semibold">مخاطب ۲</h4>
-                          {pair.contact2.name && <p>نام: {pair.contact2.name}</p>}
+                          <p>نام: {[pair.contact2.firstName, pair.contact2.lastName].filter(Boolean).join(" ") || "-"}</p>
                           {pair.contact2.position && <p>سمت: {pair.contact2.position}</p>}
-                          {pair.contact2.company && <p>شرکت: {pair.contact2.company}</p>}
-                          {pair.contact2.email && <p>ایمیل: {pair.contact2.email}</p>}
+                          {(pair.contact2 as any).company && <p>شرکت: {(pair.contact2 as any).company}</p>}
+                          {(pair.contact2 as any).email && <p>ایمیل: {(pair.contact2 as any).email}</p>}
                           {pair.contact2.phoneNumbers.length > 0 && (
                             <p>تلفن: {pair.contact2.phoneNumbers[0].number}</p>
                           )}

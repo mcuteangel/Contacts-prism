@@ -1,74 +1,55 @@
 "use client";
 
 import React from "react";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Download, Upload } from "lucide-react";
-import { toast } from "sonner";
-import { ContactService } from "@/services/contact-service";
+import Link from "next/link";
+import { Wrench, SlidersHorizontal, ListChecks } from "lucide-react";
+import { GlobalCustomFieldsManagement } from "@/components/global-custom-fields-management";
 
 export default function ToolsPage() {
-  const handleExport = async () => {
-    try {
-      const json = await ContactService.exportContacts();
-      const blob = new Blob([json], { type: 'application/json' });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = 'prism_contacts_backup.json';
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      URL.revokeObjectURL(url);
-      toast.success("مخاطبین با موفقیت خروجی گرفته شدند!");
-    } catch (error) {
-      toast.error("خروجی گرفتن از مخاطبین با شکست مواجه شد.");
-      console.error("Error exporting contacts:", error);
-    }
-  };
-
-  const handleImport = async (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    if (file) {
-      const reader = new FileReader();
-      reader.onload = async (e) => {
-        try {
-          const jsonString = e.target?.result as string;
-          await ContactService.importContacts(jsonString);
-          toast.success("مخاطبین با موفقیت ورودی گرفتند!");
-          // No direct refresh needed here, as the contacts page will re-fetch on mount
-        } catch (error) {
-          toast.error("ورودی گرفتن از مخاطبین با شکست مواجه شد. لطفاً از معتبر بودن فایل JSON اطمینان حاصل کنید.");
-          console.error("Error importing contacts:", error);
-        }
-      };
-      reader.readAsText(file);
-    }
-  };
-
+  // صفحه ابزارها پیش‌تر فقط متن ساده داشت، برای همین خالی به‌نظر می‌رسید.
+  // اینجا یک لی‌آوت ساده با کارت‌ها و ابزارهای موجود اضافه می‌کنیم.
   return (
-    <div className="p-4 sm:p-8">
-      <h1 className="text-3xl font-bold text-primary-foreground mb-6">ابزار</h1>
-      <div className="grid gap-4 py-4 w-full max-w-sm">
-        <div className="flex flex-col gap-2">
-          <Label className="text-right">پشتیبان‌گیری و بازیابی</Label>
-          <div className="flex gap-2">
-            <Button onClick={handleExport} variant="outline" className="flex-grow flex items-center gap-2">
-              <Download size={18} /> خروجی
-            </Button>
-            <Input
-              id="import-file-tools"
-              type="file"
-              accept=".json"
-              onChange={handleImport}
-              className="hidden"
-            />
-            <Label htmlFor="import-file-tools" className="flex-grow flex items-center justify-center gap-2 px-4 py-2 rounded-md text-sm font-medium bg-secondary text-secondary-foreground hover:bg-secondary/80 cursor-pointer">
-              <Upload size={18} /> ورودی
-            </Label>
+    <div className="p-4 sm:p-8 space-y-6">
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-3">
+          <Wrench className="text-foreground/70" />
+          <div>
+            <h1 className="text-2xl font-bold">ابزارها</h1>
+            <p className="text-sm text-muted-foreground">مدیریت و تنظیمات پیشرفته برنامه</p>
           </div>
         </div>
+      </div>
+
+      <div className="grid gap-4 md:grid-cols-2">
+        <Card className="glass">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <ListChecks size={18} />
+              فیلدهای سفارشی سراسری
+            </CardTitle>
+            <CardDescription>افزودن/ویرایش/حذف قالب‌های فیلدهای سفارشی برای استفاده در کل برنامه</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <GlobalCustomFieldsManagement />
+          </CardContent>
+        </Card>
+
+        <Card className="glass">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <SlidersHorizontal size={18} />
+              تنظیمات پیشرفته
+            </CardTitle>
+            <CardDescription>تغییرات سیستمی و تنظیمات اپ</CardDescription>
+          </CardHeader>
+          <CardContent className="flex justify-start">
+            <Button asChild variant="outline">
+              <Link href="/settings-advanced">رفتن به تنظیمات پیشرفته</Link>
+            </Button>
+          </CardContent>
+        </Card>
       </div>
     </div>
   );

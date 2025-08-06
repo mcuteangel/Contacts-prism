@@ -3,15 +3,34 @@
 import React, { useEffect, useState } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { TabsContent } from "@/components/ui/tabs";
 import { ContactService } from "@/services/contact-service";
 import { type Contact, type Group } from "@/database/db";
 import { TimeRangeSelector } from "./analytics/time-range-selector";
 import { AnalyticsTabs } from "./analytics/analytics-tabs";
-import { OverviewTab } from "./analytics/overview-tab";
-import { DemographicsTab } from "./analytics/demographics-tab";
-import { GroupsTab } from "./analytics/groups-tab";
-import { TrendsTab } from "./analytics/trends-tab";
-import { ActivityTab } from "./analytics/activity-tab";
+import dynamic from "next/dynamic";
+
+// Dynamic imports to reduce initial bundle size for heavy tabs/charts
+const OverviewTab = dynamic(() => import("./analytics/overview-tab").then(m => m.OverviewTab), {
+  ssr: false,
+  loading: () => <div className="p-6">در حال بارگذاری نمای کلی...</div>,
+});
+const DemographicsTab = dynamic(() => import("./analytics/demographics-tab").then(m => m.DemographicsTab), {
+  ssr: false,
+  loading: () => <div className="p-6">در حال بارگذاری جمعیت‌شناسی...</div>,
+});
+const GroupsTab = dynamic(() => import("./analytics/groups-tab").then(m => m.GroupsTab), {
+  ssr: false,
+  loading: () => <div className="p-6">در حال بارگذاری گروه‌ها...</div>,
+});
+const TrendsTab = dynamic(() => import("./analytics/trends-tab").then(m => m.TrendsTab), {
+  ssr: false,
+  loading: () => <div className="p-6">در حال بارگذاری روندها...</div>,
+});
+const ActivityTab = dynamic(() => import("./analytics/activity-tab").then(m => m.ActivityTab), {
+  ssr: false,
+  loading: () => <div className="p-6">در حال بارگذاری فعالیت...</div>,
+});
 
 interface ContactTrend {
   date: string;
@@ -34,14 +53,16 @@ export function EnhancedAnalyticsDashboard() {
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const [allContacts, allGroups] = await Promise.all([
-          ContactService.getAllContacts(),
+        const [contactsRes, groupsRes] = await Promise.all([
+          ContactService.getAllContacts({ pageSize: 1000 }), // Fetch more contacts if needed
           ContactService.getAllGroups()
         ]);
-        setContacts(allContacts);
-        setGroups(allGroups);
+        setContacts(contactsRes.ok ? (contactsRes.data?.data ?? []) : []);
+        setGroups(groupsRes.ok ? (groupsRes.data ?? []) : []);
       } catch (error) {
         console.error("Error fetching analytics data:", error);
+        setContacts([]);
+        setGroups([]);
       } finally {
         setLoading(false);
       }
@@ -65,14 +86,17 @@ export function EnhancedAnalyticsDashboard() {
     );
   }
 
-  // Calculate statistics
-  const totalContacts = contacts.length;
-  const totalGroups = groups.length;
-  const totalPhoneNumbers = contacts.reduce((sum, contact) => sum + contact.phoneNumbers.length, 0);
-  const contactsWithAddress = contacts.filter(contact => contact.address).length;
-  const contactsWithPosition = contacts.filter(contact => contact.position).length;
-  const contactsWithNotes = contacts.filter(contact => contact.notes).length;
-  const contactsWithCustomFields = contacts.filter(contact => contact.customFields && contact.customFields.length > 0).length;
+  // Calculate statistics - add null checks and default values
+  const totalContacts = contacts?.length || 0;
+  const totalGroups = groups?.length || 0;
+  const totalPhoneNumbers = contacts?.reduce((sum, contact) => {
+    return sum + (contact?.phoneNumbers?.length || 0);
+  }, 0) || 0;
+  
+  const contactsWithAddress = contacts?.filter(contact => contact?.address).length || 0;
+  const contactsWithPosition = contacts?.filter(contact => contact?.position).length || 0;
+  const contactsWithNotes = contacts?.filter(contact => contact?.notes).length || 0;
+  const contactsWithCustomFields = contacts?.filter(contact => contact?.customFields && Array.isArray(contact.customFields) && contact.customFields.length > 0).length || 0;
 
   // Gender distribution
   const genderData = [
@@ -176,7 +200,7 @@ export function EnhancedAnalyticsDashboard() {
       </div>
 
       <AnalyticsTabs activeTab={activeTab} onTabChange={setActiveTab}>
-        <div value="overview">
+        <TabsContent value="overview">
           <OverviewTab
             totalContacts={totalContacts}
             totalGroups={totalGroups}
@@ -192,27 +216,27 @@ export function EnhancedAnalyticsDashboard() {
             customFieldsUsage={customFieldsUsage}
             phoneTypeData={phoneTypeData}
           />
-        </div>
+        </TabsContent>
 
-        <div value="demographics">
+        <TabsContent value="demographics">
           <DemographicsTab contacts={contacts} totalContacts={totalContacts} />
-        </div>
+        </TabsContent>
 
-        <div value="groups">
+        <TabsContent value="groups">
           <GroupsTab groupData={groupData} />
-        </div>
+        </TabsContent>
 
-        <div value="trends">
+        <TabsContent value="trends">
           <TrendsTab 
             trendData={trendData}
             totalContacts={totalContacts}
             monthlyGrowth={monthlyGrowth}
           />
-        </div>
+        </TabsContent>
 
-        <div value="activity">
+        <TabsContent value="activity">
           <ActivityTab activityData={activityData} />
-        </div>
+        </TabsContent>
       </AnalyticsTabs>
     </div>
   );

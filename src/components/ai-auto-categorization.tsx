@@ -54,7 +54,12 @@ const analyzeContactForGroup = (contact: Contact, availableGroups: Group[]): Omi
       });
   }
 
-  return { contactId: contact.id!, ...bestSuggestion };
+  const suggestedGroupName =
+    bestSuggestion.suggestedGroupId != null
+      ? (availableGroups.find(g => g.id === bestSuggestion.suggestedGroupId)?.name ?? 'نامشخص')
+      : 'بدون پیشنهاد';
+
+  return { contactId: contact.id!, suggestedGroupName, ...bestSuggestion };
 };
 
 
@@ -72,16 +77,21 @@ export function AIAutoCategorization() {
   const fetchData = useCallback(async () => {
     setLoading(true);
     try {
-      const [allContacts, allGroups] = await Promise.all([
-        ContactService.getAllContacts(),
+      const [contactsRes, groupsRes] = await Promise.all([
+        ContactService.getAllContacts({ pageSize: 1000 }),
         ContactService.getAllGroups()
       ]);
+      if (!contactsRes.ok) {
+        throw new Error(contactsRes.error || "getAllContacts failed");
+      }
       // Only suggest categories for contacts that are currently uncategorized
-      setContacts(allContacts.filter(c => !c.groupId));
-      setGroups(allGroups);
+      setContacts(contactsRes.data.data.filter((c: Contact) => !c.groupId));
+      setGroups(groupsRes.ok ? groupsRes.data : []);
     } catch (error) {
       console.error("Error fetching data:", error);
       toast.error("خطا در بارگذاری داده‌ها");
+      setContacts([]);
+      setGroups([]);
     } finally {
       setLoading(false);
     }
@@ -140,8 +150,12 @@ export function AIAutoCategorization() {
       let appliedCount = 0;
       for (const result of results) {
         if (result.suggestedGroupId) {
-          await ContactService.updateContact(result.contactId, { groupId: result.suggestedGroupId });
-          appliedCount++;
+          const res = await ContactService.updateContact(result.contactId, { groupId: result.suggestedGroupId });
+          if (res.ok) {
+            appliedCount++;
+          } else {
+            console.error("updateContact failed:", res.error);
+          }
         }
       }
       toast.success(`${appliedCount} مخاطب با موفقیت دسته‌بندی شد`);
@@ -266,3 +280,5 @@ export function AIAutoCategorization() {
     </div>
   );
 }
+
+export { AIAutoCategorization as AIContactCategorization };
