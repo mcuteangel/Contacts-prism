@@ -8,16 +8,25 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Progress } from "@/components/ui/progress";
 import { ContactService } from "@/services/contact-service";
-import { type Contact, type Group } from "@/database/db";
+type Group = { id?: string; name: string };
+type Contact = {
+  id?: string;
+  firstName: string;
+  lastName: string;
+  position?: string;
+  notes?: string;
+  groupId?: string | null;
+  phoneNumbers?: { type: string; number: string }[];
+};
 import { Tags, Search, Sparkles } from "lucide-react";
 import { toast } from "sonner";
 
 // ===== TYPES & INTERFACES =====
 interface CategorizationResult {
-  contactId: number;
+  contactId: string;
   contactName: string;
   contactPhones: string;
-  suggestedGroupId: number | null;
+  suggestedGroupId: string | null;
   suggestedGroupName: string;
   confidence: number;
   reasons: string[];
@@ -29,9 +38,9 @@ interface CategorizationResult {
  * This is a pure function, making it predictable and easy to test.
  */
 const analyzeContactForGroup = (contact: Contact, availableGroups: Group[]): Omit<CategorizationResult, 'contactName' | 'contactPhones'> => {
-  let bestSuggestion = { suggestedGroupId: null as number | null, confidence: 0, reasons: [] as string[] };
+  let bestSuggestion = { suggestedGroupId: null as string | null, confidence: 0, reasons: [] as string[] };
 
-  const checkAndSetSuggestion = (groupId: number, confidence: number, reason: string) => {
+  const checkAndSetSuggestion = (groupId: string, confidence: number, reason: string) => {
     if (confidence > bestSuggestion.confidence) {
       bestSuggestion = { suggestedGroupId: groupId, confidence, reasons: [reason] };
     } else if (confidence === bestSuggestion.confidence && bestSuggestion.suggestedGroupId === groupId) {
@@ -42,24 +51,24 @@ const analyzeContactForGroup = (contact: Contact, availableGroups: Group[]): Omi
   if (contact.position) {
     const positionGroup = availableGroups.find(g => g.name.toLowerCase() === contact.position!.toLowerCase());
     if (positionGroup?.id) {
-        checkAndSetSuggestion(positionGroup.id, 0.8, `سمت: ${contact.position}`);
+        checkAndSetSuggestion(String(positionGroup.id), 0.8, `سمت: ${contact.position}`);
     }
   }
   
   if (contact.notes) {
       availableGroups.forEach(group => {
           if (contact.notes!.toLowerCase().includes(group.name.toLowerCase())) {
-              checkAndSetSuggestion(group.id!, 0.6, `یادداشت حاوی نام گروه`);
+              if (group.id) checkAndSetSuggestion(String(group.id), 0.6, `یادداشت حاوی نام گروه`);
           }
       });
   }
 
   const suggestedGroupName =
     bestSuggestion.suggestedGroupId != null
-      ? (availableGroups.find(g => g.id === bestSuggestion.suggestedGroupId)?.name ?? 'نامشخص')
+      ? (availableGroups.find(g => String(g.id) === bestSuggestion.suggestedGroupId)?.name ?? 'نامشخص')
       : 'بدون پیشنهاد';
 
-  return { contactId: contact.id!, suggestedGroupName, ...bestSuggestion };
+  return { contactId: String(contact.id!), suggestedGroupName, ...bestSuggestion };
 };
 
 
@@ -84,9 +93,10 @@ export function AIAutoCategorization() {
       if (!contactsRes.ok) {
         throw new Error(contactsRes.error || "getAllContacts failed");
       }
+      const list: Contact[] = (contactsRes.data as any)?.data ?? [];
       // Only suggest categories for contacts that are currently uncategorized
-      setContacts(contactsRes.data.data.filter((c: Contact) => !c.groupId));
-      setGroups(groupsRes.ok ? groupsRes.data : []);
+      setContacts(list.filter((c: Contact) => !c.groupId));
+      setGroups(groupsRes.ok ? (groupsRes.data as any) : []);
     } catch (error) {
       console.error("Error fetching data:", error);
       toast.error("خطا در بارگذاری داده‌ها");
@@ -123,8 +133,8 @@ export function AIAutoCategorization() {
           return {
               ...analysis,
               contactName: `${contact.firstName} ${contact.lastName || ''}`.trim(),
-              contactPhones: contact.phoneNumbers.length > 0 ? contact.phoneNumbers[0].number : "بدون شماره",
-              suggestedGroupName: analysis.suggestedGroupId ? (groups.find(g => g.id === analysis.suggestedGroupId)?.name || 'نامشخص') : 'بدون پیشنهاد'
+              contactPhones: (contact.phoneNumbers?.length ?? 0) > 0 ? contact.phoneNumbers![0].number : "بدون شماره",
+              suggestedGroupName: analysis.suggestedGroupId ? (groups.find(g => String(g.id) === analysis.suggestedGroupId)?.name || 'نامشخص') : 'بدون پیشنهاد'
           };
         })
         .filter(res => res.suggestedGroupId !== null); // Only keep contacts with a suggestion
@@ -151,10 +161,10 @@ export function AIAutoCategorization() {
       for (const result of results) {
         if (result.suggestedGroupId) {
           const res = await ContactService.updateContact(result.contactId, { groupId: result.suggestedGroupId });
-          if (res.ok) {
+          if ((res as any).ok) {
             appliedCount++;
           } else {
-            console.error("updateContact failed:", res.error);
+            console.error("updateContact failed:", (res as any).error);
           }
         }
       }

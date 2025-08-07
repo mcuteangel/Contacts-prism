@@ -3,7 +3,8 @@
 // ===== IMPORTS & DEPENDENCIES =====
 import React, { useEffect, useState, useCallback } from "react";
 import { ContactService } from "@/services/contact-service";
-import { type Contact, type Group } from "@/database/db";
+import type { ContactUI as UIContact, GroupUI as UIGroup } from "@/domain/ui-types";
+import { useLiveContacts, useLiveGroups, useLiveOutboxMap } from "@/hooks/use-live-data";
 import { Toaster, toast } from "sonner";
 import { ContactListHeader } from "@/components/contact-list-header";
 import { ContactFormDialog } from "@/components/contact-form-dialog";
@@ -38,11 +39,17 @@ function useDebounce<T>(value: T, delay: number): T {
 
 // ===== CORE BUSINESS LOGIC (MAIN COMPONENT) =====
 export default function Home() {
-  const [contacts, setContacts] = useState<Contact[]>([]);
-  const [groups, setGroups] = useState<Group[]>([]);
+  // هم‌تراز با انواع مورد انتظار ContactList
+  const [contacts, setContacts] = useState<UIContact[]>([]);
+  const [groups, setGroups] = useState<UIGroup[]>([]);
   const [searchTerm, setSearchTerm] = useState("");
   const [mounted, setMounted] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
+
+  // Live data (Dexie liveQuery)
+  const liveContacts = useLiveContacts(searchTerm);
+  const liveGroups = useLiveGroups();
+  const liveOutbox = useLiveOutboxMap("contacts");
   
   // Use the global state from context for the form dialog
   const { isContactFormOpen, editingContact, setEditingContact, closeContactForm } = useContactForm();
@@ -51,76 +58,76 @@ export default function Home() {
   // Debounce the search term to avoid excessive database queries while typing
   const debouncedSearchTerm = useDebounce(searchTerm, 300);
 
-  const fetchContacts = useCallback(async (query: string) => {
-    setIsLoading(true);
-    try {
-      const res = await ContactService.searchContacts(query);
-      if (!res.ok) {
-        toast.error("بارگذاری مخاطبین با شکست مواجه شد.");
-        console.error("Error fetching contacts (Result):", res.error);
-        setContacts([]);
-      } else {
-        const contactsData = res.data.data ?? [];
-        setContacts(contactsData);
-      }
-    } catch (error) {
-      toast.error("بارگذاری مخاطبین با شکست مواجه شد.");
-      console.error("Error fetching contacts:", error);
-      setContacts([]);
-    } finally {
-      setIsLoading(false);
-    }
-  }, []);
+  // بهینه‌سازی: جلوگیری از setStateهای تکراری با memo
+  const normalizedSearch = React.useMemo(() => debouncedSearchTerm.trim().toLowerCase(), [debouncedSearchTerm]);
 
-  const fetchGroups = useCallback(async () => {
-    try {
-      const res = await ContactService.getAllGroups();
-      if (!res.ok) {
-        throw new Error(res.error || "getAllGroups failed");
-      }
-      setGroups(res.data);
-    } catch (error) {
-      toast.error("بارگذاری گروه‌ها با شکست مواجه شد.");
-      console.error("Error fetching groups:", error);
-      setGroups([]);
-    }
-  }, []);
+  // حذف fetchContacts؛ داده‌ها از liveContacts تامین می‌شوند
 
-  // Fetch groups only once on mount
-  useEffect(() => {
-    fetchGroups();
-  }, [fetchGroups]);
+  // حذف fetchGroups؛ داده‌ها از liveGroups تامین می‌شوند
+
+  // Outbox map for contacts (queued/sending/error/done)
+  const [outboxMap, setOutboxMap] = useState<Record<string, { status: string; tryCount: number }>>({});
+
+  // حذف اثر قدیمی fetchGroups؛ گروه‌ها از liveGroups می‌آید
 
   // Fetch contacts whenever the debounced search term changes
+  // Sync live data into component state with minimal churn
   useEffect(() => {
-    fetchContacts(debouncedSearchTerm);
-  }, [debouncedSearchTerm, fetchContacts]);
+    if (Array.isArray(liveContacts)) {
+      setContacts((prev) => {
+        const sameLength = prev.length === liveContacts.length;
+        const sameIds = sameLength && prev.every((p, i) => String(p.id) === String(liveContacts[i]?.id));
+        if (sameIds) return prev;
+        return liveContacts;
+      });
+      setIsLoading(false);
+    } else {
+      setIsLoading(true);
+    }
+  }, [liveContacts]);
 
-  const refreshData = () => {
-    fetchContacts(debouncedSearchTerm);
-    fetchGroups();
-  };
+  useEffect(() => {
+    if (Array.isArray(liveGroups)) {
+      const normalized = liveGroups.map((g) => ({ ...g, id: String(g.id ?? "") }));
+      setGroups((prev) => {
+        const sameLength = prev.length === normalized.length;
+        const sameIds = sameLength && prev.every((p, i) => String(p.id) === String(normalized[i]?.id));
+        if (sameIds) return prev;
+        return normalized;
+      });
+    }
+  }, [liveGroups]);
+
+  useEffect(() => {
+    if (liveOutbox) {
+      setOutboxMap(liveOutbox);
+    }
+  }, [liveOutbox]);
+
+  // با live hooks دیگر نیازی به refreshData نیست
+  const refreshData = () => {};
 
   const handleContactSaved = () => {
     refreshData();
     closeContactForm();
   };
   
-  const handleEdit = (contact: Contact) => {
-    setEditingContact(contact);
+  const handleEdit = (contact: UIContact) => {
+    setEditingContact(contact as any);
   };
 
-  const handleDelete = async (id: number) => {
+  const handleDelete = async (id: string | number) => {
+    const idStr = String(id);
     if (window.confirm("آیا از حذف این مخاطب مطمئن هستید؟")) {
       try {
-        const res = await ContactService.deleteContact(id);
+        const res = await ContactService.deleteContact(idStr);
         if (!res.ok) {
           toast.error("حذف مخاطب با شکست مواجه شد.");
           console.error("Error deleting contact (Result):", res.error);
           return;
         }
-        toast.success("مخاطب با موفقیت حذف شد!");
-        refreshData();
+        toast.success("মخاطب با موفقیت حذف شد!");
+        // نیازی به refreshData نیست؛ liveContacts خودکار آپدیت می‌شود
       } catch (error) {
         toast.error("حذف مخاطب با شکست مواجه شد.");
         console.error("Error deleting contact:", error);
@@ -132,7 +139,7 @@ export default function Home() {
     try {
       await ContactService.addGroup(groupName);
       toast.success("گروه با موفقیت اضافه شد!");
-      fetchGroups(); // Re-fetch groups to update the dialog
+      // نیازی به fetchGroups نیست؛ liveGroups خودکار به‌روزرسانی می‌شود
     } catch (error) {
       toast.error("افزودن گروه با شکست مواجه شد.");
       console.error("Error adding group:", error);
@@ -173,6 +180,7 @@ export default function Home() {
               groups={groups}
               onEditContact={handleEdit}
               onDeleteContact={handleDelete}
+              outboxById={outboxMap}
             />
           </div>
         </div>
@@ -185,7 +193,7 @@ export default function Home() {
         onContactSaved={handleContactSaved}
         groups={groups}
         onAddGroup={handleAddGroup}
-        onGroupsRefreshed={fetchGroups}
+        onGroupsRefreshed={() => {}}
       />
 
     </div>

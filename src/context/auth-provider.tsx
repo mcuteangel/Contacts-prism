@@ -14,9 +14,12 @@ type AuthState = {
 };
 
 type AuthContextType = AuthState & {
-  signInWithPassword: (email: string, password: string) => Promise<{ error?: string }>;
+  signInWithPassword: (email: string, password: string, opts?: { pinFallback?: string | null }) => Promise<{ error?: string }>;
   signOut: () => Promise<void>;
   refreshRole: () => Promise<void>;
+  // Offline auth helpers
+  unlockOffline: (method?: "webauthn" | "pin", pinIfNeeded?: string) => Promise<{ ok: boolean; error?: string }>;
+  isOnlineReauthRequired: () => Promise<boolean>;
 };
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -45,6 +48,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     role: null,
     error: null,
   });
+  // آخرین فعالیت کاربر برای قفل آفلاین
+  const [lastActivityAt, setLastActivityAt] = useState<number>(Date.now());
 
   const loadInitial = useCallback(async () => {
     setState((s) => ({ ...s, loading: true, error: null }));
@@ -101,7 +106,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     };
   }, [loadInitial]);
 
-  const signInWithPassword = useCallback(async (email: string, password: string) => {
+  const signInWithPassword = useCallback(async (email: string, password: string, opts?: { pinFallback?: string | null }) => {
     const { data, error } = await supabaseClient.auth.signInWithPassword({ email, password });
     if (error) {
       return { error: error.message };
@@ -118,11 +123,45 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       role,
       error: null,
     });
+
+    // پس از ورود آنلاین، مقداردهی احراز هویت آفلاین
+    try {
+      const accessToken = data.session?.access_token ?? "";
+      const refreshToken = data.session?.refresh_token ?? null;
+      // استخراج endpoint از env (در صورت نیاز برای ذخیره)
+      const endpointBaseUrl =
+        (process.env.NEXT_PUBLIC_API_BASE_URL as string | undefined) ||
+        (process.env.VITE_API_BASE_URL as string | undefined) ||
+        null;
+
+      // به‌صورت پیش‌فرض WebAuthn ترجیح دارد؛ اگر موجود نبود از PIN ورودی استفاده می‌کنیم
+      const { AuthService } = await import("@/services/auth-service");
+      const init = await AuthService.initializeAfterOnlineLogin({
+        userId: user?.id ?? "unknown",
+        accessToken,
+        refreshToken,
+        endpointBaseUrl,
+        preferWebAuthn: true,
+        pinForFallback: opts?.pinFallback ?? null,
+      });
+      if (!init.ok) {
+        // eslint-disable-next-line no-console
+        console.warn("[AuthProvider] initializeAfterOnlineLogin failed:", init);
+      }
+    } catch (e) {
+      // eslint-disable-next-line no-console
+      console.warn("[AuthProvider] offline auth init error:", (e as any)?.message);
+    }
+
     return {};
   }, []);
 
   const signOut = useCallback(async () => {
     await supabaseClient.auth.signOut();
+    try {
+      const { AuthService } = await import("@/services/auth-service");
+      await AuthService.clearAll();
+    } catch {}
     setState({
       loading: false,
       session: null,
@@ -139,14 +178,38 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setState((s) => ({ ...s, role }));
   }, [state.user?.id]);
 
+  const unlockOffline = useCallback(async (method?: "webauthn" | "pin", pinIfNeeded?: string) => {
+    const { AuthService } = await import("@/services/auth-service");
+    const res = await AuthService.unlock(method, pinIfNeeded);
+    if (res.ok) setLastActivityAt(Date.now());
+    return res;
+  }, []);
+
+  const isOnlineReauthRequired = useCallback(async () => {
+    const { AuthService } = await import("@/services/auth-service");
+    return AuthService.isOnlineReauthRequired();
+  }, []);
+
+  // ردیاب فعالیت کاربر برای قفل خودکار
+  useEffect(() => {
+    const mark = () => setLastActivityAt(Date.now());
+    const evts: ("mousemove" | "mousedown" | "keydown" | "touchstart" | "visibilitychange")[] = ["mousemove", "mousedown", "keydown", "touchstart", "visibilitychange"];
+    evts.forEach((e) => window.addEventListener(e, mark as EventListener, { passive: true } as AddEventListenerOptions));
+    return () => {
+      evts.forEach((e) => window.removeEventListener(e, mark as EventListener));
+    };
+  }, []);
+
   const value = useMemo<AuthContextType>(
     () => ({
       ...state,
       signInWithPassword,
       signOut,
       refreshRole,
+      unlockOffline,
+      isOnlineReauthRequired,
     }),
-    [state, signInWithPassword, signOut, refreshRole]
+    [state, signInWithPassword, signOut, refreshRole, unlockOffline, isOnlineReauthRequired]
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

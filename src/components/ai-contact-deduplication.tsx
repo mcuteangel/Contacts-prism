@@ -6,7 +6,16 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { ContactService } from "@/services/contact-service";
-import { type Contact, type Group } from "@/database/db";
+type Group = { id?: string; name: string };
+type Contact = {
+  id?: string;
+  firstName: string;
+  lastName: string;
+  position?: string;
+  address?: string | null;
+  notes?: string | null;
+  phoneNumbers: { type: string; number: string }[];
+};
 import { 
   Users, 
   Search, 
@@ -51,15 +60,15 @@ export function AIContactDeduplication() {
           ContactService.getAllContacts(),
           ContactService.getAllGroups()
         ]);
-        const list = contactsRes.ok ? contactsRes.data.data : [];
+        const list: Contact[] = contactsRes.ok ? ((contactsRes.data as any)?.data ?? []) : [];
         setContacts(list);
 
         if (!groupsRes.ok) {
-          console.error("Error fetching groups:", groupsRes.error);
+          console.error("Error fetching groups:", (groupsRes as any).error);
           toast.error("بارگذاری گروه‌ها با شکست مواجه شد.");
           setGroups([]);
         } else {
-          setGroups(groupsRes.data);
+          setGroups((groupsRes.data as any) ?? []);
         }
 
         await findDuplicatePairs(list);
@@ -117,8 +126,8 @@ export function AIContactDeduplication() {
 
     // Phone number similarity
     maxScore += 1;
-    const phoneNumbers1 = contact1.phoneNumbers.map(p => p.number);
-    const phoneNumbers2 = contact2.phoneNumbers.map(p => p.number);
+    const phoneNumbers1 = (contact1.phoneNumbers ?? []).map((p) => p.number);
+    const phoneNumbers2 = (contact2.phoneNumbers ?? []).map((p) => p.number);
     const commonPhones = phoneNumbers1.filter(phone => phoneNumbers2.includes(phone));
     if (commonPhones.length > 0) {
       score += 1;
@@ -328,8 +337,8 @@ export function AIContactDeduplication() {
                           {pair.contact1.position && <p>سمت: {pair.contact1.position}</p>}
                           {(pair.contact1 as any).company && <p>شرکت: {(pair.contact1 as any).company}</p>}
                           {(pair.contact1 as any).email && <p>ایمیل: {(pair.contact1 as any).email}</p>}
-                          {pair.contact1.phoneNumbers.length > 0 && (
-                            <p>تلفن: {pair.contact1.phoneNumbers[0].number}</p>
+                          {(pair.contact1.phoneNumbers ?? []).length > 0 && (
+                            <p>تلفن: {pair.contact1.phoneNumbers![0].number}</p>
                           )}
                         </div>
                         
@@ -339,8 +348,8 @@ export function AIContactDeduplication() {
                           {pair.contact2.position && <p>سمت: {pair.contact2.position}</p>}
                           {(pair.contact2 as any).company && <p>شرکت: {(pair.contact2 as any).company}</p>}
                           {(pair.contact2 as any).email && <p>ایمیل: {(pair.contact2 as any).email}</p>}
-                          {pair.contact2.phoneNumbers.length > 0 && (
-                            <p>تلفن: {pair.contact2.phoneNumbers[0].number}</p>
+                          {(pair.contact2.phoneNumbers ?? []).length > 0 && (
+                            <p>تلفن: {pair.contact2.phoneNumbers![0].number}</p>
                           )}
                         </div>
                       </div>

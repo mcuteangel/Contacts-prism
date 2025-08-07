@@ -1,0 +1,127 @@
+{
+  "sync": {
+    "logs": {
+      "title": "Sync Logs",
+      "filter": { "all": "All", "success": "Success", "error": "Error" },
+      "exportCsv": "Export CSV",
+      "limit": "Limit",
+      "refresh": "Refresh",
+      "refreshLoading": "Loading...",
+      "clear": "Clear Logs",
+      "summary": "Showing {{count}} rows • OK: {{ok}} • ERR: {{err}}",
+      "table": {
+        "id": "ID",
+        "started": "Start",
+        "ended": "End",
+        "duration": "Duration (ms)",
+        "status": "Status",
+        "endpoint": "Endpoint",
+        "window": "Sync Window",
+        "push": "Push (attempted/sent/applied/conflicts/errors)",
+        "pull": "Pull (contacts up/deletes • groups up/deletes • total)",
+        "error": "Error",
+        "empty": "No logs found."
+      },
+      "badge": {
+        "ok": "Last sync: OK",
+        "warn": "Last sync: OK with warnings • Conflicts: {{conflicts}} • Errors: {{errors}}",
+        "err": "Last sync: Error{{detail}}",
+        "errDetail": " • Conflicts: {{conflicts}} • Errors: {{errors}}"
+      },
+      "clearConfirm": "Clear all sync logs?"
+    }
+  },
+  "analytics": {
+    "tabs": {
+      "overview": "Overview",
+      "demographics": "Demographics",
+      "groups": "Groups",
+      "trends": "Trends",
+      "activity": "Activity"
+    },
+    "overview": {
+      "cards": {
+        "totalContacts": "Total Contacts",
+        "totalGroups": "Total Groups",
+        "totalPhones": "Total Phones",
+        "withAddress": "With Address",
+        "withPosition": "With Position",
+        "withNotes": "With Notes",
+        "withCustom": "With Custom Field",
+        "totalGrowth": "Total Growth",
+        "monthlyGrowth": "Monthly Growth"
+      },
+      "charts": {
+        "gender": "Gender Distribution",
+        "position": "Position Distribution",
+        "customFields": "Custom Fields Usage",
+        "phoneType": "Phone Types",
+        "noData": "No data to display."
+      }
+    },
+    "demographics": {
+      "ageDistribution": "Age Distribution",
+      "interactionAnalysis": "Interaction Analysis",
+      "loadingAge": "Loading age distribution...",
+      "loadingInteraction": "Loading interaction analysis..."
+    },
+    "trends": {
+      "trendChart": "Trend Chart",
+      "growthMetrics": "Growth Metrics",
+      "loadingTrend": "Loading trend chart...",
+      "loadingGrowth": "Loading growth metrics..."
+    },
+    "activity": {
+      "chart": "Hourly Activity",
+      "loading": "Loading activity chart..."
+    },
+    "groups": {
+      "distribution": "Groups Distribution",
+      "cards": "Group Cards",
+      "loadingDistribution": "Loading groups distribution...",
+      "loadingCards": "Loading group cards..."
+    }
+  },
+  "settings": {
+    "admin": {
+      "title": "Advanced Settings",
+      "statusLabel": "Status:",
+      "lastSync": "Last sync: {{value}}",
+      "never": "Never",
+      "clearConfirm": "Delete all sync logs?",
+      "badge": {
+        "conflicts": "Conflicts: {{count}}",
+        "errors": "Errors: {{count}}",
+        "pending": "Pending: {{count}}",
+        "upToDate": "Up to date"
+      },
+      "actions": {
+        "push": { "label": "Push Now", "loading": "Pushing...", "aria": "Run outbox push" },
+        "pull": { "label": "Pull Now", "loading": "Pulling...", "aria": "Run delta pull" },
+        "clear": { "label": "Clear Logs", "loading": "Clearing...", "aria": "Clear sync logs" }
+      }
+    },
+    "security": {
+      "offline": {
+        "title": "Offline Security",
+        "desc": "Configure inactivity lock and view/extend offline window",
+        "inactivityLabel": "Inactivity time to lock (minutes)",
+        "inactivityAria": "Inactivity time input",
+        "apply": "Apply",
+        "applyAria": "Apply inactivity",
+        "currentValue": "Current value: {{minutes}} minutes",
+        "offlineWindow": "Offline Window",
+        "until": "Until: {{value}}",
+        "wrapMethod": "Auth Method: {{method}}",
+        "extend": "Extend Offline Window",
+        "extendAria": "Extend offline window",
+        "extendTitleOnline": "Extend offline window (requires online)",
+        "extendTitleOffline": "You must be online to extend"
+      }
+    },
+    "common": {
+      "unknown": "Unknown",
+      "extending": "Extending..."
+    }
+  }
+}

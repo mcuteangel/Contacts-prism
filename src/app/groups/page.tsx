@@ -2,7 +2,6 @@
 
 import React, { useEffect, useState } from "react";
 import { ContactService } from "@/services/contact-service";
-import { type Group } from "@/database/db";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -14,8 +13,11 @@ import { useForm, type SubmitHandler } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { createGroupSchema, type CreateGroupInput } from "@/domain/schemas/group";
 
+// از نوع UI استفاده می‌کنیم تا با سرویس سازگار باشد
+import type { GroupUI } from "@/domain/ui-types";
+
 export default function GroupsPage() {
-  const [groups, setGroups] = useState<Group[]>([]);
+  const [groups, setGroups] = useState<GroupUI[]>([]);
   const form = useForm<CreateGroupInput>({
     resolver: zodResolver(createGroupSchema),
     defaultValues: { name: "" },
@@ -29,7 +31,7 @@ export default function GroupsPage() {
         console.error("Error fetching groups:", res.error);
         return;
       }
-      setGroups(res.data);
+      setGroups(res.data as GroupUI[]);
     } catch (error) {
       toast.error("بارگذاری گروه‌ها با شکست مواجه شد.");
       console.error("Error fetching groups:", error);
@@ -58,7 +60,7 @@ export default function GroupsPage() {
     }
   };
 
-  const handleDeleteGroup = async (id: number) => {
+  const handleDeleteGroup = async (id: string) => {
     if (window.confirm("آیا از حذف این گروه مطمئن هستید؟ مخاطبین مرتبط با این گروه حذف نمی‌شوند.")) {
       try {
         const delRes = await ContactService.deleteGroup(id);
@@ -109,7 +111,7 @@ export default function GroupsPage() {
               {groups.map((group) => (
                 <div key={group.id} className="glass p-3 rounded-lg flex justify-between items-center">
                   <span className="font-medium">{group.name}</span>
-                  <Button variant="destructive" size="icon" onClick={() => handleDeleteGroup(group.id!)}>
+                  <Button variant="destructive" size="icon" onClick={() => handleDeleteGroup(String(group.id))}>
                     <Trash2 size={16} />
                   </Button>
                 </div>

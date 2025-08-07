@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Settings, Lock, Palette, Layout } from "lucide-react";
 import { mapPathnameToTab } from "@/lib/navigation";
 import { useIsMobile } from "@/hooks/use-is-mobile";
+import AppHeader from "@/components/app-header";
 
 interface HeaderProps {
   onContactsRefreshed: () => void;
@@ -63,18 +64,27 @@ export function Header({
 
   return (
     <header
-      className="fixed top-0 right-0 left-0 z-50 glass border-b border-white/10 bg-background/60 backdrop-blur-lg px-4 py-3 flex items-center shadow-[0_2px_12px_rgba(0,0,0,0.08)]"
+      className="fixed top-0 right-0 left-0 z-50 glass border-b border-white/10 bg-background/60 backdrop-blur-lg px-4 pt-0 pb-2 flex flex-col shadow-[0_2px_12px_rgba(0,0,0,0.08)]"
       role="banner"
       aria-label="سربرگ برنامه"
       dir="rtl"
     >
+      {/* زیرنوار وضعیت احراز هویت/شبکه */}
+      <div aria-live="polite" aria-atomic="true">
+        <AppHeader />
+      </div>
+
+      {/* Spacer کوچک برای جلوگیری از همپوشانی با زیرنوار وضعیت */}
+      <div className="h-1" aria-hidden="true" />
+
       {/* در RTL، ترتیب بصری: آیکن‌ها سمت چپ، عنوان سمت راست */}
-      <h1 className="text-2xl font-bold text-foreground mr-0 ml-auto">
+      <h1 className="text-2xl font-bold text-foreground mr-0 ml-auto px-4 py-1">
         <span className="sr-only">عنوان صفحه:</span>
         {activeTitle}
       </h1>
 
-      <div className="flex items-center gap-2 ml-0 mr-auto">
+      {/* کمی افزایش فاصله پایینی برای جلوگیری از فشردگی با محتوای اصلی */}
+      <div className="flex items-center gap-2 ml-0 mr-auto px-4 pb-3">
         <div className="flex items-center gap-2">
           {/* قفل برنامه با استفاده از رویداد سراسری AppSecureLock */}
           <Button

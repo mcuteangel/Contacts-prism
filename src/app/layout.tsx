@@ -6,6 +6,7 @@ import { MainLayout } from "@/components/layout/main-layout";
 import { ContactFormProvider } from "@/contexts/contact-form-context";
 import { AuthShell } from "./providers/auth-shell";
 import { getDirFromLang } from "@/lib/direction";
+import { I18nProvider } from "@/i18n/I18nProvider";
 
 /**
  * توجه: RootLayout باید سروری باقی بماند تا بتواند metadata صادر کند.
@@ -33,13 +34,21 @@ function AuthGate({ children }: { children: React.ReactNode }) {
   return <>{children}</>;
 }
 
+import { headers } from "next/headers";
+
 export default function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
-  // زبان پیش‌فرض برنامه (می‌تواند بعداً از i18n یا تنظیمات کاربر بیاید)
-  const lang = "fa";
+  // تشخیص ساده زبان از Accept-Language برای تعیین dir/lang در SSR
+  // headers() در Next 15 هم‌اکنون یک Promise برمی‌گرداند؛ برای دسترسی به get باید await کنیم.
+  // چون RootLayout تابع سروری sync است، از headers().getUnsafeHeaders() برای دسترسی فوری استفاده می‌کنیم.
+  // توجه: getUnsafeHeaders در رندر سرور در دسترس است و مقدار ReadonlyHeaders را برمی‌گرداند.
+  const accept =
+    (headers() as any)?.getUnsafeHeaders?.().get("accept-language") || "";
+  const first = accept.split(",")[0]?.trim() || "fa";
+  const lang = first.split(";")[0].split("-")[0] || "fa";
   const dir = getDirFromLang(lang);
 
   return (
@@ -54,11 +63,13 @@ export default function RootLayout({
           disableTransitionOnChange
         >
           {/* احراز هویت و الزام ورود در شل کلاینتی */}
-          <AuthShell>
-            <ContactFormProvider>
-              <MainLayout>{children}</MainLayout>
-            </ContactFormProvider>
-          </AuthShell>
+          <I18nProvider>
+            <AuthShell>
+              <ContactFormProvider>
+                <MainLayout>{children}</MainLayout>
+              </ContactFormProvider>
+            </AuthShell>
+          </I18nProvider>
         </ThemeProvider>
       </body>
     </html>

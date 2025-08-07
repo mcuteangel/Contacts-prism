@@ -1,0 +1,133 @@
+{
+  "sync": {
+    "logs": {
+      "title": "گزارش همگام‌سازی",
+      "filter": {
+        "all": "همه",
+        "success": "موفق",
+        "error": "خطا"
+      },
+      "exportCsv": "خروجی CSV",
+      "limit": "محدودیت",
+      "refresh": "به‌روزرسانی",
+      "refreshLoading": "در حال بارگذاری...",
+      "clear": "حذف لاگ‌ها",
+      "summary": "نمایش {{count}} ردیف • موفق: {{ok}} • خطا: {{err}}",
+      "table": {
+        "id": "ID",
+        "started": "شروع",
+        "ended": "پایان",
+        "duration": "مدت (میلی‌ثانیه)",
+        "status": "وضعیت",
+        "endpoint": "Endpoint",
+        "window": "بازه سنک",
+        "push": "فشار دادن (تلاش شده/ارسال شده/اعمال شده/تضادها/خطاها)",
+        "pull": "کشیدن (مخاطبین به‌روز/حذف‌شده • گروه‌های به‌روز/حذف‌شده • کل)",
+        "error": "خطا",
+        "empty": "لاگی یافت نشد."
+      },
+      "badge": {
+        "ok": "آخرین سنک: موفق",
+        "warn": "آخرین سنک: موفق با هشدار • تضاد: {{conflicts}} • خطا: {{errors}}",
+        "err": "آخرین سنک: خطا{{detail}}",
+        "errDetail": " • تضاد: {{conflicts}} • خطا: {{errors}}"
+      },
+      "clearConfirm": "حذف تمام لاگ‌های سنک؟"
+    }
+  },
+  "analytics": {
+    "tabs": {
+      "overview": "نمای کلی",
+      "demographics": "جمعیت‌شناسی",
+      "groups": "گروه‌ها",
+      "trends": "روندها",
+      "activity": "فعالیت"
+    },
+    "overview": {
+      "cards": {
+        "totalContacts": "کل مخاطبین",
+        "totalGroups": "کل گروه‌ها",
+        "totalPhones": "کل شماره‌ها",
+        "withAddress": "دارای آدرس",
+        "withPosition": "دارای سمت",
+        "withNotes": "دارای یادداشت",
+        "withCustom": "دارای فیلد سفارشی",
+        "totalGrowth": "رشد کل",
+        "monthlyGrowth": "رشد ماهانه"
+      },
+      "charts": {
+        "gender": "توزیع جنسیت",
+        "position": "توزیع سمت‌ها",
+        "customFields": "استفاده از فیلدهای سفارشی",
+        "phoneType": "نوع شماره‌ها",
+        "noData": "داده‌ای برای نمایش موجود نیست."
+      }
+    },
+    "demographics": {
+      "ageDistribution": "توزیع سنی",
+      "interactionAnalysis": "تحلیل تعاملات",
+      "loadingAge": "در حال بارگذاری توزیع سنی...",
+      "loadingInteraction": "در حال بارگذاری تحلیل تعامل..."
+    },
+    "trends": {
+      "trendChart": "نمودار روند",
+      "growthMetrics": "شاخص‌های رشد",
+      "loadingTrend": "در حال بارگذاری نمودار روند...",
+      "loadingGrowth": "در حال بارگذاری شاخص‌های رشد..."
+    },
+    "activity": {
+      "chart": "فعالیت ساعتی",
+      "loading": "در حال بارگذاری نمودار فعالیت..."
+    },
+    "groups": {
+      "distribution": "توزیع گروه‌ها",
+      "cards": "کارت‌های گروه",
+      "loadingDistribution": "در حال بارگذاری توزیع گروه...",
+      "loadingCards": "در حال بارگذاری کارت‌های گروه..."
+    }
+  },
+  "settings": {
+    "admin": {
+      "title": "مدیریت پیشرفته",
+      "save": "ذخیره",
+      "cancel": "انصراف",
+      "statusLabel": "وضعیت:",
+      "lastSync": "آخرین همگام‌سازی: {{value}}",
+      "never": "هنوز انجام نشده",
+      "clearConfirm": "حذف تمام لاگ‌های سنک؟",
+      "badge": {
+        "conflicts": "تضاد: {{count}}",
+        "errors": "خطا: {{count}}",
+        "pending": "در انتظار: {{count}}",
+        "upToDate": "به‌روز"
+      },
+      "actions": {
+        "push": { "label": "هم‌اکنون فشار دهید", "loading": "در حال فشار دادن...", "aria": "اجرای Push Outbox" },
+        "pull": { "label": "هم‌اکنون بکشید", "loading": "در حال کشیدن...", "aria": "اجرای Pull Delta" },
+        "clear": { "label": "حذف لاگ‌ها", "loading": "در حال پاک‌سازی...", "aria": "پاک کردن لاگ‌های سنک" }
+      }
+    },
+    "security": {
+      "offline": {
+        "title": "امنیت آفلاین",
+        "desc": "تنظیم قفل براساس بیکاری و مشاهده/تمدید مهلت کار آفلاین",
+        "inactivityLabel": "زمان بیکاری تا قفل (دقیقه)",
+        "inactivityAria": "ورودی زمان بیکاری تا قفل",
+        "apply": "اعمال",
+        "applyAria": "ثبت زمان بیکاری",
+        "currentValue": "مقدار فعلی: {{minutes}} دقیقه",
+        "offlineWindow": "مهلت آفلاین",
+        "until": "تا: {{value}}",
+        "wrapMethod": "روش احراز هویت: {{method}}",
+        "extend": "تمدید مهلت آفلاین",
+        "extendAria": "تمدید پنجره آفلاین",
+        "extendTitleOnline": "تمدید مهلت آفلاین (نیازمند آنلاین بودن)",
+        "extendTitleOffline": "برای تمدید باید آنلاین باشید"
+      }
+    },
+    "common": {
+      "unknown": "نامشخص",
+      "extending": "در حال تمدید..."
+    }
+  }
+}

@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useMemo, useState, useCallback } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
@@ -8,20 +8,15 @@ import { Switch } from "@/components/ui/switch";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { 
-  Layout, 
-  User, 
-  Phone, 
-  Building2, 
-  MapPin, 
-  Tag, 
+import {
+  Layout,
   Calendar,
   Star,
   Settings,
   Eye,
   EyeOff,
   Save,
-  RotateCcw
+  RotateCcw,
 } from "lucide-react";
 
 interface Column {
@@ -41,92 +36,93 @@ interface ContactListColumnsProps {
   defaultColumns: Column[];
 }
 
-export function ContactListColumns({ 
-  isOpen, 
-  onOpenChange, 
-  onColumnsChange, 
-  defaultColumns 
+export function ContactListColumns({
+  isOpen,
+  onOpenChange,
+  onColumnsChange,
+  defaultColumns,
 }: ContactListColumnsProps) {
   const [columns, setColumns] = useState<Column[]>(defaultColumns);
   const [searchTerm, setSearchTerm] = useState("");
   const [activeTab, setActiveTab] = useState("visibility");
 
-  const filteredColumns = columns.filter(column =>
-    column.label.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    column.description.toLowerCase().includes(searchTerm.toLowerCase())
+  const filteredColumns = useMemo(
+    () =>
+      columns.filter(
+        (column) =>
+          column.label.toLowerCase().includes(searchTerm.toLowerCase()) ||
+          column.description.toLowerCase().includes(searchTerm.toLowerCase())
+      ),
+    [columns, searchTerm]
   );
 
-  const toggleColumnVisibility = (columnId: string) => {
-    setColumns(prev => prev.map(col => 
-      col.id === columnId ? { ...col, visible: !col.visible } : col
-    ));
-  };
+  const toggleColumnVisibility = useCallback((columnId: string) => {
+    setColumns((prev) =>
+      prev.map((col) => (col.id === columnId ? { ...col, visible: !col.visible } : col))
+    );
+  }, []);
 
-  const moveColumn = (columnId: string, direction: 'up' | 'down') => {
-    setColumns(prev => {
-      const index = prev.findIndex(col => col.id === columnId);
+  const moveColumn = useCallback((columnId: string, direction: "up" | "down") => {
+    setColumns((prev) => {
+      const index = prev.findIndex((col) => col.id === columnId);
       if (index === -1) return prev;
 
       const newColumns = [...prev];
-      const targetIndex = direction === 'up' ? index - 1 : index + 1;
-      
+      const targetIndex = direction === "up" ? index - 1 : index + 1;
+
       if (targetIndex < 0 || targetIndex >= newColumns.length) return prev;
 
       [newColumns[index], newColumns[targetIndex]] = [newColumns[targetIndex], newColumns[index]];
-      
+
       return newColumns.map((col, idx) => ({ ...col, order: idx }));
     });
-  };
+  }, []);
 
-  const updateColumnWidth = (columnId: string, width: string) => {
-    setColumns(prev => prev.map(col => 
-      col.id === columnId ? { ...col, width } : col
-    ));
-  };
+  const updateColumnWidth = useCallback((columnId: string, width: string) => {
+    setColumns((prev) => prev.map((col) => (col.id === columnId ? { ...col, width } : col)));
+  }, []);
 
-  const resetToDefaults = () => {
+  const resetToDefaults = useCallback(() => {
     setColumns(defaultColumns);
-  };
+  }, [defaultColumns]);
 
-  const saveColumns = () => {
+  const saveColumns = useCallback(() => {
     onColumnsChange(columns);
-    localStorage.setItem('contact-list-columns', JSON.stringify(columns));
+    try {
+      localStorage.setItem("contact-list-columns", JSON.stringify(columns));
+    } catch {}
     onOpenChange(false);
-  };
+  }, [columns, onColumnsChange, onOpenChange]);
 
-  const availableColumns = [
-    {
-      id: 'starred',
-      label: 'ستاره‌دار',
-      icon: Star,
-      description: 'نمایش مخاطبان ستاره‌دار',
-      visible: columns.find(c => c.id === 'starred')?.visible || false
-    },
-    {
-      id: 'birthday',
-      label: 'تاریخ تولد',
-      icon: Calendar,
-      description: 'نمایش تاریخ تولد مخاطبان',
-      visible: columns.find(c => c.id === 'birthday')?.visible || false
-    },
-    {
-      id: 'company',
-      label: 'شرکت',
-      icon: Building2,
-      description: 'نمایش شرکت مخاطبان',
-      visible: columns.find(c => c.id === 'company')?.visible || false
-    },
-    {
-      id: 'group',
-      label: 'گروه',
-      icon: Tag,
-      description: 'نمایش گروه مخاطبان',
-      visible: columns.find(c => c.id === 'group')?.visible || false
-    }
-  ];
+  const availableColumns = useMemo(
+    () => [
+      {
+        id: "starred",
+        label: "ستاره‌دار",
+        icon: Star,
+        description: "نمایش مخاطبان ستاره‌دار",
+        visible: columns.find((c) => c.id === "starred")?.visible || false,
+      },
+      {
+        id: "birthday",
+        label: "تاریخ تولد",
+        icon: Calendar,
+        description: "نمایش تاریخ تولد مخاطبان",
+        visible: columns.find((c) => c.id === "birthday")?.visible || false,
+      },
+      {
+        id: "group",
+        label: "گروه",
+        icon: Settings, // جایگزین نماد برای نمونه
+        description: "نمایش گروه مخاطبان",
+        visible: columns.find((c) => c.id === "group")?.visible || false,
+      },
+    ],
+    [columns]
+  );
 
   return (
-    <div className={`fixed inset-0 z-50 flex items-center justify-center ${isOpen ? 'block' : 'hidden'}`}>
+    <div className={`fixed inset-0 z-50 flex items-center justify-center ${isOpen ? "block" : "hidden"}`}>
       <div className="fixed inset-0 bg-black/50" onClick={() => onOpenChange(false)} />
       <div className="glass p-6 rounded-lg shadow-lg backdrop-blur-md max-w-2xl w-full mx-4 max-h-[90vh] overflow-y-auto">
         <div className="flex justify-between items-center mb-6">
@@ -159,9 +155,7 @@ export function ContactListColumns({
             <Card>
               <CardHeader>
                 <CardTitle>ستون‌های فعلی</CardTitle>
-                <CardDescription>
-                  ستون‌هایی که در لیست مخاطبین نمایش داده می‌شوند
-                </CardDescription>
+                <CardDescription>ستون‌هایی که در لیست مخاطبین نمایش داده می‌شوند</CardDescription>
               </CardHeader>
               <CardContent className="space-y-3">
                 {filteredColumns.map((column) => {
@@ -177,10 +171,7 @@ export function ContactListColumns({
                           <div className="text-sm text-muted-foreground">{column.description}</div>
                         </div>
                       </div>
-                      <Switch
-                        checked={column.visible}
-                        onCheckedChange={() => toggleColumnVisibility(column.id)}
-                      />
+                      <Switch checked={column.visible} onCheckedChange={() => toggleColumnVisibility(column.id)} />
                     </div>
                   );
                 })}
@@ -190,13 +181,11 @@ export function ContactListColumns({
             <Card>
               <CardHeader>
                 <CardTitle>افزودن ستون جدید</CardTitle>
-                <CardDescription>
-                  ستون‌های اضافی را به لیست خود اضافه کنید
-                </CardDescription>
+                <CardDescription>ستون‌های اضافی را به لیست خود اضافه کنید</CardDescription>
               </CardHeader>
               <CardContent className="space-y-3">
                 {availableColumns
-                  .filter(available => !columns.find(c => c.id === available.id))
+                  .filter((available) => !columns.find((c) => c.id === available.id))
                   .map((available) => {
                     const Icon = available.icon;
                     return (
@@ -216,9 +205,9 @@ export function ContactListColumns({
                             const newColumn: Column = {
                               ...available,
                               visible: true,
-                              order: columns.length
+                              order: columns.length,
                             };
-                            setColumns(prev => [...prev, newColumn]);
+                            setColumns((prev) => [...prev, newColumn]);
                           }}
                         >
                           افزودن
@@ -234,35 +223,29 @@ export function ContactListColumns({
             <Card>
               <CardHeader>
                 <CardTitle>عرض ستون‌ها</CardTitle>
-                <CardDescription>
-                  عرض هر ستون را شخصی‌سازی کنید
-                </CardDescription>
+                <CardDescription>عرض هر ستون را شخصی‌سازی کنید</CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
-                {columns.filter(c => c.visible).map((column) => (
-                  <div key={column.id} className="space-y-2">
-                    <Label className="text-sm font-medium">{column.label}</Label>
-                    <div className="flex gap-2 items-center">
-                      <Input
-                        type="number"
-                        placeholder="پیکسل"
-                        value={column.width?.replace('px', '') || ''}
-                        onChange={(e) => updateColumnWidth(column.id, `${e.target.value}px`)}
-                        className="w-24"
-                      />
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => updateColumnWidth(column.id, '')}
-                      >
-                        خودکار
-                      </Button>
-                      <Badge variant="secondary">
-                        {column.width || 'خودکار'}
-                      </Badge>
+                {columns
+                  .filter((c) => c.visible)
+                  .map((column) => (
+                    <div key={column.id} className="space-y-2">
+                      <Label className="text-sm font-medium">{column.label}</Label>
+                      <div className="flex gap-2 items-center">
+                        <Input
+                          type="number"
+                          placeholder="پیکسل"
+                          value={column.width?.replace("px", "") || ""}
+                          onChange={(e) => updateColumnWidth(column.id, `${e.target.value}px`)}
+                          className="w-24"
+                        />
+                        <Button variant="outline" size="sm" onClick={() => updateColumnWidth(column.id, "")}>
+                          خودکار
+                        </Button>
+                        <Badge variant="secondary">{column.width || "خودکار"}</Badge>
+                      </div>
                     </div>
-                  </div>
-                ))}
+                  ))}
               </CardContent>
             </Card>
           </TabsContent>
@@ -271,14 +254,12 @@ export function ContactListColumns({
             <Card>
               <CardHeader>
                 <CardTitle>ترتیب ستون‌ها</CardTitle>
-                <CardDescription>
-                  ترتیب نمایش ستون‌ها را تغییر دهید
-                </CardDescription>
+                <CardDescription>ترتیب نمایش ستون‌ها را تغییر دهید</CardDescription>
               </CardHeader>
               <CardContent>
                 <div className="space-y-2">
                   {columns
-                    .filter(c => c.visible)
+                    .filter((c) => c.visible)
                     .sort((a, b) => a.order - b.order)
                     .map((column, index) => {
                       const Icon = column.icon;
@@ -298,15 +279,15 @@ export function ContactListColumns({
                               variant="ghost"
                               size="icon"
                               disabled={index === 0}
-                              onClick={() => moveColumn(column.id, 'up')}
+                              onClick={() => moveColumn(column.id, "up")}
                             >
                               <EyeOff size={16} />
                             </Button>
                             <Button
                               variant="ghost"
                               size="icon"
-                              disabled={index === columns.filter(c => c.visible).length - 1}
-                              onClick={() => moveColumn(column.id, 'down')}
+                              disabled={index === columns.filter((c) => c.visible).length - 1}
+                              onClick={() => moveColumn(column.id, "down")}
                             >
                               <Eye size={16} />
                             </Button>

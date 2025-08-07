@@ -28,6 +28,7 @@ export function AddGroupDialog({ onAddGroup, onGroupAdded }: AddGroupDialogProps
   const form = useForm<CreateGroupInput>({
     resolver: zodResolver(createGroupSchema),
     defaultValues: { name: "" },
+    mode: "onChange",
   });
 
   const handleAdd: (values: CreateGroupInput) => Promise<void> = async (values) => {
@@ -52,7 +53,7 @@ export function AddGroupDialog({ onAddGroup, onGroupAdded }: AddGroupDialogProps
   return (
     <Dialog open={isOpen} onOpenChange={(open) => { setIsOpen(open); if (!open) form.reset({ name: "" }); }}>
       <DialogTrigger asChild>
-        <Button type="button" variant="outline" size="icon">
+        <Button type="button" variant="outline" size="icon" aria-label="افزودن گروه">
           <Plus size={16} />
         </Button>
       </DialogTrigger>

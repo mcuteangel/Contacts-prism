@@ -7,344 +7,218 @@ import { Label } from "@/components/ui/label";
 import { Fingerprint, Lock, Eye, EyeOff } from "lucide-react";
 
 /**
- * قفل جدید برنامه (لایه دوم امنیتی UI)
- * - مستقل از سشن Supabase است؛ صرفاً UI را قفل/آزاد می‌کند.
- * - وضعیت قفل در localStorage نگهداری می‌شود (app_lock_enabled, app_lock_pin).
- * - در صورت فعال بودن، یک لایه‌ی تمام‌صفحه روی اپ قرار می‌گیرد تا کاربر PIN یا بیومتریک وارد کند.
- * - برای سادگی در این نسخه، PIN با WebCrypto هش نمی‌شود؛ در نسخه‌های بعدی می‌توان افزود.
+ * AppSecureLock (Aligned with AuthService)
+ * - No longer stores PIN/biometric flags in localStorage.
+ * - Uses AuthService for:
+ *   • shouldLock(lastActivityAt)
+ *   • unlock(method, pin?)
+ *   • getWrapMethod()
+ *   • getPolicy() and setInactivityMs(ms)
+ * - Listens to "app-lock:lock" to force overlay open.
  */
 
-type Mode = "locked" | "setup" | "change" | "disabled";
-
-function getLS(key: string): string | null {
-  try {
-    return localStorage.getItem(key);
-  } catch {
-    return null;
-  }
-}
-function setLS(key: string, val: string) {
-  try {
-    localStorage.setItem(key, val);
-  } catch {}
-}
-function removeLS(key: string) {
-  try {
-    localStorage.removeItem(key);
-  } catch {}
-}
-
-const LS_ENABLED = "app_lock_enabled";
-const LS_PIN = "app_lock_pin";
-const LS_BIOMETRIC = "app_lock_biometric";
-const LS_SESSION_UNLOCKED = "app_lock_session_unlocked"; // وضعیت باز بودن در این نشست (تا رفرش بعدی)
-const LS_IDLE_TIMEOUT_MS = "app_lock_idle_timeout_ms";   // مدت بیکاری تا قفل (ms)، پیش‌فرض 1 ساعت
-const LS_LAST_ACTIVITY = "app_lock_last_activity";       // آخرین زمان فعالیت (Date.now())
+type WrapMethod = "webauthn" | "pin" | null;
 
 export default function AppSecureLock() {
-  const [enabled, setEnabled] = React.useState(false);
-  const [mode, setMode] = React.useState<Mode>("disabled");
+  const [visible, setVisible] = React.useState(false);
+  const [wrapMethod, setWrapMethod] = React.useState<WrapMethod>(null);
+  const [policy, setPolicy] = React.useState<{
+    inactivityMs: number;
+    offlineAllowedUntil: string | null;
+    lastOnlineAuthAt: string | null;
+    lastUnlockAt: string | null;
+  } | null>(null);
   const [pin, setPin] = React.useState("");
-  const [confirmPin, setConfirmPin] = React.useState("");
-  const [currentPin, setCurrentPin] = React.useState("");
   const [showPin, setShowPin] = React.useState(false);
-  const [showCurrentPin, setShowCurrentPin] = React.useState(false);
-  const [biometric, setBiometric] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
+  const lastActivityRef = React.useRef<number>(Date.now());
 
-  // اگر رویداد بیرونی خواست قفل کند، گوش بده
-  React.useEffect(() => {
-    const onLockRequest = () => {
-      const en = getLS(LS_ENABLED) === "true";
-      if (en) {
-        setMode("locked");
-      }
-    };
-    window.addEventListener("app-lock:lock", onLockRequest as EventListener);
-    return () => window.removeEventListener("app-lock:lock", onLockRequest as EventListener);
+  // Utilities to import AuthService lazily
+  const loadAuth = React.useCallback(async () => {
+    const { AuthService } = await import("@/services/auth-service");
+    return AuthService;
   }, []);
 
+  const refreshMeta = React.useCallback(async () => {
+    try {
+      const AuthService = await loadAuth();
+      const wm = await AuthService.getWrapMethod();
+      const pol = await AuthService.getPolicy();
+      setWrapMethod(wm);
+      setPolicy(pol);
+    } catch (e) {
+      // ignore
+    }
+  }, [loadAuth]);
+
+  // Track activity locally to decide locking
   React.useEffect(() => {
-    const en = getLS(LS_ENABLED) === "true";
-    const savedPin = getLS(LS_PIN);
-    const savedBiometric = getLS(LS_BIOMETRIC) === "true";
-    const sessionUnlocked = typeof window !== "undefined" ? sessionStorage.getItem(LS_SESSION_UNLOCKED) === "true" : false;
- 
-    setEnabled(en);
-    setBiometric(savedBiometric);
- 
-    // راه‌اندازی پیش‌فرض تایمر بیکاری (۱ ساعت) اگر تنظیم نشده باشد
-    if (typeof window !== "undefined") {
-      const hasTimeout = localStorage.getItem(LS_IDLE_TIMEOUT_MS);
-      if (!hasTimeout) {
-        try { localStorage.setItem(LS_IDLE_TIMEOUT_MS, String(60 * 60 * 1000)); } catch {}
-      }
+    const mark = () => {
+      lastActivityRef.current = Date.now();
+    };
+    const winEvents: (keyof WindowEventMap)[] = ["mousemove", "mousedown", "keydown", "touchstart", "scroll"];
+    winEvents.forEach((e) => window.addEventListener(e, mark as EventListener, { passive: true } as AddEventListenerOptions));
+    // visibilitychange باید روی document شنیده شود
+    const onVis = () => mark();
+    if (typeof document !== "undefined") {
+      document.addEventListener("visibilitychange", onVis as EventListener);
     }
- 
-    // اگر در همین نشست قبلاً باز شده باشد و هنوز تایم‌اوت بیکاری نگذشته، Overlay را نشان نده
-    const now = Date.now();
-    const last = Number(localStorage.getItem(LS_LAST_ACTIVITY) || "0");
-    const timeout = Number(localStorage.getItem(LS_IDLE_TIMEOUT_MS) || (60 * 60 * 1000));
-    const idleExceeded = last > 0 ? (now - last) > timeout : false;
- 
-    if (en && savedPin && sessionUnlocked && !idleExceeded) {
-      setMode("disabled");
-    } else if (en && !savedPin) {
-      setMode("setup");
-    } else if (en && savedPin) {
-      setMode("locked");
-    } else {
-      setMode("disabled");
-    }
- 
-    // شنونده‌های فعالیت کاربر برای تمدید زمان آخرین فعالیت
-    function markActivity() {
-      try { localStorage.setItem(LS_LAST_ACTIVITY, String(Date.now())); } catch {}
-    }
-    window.addEventListener("mousemove", markActivity, { passive: true });
-    window.addEventListener("keydown", markActivity, { passive: true });
-    window.addEventListener("click", markActivity, { passive: true });
-    window.addEventListener("scroll", markActivity, { passive: true });
-    window.addEventListener("touchstart", markActivity, { passive: true });
- 
-    // تایمر بررسی بیکاری برای قفل خودکار
-    const interval = window.setInterval(() => {
-      try {
-        const en2 = localStorage.getItem(LS_ENABLED) === "true";
-        const hasPin = !!localStorage.getItem(LS_PIN);
-        const unlocked = sessionStorage.getItem(LS_SESSION_UNLOCKED) === "true";
-        const last2 = Number(localStorage.getItem(LS_LAST_ACTIVITY) || "0");
-        const timeout2 = Number(localStorage.getItem(LS_IDLE_TIMEOUT_MS) || (60 * 60 * 1000));
-        const now2 = Date.now();
-        const idleExceeded2 = last2 > 0 ? (now2 - last2) > timeout2 : false;
-        // اگر فعال است، پین دارد، نشست باز است و بیکاری از حد گذشته → قفل کن
-        if (en2 && hasPin && unlocked && idleExceeded2) {
-          setMode("locked");
-          // نشست دیگر باز نیست تا زمانی که کاربر دوباره باز کند
-          sessionStorage.removeItem(LS_SESSION_UNLOCKED);
-        }
-      } catch {}
-    }, 30_000); // هر 30 ثانیه بررسی کن
- 
     return () => {
-      window.removeEventListener("mousemove", markActivity as EventListener);
-      window.removeEventListener("keydown", markActivity as EventListener);
-      window.removeEventListener("click", markActivity as EventListener);
-      window.removeEventListener("scroll", markActivity as EventListener);
-      window.removeEventListener("touchstart", markActivity as EventListener);
-      window.clearInterval(interval);
+      winEvents.forEach((e) => window.removeEventListener(e, mark as EventListener));
+      if (typeof document !== "undefined") {
+        document.removeEventListener("visibilitychange", onVis as EventListener);
+      }
     };
   }, []);
 
-  const handleSetup = React.useCallback(() => {
-    setError(null);
-    if (!pin || pin.length < 4) {
-      setError("PIN باید حداقل ۴ رقم باشد.");
-      return;
-    }
-    if (pin !== confirmPin) {
-      setError("PIN و تأیید آن یکسان نیستند.");
-      return;
-    }
-    setLS(LS_PIN, pin);
-    setLS(LS_ENABLED, "true");
-    setEnabled(true);
-    // بلافاصله آخرین فعالیت را ذخیره کن
-    try { localStorage.setItem(LS_LAST_ACTIVITY, String(Date.now())); } catch {}
-    setMode("locked");
-    setPin("");
-    setConfirmPin("");
-  }, [pin, confirmPin]);
+  // Respond to external lock requests
+  React.useEffect(() => {
+    const onLock = () => {
+      setVisible(true);
+      setError(null);
+      void refreshMeta();
+    };
+    window.addEventListener("app-lock:lock", onLock as EventListener);
+    return () => window.removeEventListener("app-lock:lock", onLock as EventListener);
+  }, [refreshMeta]);
 
+  // Periodic check for inactivity-based lock
+  React.useEffect(() => {
+    let timer: number | null = null;
+    const tick = async () => {
+      try {
+        const AuthService = await loadAuth();
+        const should = await AuthService.shouldLock(lastActivityRef.current);
+        setVisible(should);
+        if (should) {
+          await refreshMeta();
+        }
+      } catch {
+        // ignore
+      } finally {
+        timer = window.setTimeout(tick, 30_000);
+      }
+    };
+    tick();
+    return () => {
+      if (timer) window.clearTimeout(timer);
+    };
+  }, [loadAuth, refreshMeta]);
+
+  // Try unlock via method
   const handleUnlock = React.useCallback(async () => {
     setError(null);
-    const savedPin = getLS(LS_PIN);
-    // اگر بیومتریک فعال باشد، تلاش ساده و نمایشی:
-    if (biometric && "credentials" in navigator) {
-      try {
-        // نمایش ساده: اکثر مرورگرها نیاز به PublicKeyCredential دارند؛ اینجا صرفاً تلاش تستی می‌کنیم.
-        // در نسخه کامل، باید WebAuthn به‌درستی پیاده‌سازی شود.
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        await (navigator as any).credentials.get?.({
-          publicKey: {
-            challenge: new Uint8Array(32),
-            timeout: 60000,
-            userVerification: "required",
-          },
-        });
-        // نشست جاری را بازشده علامت بزن و آخرین فعالیت را به روز کن
-        try {
-          sessionStorage.setItem(LS_SESSION_UNLOCKED, "true");
-          localStorage.setItem(LS_LAST_ACTIVITY, String(Date.now()));
-        } catch {}
-        setMode("disabled"); // باز شد
+    try {
+      const AuthService = await loadAuth();
+      if (wrapMethod === "webauthn") {
+        const res = await AuthService.unlock("webauthn");
+        if (!res.ok) {
+          setError(res.error || "باز کردن با WebAuthn ناموفق بود.");
+          return;
+        }
+        setVisible(false);
+        lastActivityRef.current = Date.now();
+      } else if (wrapMethod === "pin") {
+        if (!pin || pin.length < 4) {
+          setError("PIN باید حداقل ۴ رقم باشد.");
+          return;
+        }
+        const res = await AuthService.unlock("pin", pin);
+        if (!res.ok) {
+          setError(res.error || "PIN نادرست است.");
+          return;
+        }
+        setVisible(false);
         setPin("");
-        return;
-      } catch {
-        // اگر بیومتریک شکست خورد، به PIN برمی‌گردیم
+        lastActivityRef.current = Date.now();
+      } else {
+        setError("احراز هویت آفلاین پیکربندی نشده است.");
       }
-    }
-    if (pin && savedPin && pin === savedPin) {
+      await refreshMeta();
+
+      // رویداد اطلاع‌رسانی برای سنک خودکار پس از unlock موفق
       try {
-        sessionStorage.setItem(LS_SESSION_UNLOCKED, "true");
-        localStorage.setItem(LS_LAST_ACTIVITY, String(Date.now()));
+        window.dispatchEvent(new Event("app-unlocked"));
       } catch {}
-      setMode("disabled");
-      setPin("");
-    } else {
-      setError("PIN اشتباه است.");
+    } catch (e: any) {
+      setError(e?.message ?? "unlock failed");
     }
-  }, [pin, biometric]);
+  }, [wrapMethod, pin, loadAuth, refreshMeta]);
 
-  const handleDisable = React.useCallback(() => {
-    setError(null);
-    const savedPin = getLS(LS_PIN);
-    if (!currentPin || currentPin !== savedPin) {
-      setError("PIN فعلی اشتباه است.");
-      return;
+  // Update inactivity timeout
+  const handleUpdateInactivity = React.useCallback(async (nextMs: number) => {
+    try {
+      const AuthService = await loadAuth();
+      await AuthService.setInactivityMs(nextMs);
+      await refreshMeta();
+    } catch (e) {
+      // ignore
     }
-    removeLS(LS_PIN);
-    removeLS(LS_ENABLED);
-    removeLS(LS_BIOMETRIC);
-    setEnabled(false);
-    setBiometric(false);
-    setCurrentPin("");
-    setPin("");
-    setConfirmPin("");
-    setMode("disabled");
-  }, [currentPin]);
+  }, [loadAuth, refreshMeta]);
 
-  const handleChangePin = React.useCallback(() => {
-    setError(null);
-    const savedPin = getLS(LS_PIN);
-    if (currentPin !== savedPin) {
-      setError("PIN فعلی اشتباه است.");
-      return;
-    }
-    if (!pin || pin.length < 4) {
-      setError("PIN باید حداقل ۴ رقم باشد.");
-      return;
-    }
-    if (pin !== confirmPin) {
-      setError("PIN جدید و تأیید آن یکسان نیستند.");
-      return;
-    }
-    setLS(LS_PIN, pin);
-    setCurrentPin("");
-    setPin("");
-    setConfirmPin("");
-    setMode("locked");
-  }, [currentPin, pin, confirmPin]);
+  const shouldRenderOverlay = visible;
 
-  const toggleBiometric = React.useCallback(() => {
-    const next = !biometric;
-    setBiometric(next);
-    setLS(LS_BIOMETRIC, String(next));
-  }, [biometric]);
- 
-  // دکمه قفل‌کردن صریح (نمایش overlay در حالت locked اگر فعال است)
-  const lockNowExplicit = React.useCallback(() => {
-    const en = getLS(LS_ENABLED) === "true";
-    if (en) {
-      setMode("locked");
-    } else {
-      // اگر هنوز فعال نشده، ابتدا فعال و وارد setup شو
-      setLS(LS_ENABLED, "true");
-      setMode("setup");
-    }
-  }, []);
- 
-  // سناریوهای نمایش لایه قفل:
-  // - اگر قبلاً فعال شده و PIN ذخیره شده: نمایش حالت locked
-  // - اگر فقط enable شده ولی PIN تنظیم نشده: نمایش setup
-  // - اگر هیچ‌کدام: اجازه می‌دهیم با دکمه "فعال‌سازی و تنظیم PIN" وارد setup شویم
-  const shouldRenderOverlay = mode !== "disabled";
- 
   return (
     <div
       className={`fixed inset-0 z-[60] ${shouldRenderOverlay ? "pointer-events-auto opacity-100" : "pointer-events-none opacity-0"}`}
       aria-hidden={!shouldRenderOverlay}
     >
-      {/* پس‌زمینه هماهنگ با پروژه: از bg-background و شیشه‌ای استفاده می‌کنیم */}
       <div className="fixed inset-0 bg-background/60 dark:bg-background/70 backdrop-blur-md transition-colors" />
       <div className="absolute inset-0 flex items-center justify-center p-4">
-        {/* کارت شیشه‌ای هماهنگ با theme و radius پروژه */}
         <div className="w-full max-w-md glass rounded-[var(--radius)] border border-border/60 shadow-2xl p-6 space-y-5">
-          {(mode === "setup" || (!enabled && mode === "disabled")) && (
+          <div className="flex items-center justify-between">
+            <h2 className="text-xl font-bold text-foreground flex items-center gap-2">
+              <Lock size={18} /> برنامه قفل است
+            </h2>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setVisible(false)}
+              title="بستن موقت لایه (قفل باقی‌ست تا unlock کنید)"
+            >
+              بستن
+            </Button>
+          </div>
+
+          {/* Policy summary */}
+          <div className="text-xs opacity-80 space-y-1">
+            <div>روش احراز هویت: <span className="font-medium">{wrapMethod ?? "نامشخص"}</span></div>
+            {policy?.offlineAllowedUntil ? (
+              <div>مهلت آفلاین تا: <span className="font-medium">{new Date(policy.offlineAllowedUntil).toLocaleString()}</span></div>
+            ) : null}
+            {policy?.lastOnlineAuthAt ? (
+              <div>آخرین ورود آنلاین: <span className="font-medium">{new Date(policy.lastOnlineAuthAt).toLocaleString()}</span></div>
+            ) : null}
+            {policy?.lastUnlockAt ? (
+              <div>آخرین بازکردن: <span className="font-medium">{new Date(policy.lastUnlockAt).toLocaleString()}</span></div>
+            ) : null}
+            <div className="flex items-center gap-2">
+              <span>قفل پس از بیکاری (دقیقه):</span>
+              <Input
+                type="number"
+                min={1}
+                step={1}
+                className="h-8 w-20"
+                defaultValue={Math.floor((policy?.inactivityMs ?? 60 * 60 * 1000) / 60000)}
+                onBlur={(e) => {
+                  const v = Number(e.currentTarget.value);
+                  if (!isNaN(v) && v > 0) {
+                    handleUpdateInactivity(v * 60 * 1000);
+                  }
+                }}
+              />
+            </div>
+          </div>
+
+          {/* Unlock controls */}
+          {wrapMethod === "webauthn" ? (
+            <div className="flex items-center justify-between">
+              <Button onClick={handleUnlock} className="flex items-center gap-2">
+                <Fingerprint size={16} /> باز کردن با WebAuthn
+              </Button>
+            </div>
+          ) : wrapMethod === "pin" ? (
             <>
-              <div className="flex items-center justify-between">
-                <h2 className="text-xl font-bold text-foreground flex items-center gap-2">
-                  <Lock size={18} /> تنظیم قفل برنامه
-                </h2>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => setMode("disabled")}
-                  title="بستن بدون فعال‌سازی"
-                >
-                  بستن
-                </Button>
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="pin">PIN</Label>
-                <div className="relative">
-                  <Input
-                    id="pin"
-                    type={showPin ? "text" : "password"}
-                    inputMode="numeric"
-                    dir="ltr"
-                    value={pin}
-                    onChange={(e) => setPin(e.target.value)}
-                    placeholder="مثلاً 1234"
-                    className="pr-10"
-                  />
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="icon"
-                    className="absolute right-0 top-0 h-full px-3"
-                    onClick={() => setShowPin((s) => !s)}
-                  >
-                    {showPin ? <EyeOff size={16} /> : <Eye size={16} />}
-                  </Button>
-                </div>
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="confirmPin">تأیید PIN</Label>
-                <Input
-                  id="confirmPin"
-                  type={showPin ? "text" : "password"}
-                  inputMode="numeric"
-                  dir="ltr"
-                  value={confirmPin}
-                  onChange={(e) => setConfirmPin(e.target.value)}
-                  placeholder="تکرار PIN"
-                />
-              </div>
-
-              <div className="flex items-center justify-between text-sm">
-                <span className="opacity-80">بیومتریک</span>
-                <Button type="button" variant={biometric ? "default" : "outline"} size="sm" onClick={toggleBiometric}>
-                  <Fingerprint size={16} className="mr-1" /> {biometric ? "فعال" : "غیرفعال"}
-                </Button>
-              </div>
-
-              {error ? <p className="text-sm text-red-500">{error}</p> : null}
-
-              <div className="flex gap-2">
-                <Button className="flex-1" onClick={handleSetup}>ثبت</Button>
-                <Button className="flex-1" variant="outline" onClick={() => setMode("disabled")}>انصراف</Button>
-              </div>
-            </>
-          )}
-
-          {mode === "locked" && (
-            <>
-              <h2 className="text-lg font-bold flex items-center gap-2">
-                <Lock size={18} /> برنامه قفل است
-              </h2>
-
               <div className="space-y-2">
                 <Label htmlFor="unlockPin">PIN</Label>
                 <div className="relative">
@@ -354,7 +228,7 @@ export default function AppSecureLock() {
                     inputMode="numeric"
                     dir="ltr"
                     value={pin}
-                    onChange={(e) => setPin(e.target.value)}
+                    onChange={(e) => setPin(e.target.value.replace(/[^0-9]/g, "").slice(0, 12))}
                     placeholder="PIN خود را وارد کنید"
                     className="pr-10"
                   />
@@ -369,92 +243,18 @@ export default function AppSecureLock() {
                   </Button>
                 </div>
               </div>
-
-              {error ? <p className="text-sm text-red-500">{error}</p> : null}
-
-              <div className="grid grid-cols-2 gap-2">
-                <Button onClick={handleUnlock}>باز کردن</Button>
-                <Button variant="outline" onClick={() => setMode("change")}>تغییر PIN</Button>
-              </div>
-
-              <div className="flex justify-between">
-                <Button
-                  variant={biometric ? "default" : "outline"}
-                  onClick={handleUnlock}
-                  className="flex items-center gap-2"
-                  title="تلاش بیومتریک اگر فعال است، در غیر این صورت PIN بررسی می‌شود"
-                >
-                  <Fingerprint size={16} /> بیومتریک
-                </Button>
-                <Button variant="ghost" onClick={() => setMode("disabled")}>بستن لایه</Button>
+              <div className="flex gap-2">
+                <Button onClick={handleUnlock} className="flex-1">باز کردن</Button>
+                <Button variant="outline" onClick={() => setVisible(false)} className="flex-1">بستن لایه</Button>
               </div>
             </>
+          ) : (
+            <div className="text-sm opacity-80">
+              احراز هویت آفلاین هنوز مقداردهی نشده است. ابتدا یک ورود آنلاین انجام دهید.
+            </div>
           )}
 
-          {mode === "change" && (
-            <>
-              <h2 className="text-lg font-bold">تغییر یا حذف PIN</h2>
-
-              <div className="space-y-2">
-                <Label htmlFor="currentPin">PIN فعلی</Label>
-                <div className="relative">
-                  <Input
-                    id="currentPin"
-                    type={showCurrentPin ? "text" : "password"}
-                    inputMode="numeric"
-                    dir="ltr"
-                    value={currentPin}
-                    onChange={(e) => setCurrentPin(e.target.value)}
-                    placeholder="PIN فعلی"
-                    className="pr-10"
-                  />
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="icon"
-                    className="absolute right-0 top-0 h-full px-3"
-                    onClick={() => setShowCurrentPin((s) => !s)}
-                  >
-                    {showCurrentPin ? <EyeOff size={16} /> : <Eye size={16} />}
-                  </Button>
-                </div>
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="newPin">PIN جدید</Label>
-                <Input
-                  id="newPin"
-                  type={showPin ? "text" : "password"}
-                  inputMode="numeric"
-                  dir="ltr"
-                  value={pin}
-                  onChange={(e) => setPin(e.target.value)}
-                  placeholder="حداقل ۴ رقم"
-                />
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="confirmNewPin">تأیید PIN جدید</Label>
-                <Input
-                  id="confirmNewPin"
-                  type={showPin ? "text" : "password"}
-                  inputMode="numeric"
-                  dir="ltr"
-                  value={confirmPin}
-                  onChange={(e) => setConfirmPin(e.target.value)}
-                  placeholder="تکرار PIN"
-                />
-              </div>
-
-              {error ? <p className="text-sm text-red-500">{error}</p> : null}
-
-              <div className="grid grid-cols-2 gap-2">
-                <Button onClick={handleChangePin}>ذخیره</Button>
-                <Button variant="destructive" onClick={handleDisable}>حذف قفل</Button>
-              </div>
-              <Button variant="outline" onClick={() => setMode("locked")} className="w-full">بازگشت</Button>
-            </>
-          )}
+          {error ? <p className="text-sm text-red-500">{error}</p> : null}
         </div>
       </div>
     </div>
@@ -462,19 +262,11 @@ export default function AppSecureLock() {
 }
 
 /**
- * هوک کمکی برای کنترل قفل در هر جای اپ
- * - enable: کاربر می‌تواند از داخل تنظیمات، قفل را فعال و PIN تنظیم کند (mode = setup)
- * - lockNow: فوراً UI را قفل کن (اگر فعال است)
+ * هوک کمکی برای کنترل قفل از هر جای اپ
  */
 export function useAppSecureLock() {
-  const enable = React.useCallback(() => {
-    setLS(LS_ENABLED, "true");
-    window.dispatchEvent(new Event("app-lock:lock"));
-  }, []);
-
   const lockNow = React.useCallback(() => {
     window.dispatchEvent(new Event("app-lock:lock"));
   }, []);
-
-  return { enable, lockNow };
+  return { lockNow };
 }

@@ -1,238 +1,628 @@
 /**
- * PRISM Contacts - SyncService
- * ریفکتور به تزریق SupabaseClient استاندارد + آماده‌سازی Pull/Push واقعی
+ * SyncService (Phase 2 - Skeleton)
+ * هدف: اسکلت همگام‌سازی دوطرفه با Push/Outbox + Pull/Delta + مدیریت lastSyncAt
+ * - بدون تماس واقعی سرور؛ فقط wiring با IndexedDB و به‌روزرسانی وضعیت Outbox
+ * - آماده برای اتصال به API واقعی در مراحل بعد
  */
-import { db, type Contact, Mapping, type OutboxRecord as DBOutboxRecord } from '@/database/db';
-import type { SupabaseClientType } from '@/integrations/supabase/client';
 
-// Result type یکنواخت
-export type Result<T> = { ok: true; data: T } | { ok: false; error: string };
+import { db, type OutboxItem, type OutboxOp, type OutboxStatus, nowIso } from "@/database/db";
 
-// منبع واحد نوع Outbox
-export type OutboxRecord = DBOutboxRecord;
+// نتایج API مانند
+type ApiOk<T> = { ok: true; data: T };
+type ApiErr = { ok: false; error: string };
+export type ApiResult<T> = ApiOk<T> | ApiErr;
+function ok<T>(data: T): ApiOk<T> { return { ok: true, data }; }
+function err(message: string): ApiErr { return { ok: false, error: message }; }
 
-export class SyncService {
-  constructor(private supabase: SupabaseClientType) {}
+// پیکربندی پایه
+const DEFAULT_BATCH_SIZE = 20;
 
-  private intervalId: any = null;
-  private visibilityHandler = () => {
-    if (document.visibilityState === 'visible') {
-      this.sync().catch(console.error);
-    }
-  };
+// نوع خلاصه لاگ برای ذخیره در IndexedDB
+type SyncLogEntry = {
+  startedAt: string;
+  endedAt: string;
+  ok: boolean;
+  tryCount: number;
+  pushStats?: {
+    attempted?: number;
+    sent?: number;
+    applied?: number;
+    conflicts?: number;
+    errors?: number;
+  } | null;
+  pullStats?: {
+    contacts?: { upserts?: number; deletes?: number } | null;
+    groups?: { upserts?: number; deletes?: number } | null;
+    total?: number;
+  } | null;
+  error?: string | null;
+  // telemetry افزوده‌شده
+  endpointUsed?: string;
+  lastSyncBefore?: string | null;
+  lastSyncAfter?: string | null;
+  durationMs?: number;
+  // آمار ریزتر Push جهت پایش
+  pushAttemptBatches?: number;
+  pushAppliedIdsSample?: number[];
+  // شمارنده‌های تکمیلی
+  conflictsCount?: number;
+  errorsCount?: number;
+};
 
-  // راه‌اندازی زمان‌بندی سینک
-  start(intervalMs = 5 * 60 * 1000) {
-    if (typeof window !== 'undefined') {
-      window.addEventListener('visibilitychange', this.visibilityHandler);
-    }
-    // اولین بار بلافاصله
-    this.sync().catch(console.error);
-    // هر N دقیقه
-    this.stop();
-    this.intervalId = setInterval(() => {
-      this.sync().catch(console.error);
-    }, intervalMs);
-  }
+export type SyncStats = {
+  pushed: number;
+  pullInserted: number;
+  pullUpdated: number;
+  pullDeleted: number;
+  errors: number;
+  finishedAt: string;
+};
 
-  // توقف زمان‌بندی
-  stop() {
-    if (typeof window !== 'undefined') {
-      window.removeEventListener('visibilitychange', this.visibilityHandler);
-    }
-    if (this.intervalId) {
-      clearInterval(this.intervalId);
-      this.intervalId = null;
-    }
-  }
+export type SyncOptions = {
+  batchSize?: number;
+  // placeholder برای auth و endpoint
+  accessToken?: string;
+  endpointBaseUrl?: string;
+};
 
-  // سینک کامل: ابتدا Push سپس Pull
-  async sync(): Promise<Result<{ pushed: number; pulled: number }>> {
-    try {
-      const pushed = await this.push();
-      const pulled = await this.pull();
-      return { ok: true, data: { pushed, pulled } };
-    } catch (e: any) {
-      console.error('sync error:', e);
-      return { ok: false, error: e?.message ?? 'sync failed' };
-    }
-  }
+async function getLastSyncAt(): Promise<string | null> {
+  const row = await db.sync_meta.get("lastSyncAt");
+  return (row?.value as string) ?? null;
+}
 
-  // Pull: دریافت تغییرات جدید از سرور (contacts فعلاً؛ باقی جداول در فاز بعد)
-  async pull(): Promise<number> {
-    // Contacts
-    const contactsMeta = await db.lastSync.get('contacts');
-    const since = contactsMeta?.lastPulledAt || '1970-01-01T00:00:00Z';
+async function setLastSyncAt(iso: string): Promise<void> {
+  await db.sync_meta.put({ key: "lastSyncAt", value: iso });
+}
 
-    // توجه: برای عبور RLS باید کاربر لاگین باشد
-    const { data: contacts, error } = await this.supabase
-      .from('contacts')
-      .select('id, first_name, last_name, gender, role, address, notes, created_at, updated_at')
-      .gt('updated_at', since)
-      .order('updated_at', { ascending: true });
+/**
+ * pushOutboxToServer - پیاده‌سازی واقعی Push مطابق قرارداد
+ * Endpoint: POST {baseUrl}/sync/push
+ * Header: Authorization: Bearer {token}
+ * Body: { clientTime, batch: [...] }
+ */
+async function pushOutboxToServer(
+  items: OutboxItem[],
+  opts?: { baseUrl?: string; accessToken?: string }
+): Promise<ApiResult<{ appliedIds: number[]; conflicts: number; errors: number }>> {
+  try {
+    const base = opts?.baseUrl ?? (process.env.NEXT_PUBLIC_API_BASE_URL || "");
+    if (!base) return err("Missing endpoint baseUrl");
+    const url = new URL("/sync/push", base);
 
-    if (error) {
-      console.error('Pull contacts error:', error);
-      return 0;
-    }
+    const body = {
+      clientTime: nowIso(),
+      batch: items.map((it) => ({
+        entity: it.entity,
+        entityId: it.entityId,
+        op: it.op,
+        version: (it as any).version ?? 1,
+        payload: it.payload ?? {},
+      })),
+    };
 
-    const nowIso = new Date().toISOString();
-
-    let applied = 0;
-    await db.transaction('rw', db.contacts, db.mappings, db.lastSync, async () => {
-      for (const row of contacts ?? []) {
-        const serverId: string = row.id as string;
-        const map = await Mapping.getByServer('contact', serverId);
-        const mappedPartial: Partial<Contact> = {
-          firstName: (row as any).first_name ?? '',
-          lastName: (row as any).last_name ?? undefined,
-          gender: mapGender((row as any).gender),
-          address: (row as any).address ?? undefined,
-          notes: (row as any).notes ?? undefined,
-          position: (row as any).role ?? undefined,
-          phoneNumbers: [],
-          searchablePhoneNumbers: [],
-          createdAt: (row as any).created_at ? new Date((row as any).created_at) : new Date(),
-          updatedAt: (row as any).updated_at ? new Date((row as any).updated_at) : new Date(),
-        };
-
-        if (map?.localId) {
-          await db.contacts.update(map.localId, mappedPartial);
-        } else {
-          const localId = await db.contacts.add(mappedPartial as Contact);
-          await Mapping.upsert('contact', localId, serverId);
-        }
-        applied++;
-      }
-      await db.lastSync.put({ key: 'contacts', lastPulledAt: nowIso });
+    const res = await fetch(url.toString(), {
+      method: "POST",
+      headers: {
+        "Accept": "application/json",
+        "Content-Type": "application/json",
+        ...(opts?.accessToken ? { Authorization: `Bearer ${opts.accessToken}` } : {}),
+      },
+      body: JSON.stringify(body),
     });
-    return applied;
 
-    // TODO: Pull phone_numbers, email_addresses, custom_fields, contact_groups
-    // - کوئری بر اساس updated_at > lastPulledAt هر جدول
-    // - resolve mapping برای contact_id / group_id
-    // - درج/به‌روزرسانی local و به‌روزرسانی lastSync هر جدول
-  }
+    if (!res.ok) {
+      return err(`pushOutboxToServer failed: ${res.status} ${res.statusText}`);
+    }
 
-  // Push: ارسال تغییرات Outbox به سرور به صورت ترتیبی
-  async push(): Promise<number> {
-    const queue = await db.outbox.orderBy('createdAt').toArray();
-    if (queue.length === 0) return 0;
+    const json = await res.json();
+    // انتظار پاسخ:
+    // { ok: true, serverTime: "...", results: [{ entity, entityId, status, serverVersion, serverUpdatedAt, conflict? }] }
+    const results = Array.isArray(json.results) ? json.results : [];
+    const appliedIds: number[] = [];
+    let conflicts = 0;
+    let errors = 0;
 
-    let succeeded = 0;
-    for (const item of queue) {
-      try {
-        switch (item.entity) {
-          case 'contact':
-            await this.pushContact(item);
-            break;
-          case 'phone':
-            await this.pushPhone(item);
-            break;
-          case 'email':
-            await this.pushEmail(item);
-            break;
-          case 'custom':
-            await this.pushCustom(item);
-            break;
-          case 'cglink':
-            await this.pushContactGroupLink(item);
-            break;
-          default:
-            console.warn('Unknown outbox entity:', item.entity);
-        }
-        if (item.id !== undefined) {
-          await db.outbox.delete(item.id);
-        }
-        succeeded++;
-      } catch (err) {
-        console.error('Push item failed, will retry later:', item, err);
+    // نگاشت appliedها به idهای outbox
+    const mapByEntityId = new Map<string, number>();
+    for (const it of items) {
+      mapByEntityId.set(`${it.entity}:${it.entityId}`, it.id!);
+    }
+
+    for (const r of results) {
+      const key = `${r.entity}:${r.entityId}`;
+      const outboxId = mapByEntityId.get(key);
+      if (!outboxId) continue;
+      if (r.status === "applied" || r.status === "skipped") {
+        appliedIds.push(outboxId);
+      } else if (r.status === "conflict") {
+        conflicts++;
+      } else {
+        errors++;
       }
     }
-    return succeeded;
-  }
 
-  // ارسال عملیات contact
-  private async pushContact(item: OutboxRecord) {
-    const { op, payload } = item;
-    const localId: number | undefined = payload.localId;
-    const serverId: string | undefined = payload.serverId;
-
-    if (op === 'contact_create') {
-      const body = mapContactToServer(payload.data);
-      const { data, error } = await this.supabase
-        .from('contacts')
-        .insert(body)
-        .select('id')
-        .single();
-      if (error) throw error;
-      if (localId != null && data?.id) {
-        await Mapping.upsert('contact', localId, data.id as string);
-      }
-    } else if (op === 'contact_update') {
-      let sid = serverId;
-      if (!sid && localId !== undefined) {
-        const map = await Mapping.getByLocal('contact', localId);
-        sid = map?.serverId;
-      }
-      if (!sid) throw new Error('Missing serverId mapping for contact update');
-      const body = mapContactToServer(payload.changes);
-      const { error } = await this.supabase.from('contacts').update(body).eq('id', sid);
-      if (error) throw error;
-    } else if (op === 'contact_delete') {
-      let sid = serverId;
-      if (!sid && localId !== undefined) {
-        const map = await Mapping.getByLocal('contact', localId);
-        sid = map?.serverId;
-      }
-      if (!sid) return; // چیزی برای حذف در سرور نیست
-      const { error } = await this.supabase.from('contacts').delete().eq('id', sid);
-      if (error) throw error;
-    }
-  }
-
-  // ارسال عملیات phone_numbers
-  private async pushPhone(item: OutboxRecord) {
-    const { op, payload } = item;
-    // انتظار: payload شامل contactLocalId و/یا contactServerId باشد
-    // اینجا فقط اسکلت ثبت شده؛ پیاده‌سازی واقعی در مرحله بعد اضافه می‌شود
-    console.log('[SYNC PUSH] phone', op, payload);
-  }
-
-  // ارسال عملیات email_addresses
-  private async pushEmail(item: OutboxRecord) {
-    const { op, payload } = item;
-    console.log('[SYNC PUSH] email', op, payload);
-  }
-
-  // ارسال عملیات custom_fields
-  private async pushCustom(item: OutboxRecord) {
-    const { op, payload } = item;
-    console.log('[SYNC PUSH] custom', op, payload);
-  }
-
-  // ارسال عملیات contact_groups
-  private async pushContactGroupLink(item: OutboxRecord) {
-    const { op, payload } = item;
-    console.log('[SYNC PUSH] cglink', op, payload);
+    return ok({ appliedIds, conflicts, errors });
+  } catch (e: any) {
+    return err(e?.message ?? "pushOutboxToServer exception");
   }
 }
 
-// نگاشت جنسیت از سرور به کلاینت
-function mapGender(value: string | null): Contact['gender'] {
-  if (!value) return undefined;
-  if (value === 'male' || value === 'female' || value === 'other') return value;
-  return undefined;
+type ContactDelta = {
+  id: string;
+  user_id: string;
+  first_name: string;
+  last_name: string;
+  gender?: string | null;
+  role?: string | null;
+  company?: string | null;
+  address?: string | null;
+  notes?: string | null;
+  created_at?: string;
+  updated_at: string; // برای LWW
+  _deleted_at?: string | null;
+};
+
+type GroupDelta = {
+  id: string;
+  user_id: string;
+  name: string;
+  color?: string | null;
+  created_at?: string;
+  updated_at: string; // برای LWW
+  _deleted_at?: string | null;
+};
+
+type ServerDeltaPayload = {
+  serverTime: string; // زمان مرجع سرور
+  contacts: ContactDelta[];
+  groups: GroupDelta[];
+};
+
+/**
+ * fetchServerPull - جایگزین واقعی mockServerPull
+ * Endpoint: GET {baseUrl}/sync/delta?since=ISO8601
+ * Header: Authorization: Bearer {token} (اختیاری بسته به احراز هویت)
+ */
+async function fetchServerPull(
+  since: string | null,
+  opts?: { baseUrl?: string; accessToken?: string }
+): Promise<ApiResult<ServerDeltaPayload>> {
+  try {
+    const base = opts?.baseUrl ?? (process.env.NEXT_PUBLIC_API_BASE_URL || "");
+    if (!base) return err("Missing endpoint baseUrl");
+    const url = new URL("/sync/delta", base);
+    if (since) url.searchParams.set("since", since);
+
+    const res = await fetch(url.toString(), {
+      method: "GET",
+      headers: {
+        "Accept": "application/json",
+        ...(opts?.accessToken ? { "Authorization": `Bearer ${opts.accessToken}` } : {}),
+      },
+    });
+
+    if (!res.ok) {
+      return err(`fetchServerPull failed: ${res.status} ${res.statusText}`);
+    }
+    const json = await res.json();
+
+    // انتظار ساختار:
+    // {
+    //   serverTime: "ISO8601",
+    //   contacts: [...], // ContactDelta[]
+    //   groups: [...]    // GroupDelta[]
+    // }
+    const payload: ServerDeltaPayload = {
+      serverTime: json.serverTime,
+      contacts: Array.isArray(json.contacts) ? json.contacts : [],
+      groups: Array.isArray(json.groups) ? json.groups : [],
+    };
+
+    return ok(payload);
+  } catch (e: any) {
+    return err(e?.message ?? "fetchServerPull exception");
+  }
 }
 
-// نگاشت کلاینت -> سرور
-export function mapContactToServer(c: Partial<Contact>) {
-  return {
-    first_name: c.firstName ?? null,
-    last_name: c.lastName ?? null,
-    gender: c.gender ?? 'not_specified',
-    role: c.position ?? null,
-    address: c.address ?? null,
-    notes: c.notes ?? null,
+/**
+ * Deduplicate strategy:
+ * - برای هر entityId، آخرین عملیات را نگه‌دار (آخرین clientTime بزرگ‌تر است)
+ * - اگر آخرین عملیات delete است، تمام before ها حذف (only delete remains)
+ * - اگر insert و سپس updateهای متعدد داریم: فقط آخرین update لازم است (insert اولیه را می‌توان با upsert سمت سرور پوشش داد)
+ * توجه: این dedupe در سطح کلاینت انجام می‌شود تا تعداد درخواست‌ها کاهش یابد. منطق دقیق سمت سرور باید upsert را پشتیبانی کند.
+ */
+function dedupeOutbox(items: OutboxItem[]): OutboxItem[] {
+  const byKey = new Map<string, OutboxItem[]>();
+  for (const it of items) {
+    const key = `${it.entity}:${it.entityId}`;
+    const arr = byKey.get(key) ?? [];
+    arr.push(it);
+    byKey.set(key, arr);
+  }
+
+  const result: OutboxItem[] = [];
+  for (const [, arr] of byKey) {
+    // sort by clientTime asc to evaluate final operation
+    arr.sort((a, b) => a.clientTime.localeCompare(b.clientTime));
+    const last = arr[arr.length - 1];
+
+    // if last is delete -> only keep last delete
+    if (last.op === "delete") {
+      result.push(last);
+      continue;
+    }
+
+    // otherwise keep only the last op (update or insert)
+    result.push(last);
+  }
+  // مرتب‌سازی کلی برای push پایدار
+  result.sort((a, b) => a.clientTime.localeCompare(b.clientTime));
+  return result;
+}
+
+/**
+ * Push Outbox با batching چندمرحله‌ای تا خالی شدن صف + backoff ساده روی خطا
+ * - شامل dedupe روی entityId برای کاهش ترافیک
+ */
+async function pushOutbox(
+  batchSize: number,
+  opts?: { baseUrl?: string; accessToken?: string }
+): Promise<{ pushed: number; attempted: number; conflicts: number; errors: number }> {
+  let pushedTotal = 0;
+  let attempted = 0;
+  let conflictCount = 0;
+  let errorCount = 0;
+
+  while (true) {
+    // 1) خواندن batch از queued
+    const queuedRaw = await db.outbox_queue
+      .where("status")
+      .equals("queued")
+      .limit(batchSize * 3)
+      .sortBy("clientTime");
+
+    if (queuedRaw.length === 0) break;
+
+    // 2) dedupe
+    const queued = dedupeOutbox(queuedRaw).slice(0, batchSize);
+    if (queued.length === 0) break;
+    attempted += queued.length;
+
+    // 3) علامت‌گذاری sending و افزایش tryCount
+    await db.transaction("rw", db.outbox_queue, async () => {
+      for (const it of queued) {
+        await db.outbox_queue.update(it.id!, {
+          status: "sending" as OutboxStatus,
+          tryCount: (it.tryCount ?? 0) + 1,
+        });
+      }
+    });
+
+    // 4) ارسال واقعی به سرور
+    const pushRes = await pushOutboxToServer(queued, { baseUrl: opts?.baseUrl, accessToken: opts?.accessToken });
+
+    if (!pushRes.ok) {
+      // backoff: فقط batch جاری را error می‌کنیم و از لوپ خارج می‌شویم
+      await db.transaction("rw", db.outbox_queue, async () => {
+        for (const it of queued) {
+          await db.outbox_queue.update(it.id!, { status: "error" as OutboxStatus });
+        }
+      });
+      break;
+    }
+
+    const { appliedIds, conflicts, errors } = pushRes.data;
+    conflictCount += conflicts;
+    errorCount += errors;
+
+    // 5) applied/skipped -> done
+    const appliedSet = new Set(appliedIds);
+    await db.transaction("rw", db.outbox_queue, async () => {
+      for (const it of queued) {
+        if (appliedSet.has(it.id!)) {
+          await db.outbox_queue.update(it.id!, { status: "done" as OutboxStatus });
+        }
+      }
+    });
+
+    pushedTotal += appliedIds.length;
+
+    // 6) علامت‌گذاری conflict/error برای باقی مانده‌های batch (برای UI/SRE قابل مشاهده بمانند)
+    if (conflicts > 0 || errors > 0) {
+      await db.transaction("rw", db.outbox_queue, async () => {
+        for (const it of queued) {
+          if (!appliedSet.has(it.id!)) {
+            await db.outbox_queue.update(it.id!, {
+              status: "error" as OutboxStatus,
+              // فیلدهای اختیاری - اگر در schema وجود دارند:
+              // @ts-ignore
+              conflictMeta: { at: nowIso(), note: "server conflict/error" },
+            } as any);
+          }
+        }
+      });
+    }
+
+    // اگر کمتر از batchSize ارسال شد، احتمالاً صف رو به اتمام است؛ حلقه خودش بررسی را ادامه می‌دهد
+  }
+
+  return { pushed: pushedTotal, attempted, conflicts: conflictCount, errors: errorCount };
+}
+
+/**
+ * Pull Delta بر اساس lastSyncAt (LWW مینیمال روی contacts و groups)
+ */
+async function pullDelta(
+  since: string | null,
+  opts?: { baseUrl?: string; accessToken?: string }
+): Promise<{ inserted: number; updated: number; deleted: number; serverTime: string; groupsUpserts: number; groupsDeletes: number; contactsUpserts: number; contactsDeletes: number; }> {
+  const res = await fetchServerPull(since, { baseUrl: opts?.baseUrl, accessToken: opts?.accessToken });
+  if (!res.ok) {
+    const fallback = since ?? nowIso();
+    return { inserted: 0, updated: 0, deleted: 0, serverTime: fallback, groupsUpserts: 0, groupsDeletes: 0, contactsUpserts: 0, contactsDeletes: 0 };
+  }
+
+  const { contacts, groups, serverTime } = res.data;
+
+  let inserted = 0, updated = 0, deleted = 0;
+  let groupsUpserts = 0, groupsDeletes = 0;
+  let contactsUpserts = 0, contactsDeletes = 0;
+
+  const isNewer = (localUpdatedAt?: string, remoteUpdatedAt?: string) => {
+    if (!localUpdatedAt) return true;
+    if (!remoteUpdatedAt) return false;
+    return Date.parse(remoteUpdatedAt) > Date.parse(localUpdatedAt);
   };
+
+  await db.transaction("rw", db.contacts, db.groups, async () => {
+    // Contacts - LWW + soft delete
+    for (const c of contacts) {
+      const local = await db.contacts.get(c.id);
+
+      if (c._deleted_at) {
+        if (local && isNewer(local.updated_at, c.updated_at)) {
+          const next = { ...local, _deleted_at: c._deleted_at, updated_at: c.updated_at, _conflict: false };
+          await db.contacts.put(next);
+          deleted++;
+          contactsDeletes++;
+        }
+        continue;
+      }
+
+      if (!local) {
+        await db.contacts.put({
+          id: c.id,
+          user_id: c.user_id,
+          first_name: c.first_name,
+          last_name: c.last_name,
+          gender: (c as any).gender ?? "not_specified",
+          role: (c as any).role ?? null,
+          company: (c as any).company ?? null,
+          address: (c as any).address ?? null,
+          notes: (c as any).notes ?? null,
+          created_at: c.created_at ?? c.updated_at,
+          updated_at: c.updated_at,
+          _deleted_at: null,
+          _version: 1,
+          _conflict: false,
+        });
+        inserted++;
+        contactsUpserts++;
+      } else {
+        if (isNewer(local.updated_at, c.updated_at)) {
+          const next = {
+            ...local,
+            first_name: c.first_name,
+            last_name: c.last_name,
+            gender: (c as any).gender ?? local.gender,
+            role: (c as any).role ?? local.role,
+            company: (c as any).company ?? local.company,
+            address: (c as any).address ?? local.address,
+            notes: (c as any).notes ?? local.notes,
+            updated_at: c.updated_at,
+            _deleted_at: null,
+            _conflict: false,
+          };
+          await db.contacts.put(next);
+          updated++;
+          contactsUpserts++;
+        }
+      }
+    }
+
+    // Groups - اکنون بر پایه فیلدهای updated_at/deleted_at/version
+    for (const g of groups) {
+      const local = await db.groups.get(g.id);
+
+      if ((g as any)._deleted_at || (g as any).deleted_at) {
+        if (local) {
+          // اگر سرور حذف نرم را گزارش می‌کند، در کلاینت هم soft کنیم
+          const deletedAt = (g as any)._deleted_at ?? (g as any).deleted_at ?? nowIso();
+          const next = { ...local, deleted_at: deletedAt, updated_at: (g as any).updated_at ?? deletedAt };
+          await db.groups.put(next as any);
+          deleted++;
+          groupsDeletes++;
+        }
+        continue;
+      }
+
+      if (!local) {
+        await db.groups.put({
+          id: g.id,
+          user_id: g.user_id,
+          name: g.name,
+          color: g.color ?? null,
+          created_at: g.created_at ?? g.updated_at,
+          updated_at: g.updated_at,
+          deleted_at: null,
+          version: (g as any).version ?? 1,
+        } as any);
+        inserted++;
+        groupsUpserts++;
+      } else {
+        // LWW برای گروه‌ها
+        if (isNewer((local as any).updated_at, (g as any).updated_at)) {
+          const next = {
+            ...local,
+            name: g.name,
+            color: g.color ?? null,
+            updated_at: (g as any).updated_at,
+            deleted_at: null,
+            version: (g as any).version ?? (local as any).version ?? 1,
+          };
+          await db.groups.put(next as any);
+          updated++;
+          groupsUpserts++;
+        }
+      }
+    }
+  });
+
+  return { inserted, updated, deleted, serverTime, groupsUpserts, groupsDeletes, contactsUpserts, contactsDeletes };
 }
+
+/**
+ * اجرای یک دور سنک کامل (Push سپس Pull)
+ */
+export const SyncService = {
+  async runSync(opts: SyncOptions = {}): Promise<ApiResult<SyncStats>> {
+    const startedAt = nowIso();
+    let log: SyncLogEntry = {
+      startedAt,
+      endedAt: startedAt,
+      ok: false,
+      tryCount: 0,
+      pushStats: null,
+      pullStats: null,
+      error: null,
+      endpointUsed: undefined,
+      lastSyncBefore: null,
+      lastSyncAfter: null,
+      durationMs: undefined,
+      conflictsCount: 0,
+      errorsCount: 0,
+    };
+
+    try {
+      const batchSize = opts.batchSize ?? DEFAULT_BATCH_SIZE;
+
+      // 2) Pull Delta نیاز به baseUrl دارد؛ ابتدا آن را resolve می‌کنیم تا برای Push هم استفاده کنیم
+      const resolvedBaseUrl = opts.endpointBaseUrl ?? (process.env.NEXT_PUBLIC_API_BASE_URL || undefined);
+      log.endpointUsed = resolvedBaseUrl ?? "";
+
+      // اعتبارسنجی حداقلی endpoint
+      if (!log.endpointUsed) {
+        throw new Error("Missing endpoint baseUrl for sync");
+      }
+
+      // 1) Push Outbox (batching تا خالی شدن صف) - با اتصال واقعی
+      const pushRes = await pushOutbox(batchSize, { baseUrl: resolvedBaseUrl, accessToken: opts.accessToken });
+      const totalPushed = pushRes.pushed;
+      log.conflictsCount = pushRes.conflicts ?? 0;
+      log.errorsCount = pushRes.errors ?? 0;
+      log.pushStats = {
+        attempted: pushRes.attempted,
+        sent: totalPushed,
+        applied: totalPushed,
+        conflicts: pushRes.conflicts,
+        errors: pushRes.errors,
+      };
+      // اطلاعات تکمیلی برای دیباگ میدانی
+      log.pushAttemptBatches = Math.ceil((pushRes.attempted ?? 0) / (batchSize || 1));
+
+      // 2) Pull Delta (اتصال به سرور واقعی با baseUrl و هدر Authorization)
+      const last = await getLastSyncAt();
+      log.lastSyncBefore = last ?? null;
+
+      const pullRes = await pullDelta(last, {
+        baseUrl: resolvedBaseUrl,
+        accessToken: opts.accessToken,
+      });
+
+      // 3) Update lastSyncAt با serverTime
+      await setLastSyncAt(pullRes.serverTime);
+      log.lastSyncAfter = pullRes.serverTime ?? null;
+
+      // ثبت pullStats
+      log.pullStats = {
+        contacts: { upserts: pullRes.contactsUpserts, deletes: pullRes.contactsDeletes },
+        groups: { upserts: pullRes.groupsUpserts, deletes: pullRes.groupsDeletes },
+        total: pullRes.inserted + pullRes.updated + pullRes.deleted,
+      };
+
+      const stats: SyncStats = {
+        pushed: totalPushed,
+        pullInserted: pullRes.inserted,
+        pullUpdated: pullRes.updated,
+        pullDeleted: pullRes.deleted,
+        errors: (pushRes.errors ?? 0),
+        finishedAt: new Date().toISOString(),
+      };
+
+      log.ok = true;
+      log.endedAt = stats.finishedAt;
+      // محاسبه مدت‌زمان
+      try {
+        const s = Date.parse(log.startedAt);
+        const e = Date.parse(log.endedAt);
+        if (!Number.isNaN(s) && !Number.isNaN(e)) {
+          log.durationMs = Math.max(0, e - s);
+        }
+      } catch { /* ignore */ }
+
+      // نوشتن لاگ در IndexedDB
+      await db.sync_logs.add({
+        startedAt: log.startedAt,
+        endedAt: log.endedAt,
+        ok: log.ok,
+        tryCount: log.tryCount,
+        pushStats: log.pushStats,
+        pullStats: log.pullStats,
+        error: log.error,
+        endpointUsed: log.endpointUsed,
+        lastSyncBefore: log.lastSyncBefore ?? null,
+        lastSyncAfter: log.lastSyncAfter ?? null,
+        durationMs: log.durationMs,
+        // فیلدهای تلمتری تکمیلی
+        pushAttemptBatches: log.pushAttemptBatches,
+      } as any);
+
+      return ok(stats);
+    } catch (e: any) {
+      log.ok = false;
+      log.error = e?.message ?? "runSync failed";
+      log.endedAt = nowIso();
+      // محاسبه مدت‌زمان در خطا هم
+      try {
+        const s = Date.parse(log.startedAt);
+        const eT = Date.parse(log.endedAt);
+        if (!Number.isNaN(s) && !Number.isNaN(eT)) {
+          log.durationMs = Math.max(0, eT - s);
+        }
+      } catch { /* ignore */ }
+
+      // تلاش برای ذخیره لاگ خطا
+      try {
+        await db.sync_logs.add({
+          startedAt: log.startedAt,
+          endedAt: log.endedAt,
+          ok: log.ok,
+          tryCount: log.tryCount,
+          pushStats: log.pushStats,
+          pullStats: log.pullStats,
+          error: log.error,
+          endpointUsed: log.endpointUsed,
+          lastSyncBefore: log.lastSyncBefore ?? null,
+          lastSyncAfter: log.lastSyncAfter ?? null,
+          durationMs: log.durationMs,
+        } as any);
+      } catch {
+        // ignore logging failure
+      }
+
+      return err(e?.message ?? "runSync failed");
+    }
+  },
+};
+
+export default SyncService;
