@@ -7,6 +7,14 @@
 
 import { db, type Contact as ContactDB, nowIso, type OutboxItem, type OutboxOp } from '../database/db';
 
+// ===== Type Definitions =====
+
+/**
+ * Represents the data required to create or update a contact
+ * Excludes database-generated fields and sync-related fields
+ */
+export type ContactData = Omit<ContactUI, 'id' | 'createdAt' | 'updatedAt' | 'deletedAt' | 'version' | 'conflict'>;
+
 // ========================
 // API Result helpers
 // ========================
@@ -189,29 +197,56 @@ export const ContactService = {
     }
   },
 
-  // جستجوی مخاطبین روی فیلدهای متنی (بدون ایندکس، فیلتر در کلاینت)
+  /**
+   * جستجوی پیشرفته در مخاطبین با پشتیبانی از فیلدهای مختلف
+   * @param query متن جستجو
+   * @returns لیست مخاطبین منطبق با جستجو
+   */
   async searchContacts(query: string): Promise<ApiResult<{ data: ContactUI[] }>> {
     try {
       const q = (query || "").trim().toLowerCase();
-      const all = await db.contacts.toArray();
-      const mapped = all.map(toUI);
-      if (!q) return ok({ data: mapped });
+      if (!q) {
+        // If query is empty, return all contacts (paginated if needed)
+        return this.getAllContacts();
+      }
 
-      const accHaystack = (c: ContactUI) => [
-        c.firstName,
-        c.lastName,
-        c.company ?? "",
-        c.address ?? "",
-        c.notes ?? "",
-        c.position ?? "",
-        ...(c.emails?.map((e: EmailAddressUI) => e.address) ?? []),
-        ...(c.phoneNumbers?.map((p: PhoneNumberUI) => p.number) ?? []),
-      ].join(" ").toLowerCase();
+      // Get all contacts from the database
+      const allContacts = await db.contacts.toArray();
+      const mappedContacts = allContacts.map(toUI);
 
-      const filtered = mapped.filter((c) => accHaystack(c).includes(q));
+      // Define searchable fields for each contact
+      const getSearchableText = (contact: ContactUI): string => {
+        const searchableFields = [
+          contact.firstName,
+          contact.lastName,
+          contact.position,
+          contact.company,
+          contact.address,
+          contact.notes,
+          // Search in phone numbers
+          ...(contact.phoneNumbers?.map(p => p.number) || []),
+          // Search in email addresses
+          ...(contact.emails?.map(e => e.address) || []),
+          // Search in custom fields (if any)
+          ...(contact.customFields?.map(f => f.value) || [])
+        ];
+
+        // Join all fields with spaces and convert to lowercase for case-insensitive search
+        return searchableFields
+          .filter(Boolean) // Remove empty/null/undefined values
+          .join(' ')
+          .toLowerCase();
+      };
+
+      // Filter contacts where any field contains the query
+      const filtered = mappedContacts.filter(contact => 
+        getSearchableText(contact).includes(q)
+      );
+
       return ok({ data: filtered });
-    } catch (e: any) {
-      return err(e?.message ?? "searchContacts failed");
+    } catch (error: any) {
+      console.error('Error in searchContacts:', error);
+      return err(error?.message ?? 'خطا در جستجوی مخاطبین');
     }
   },
 
