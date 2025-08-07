@@ -306,23 +306,72 @@ export const ContactService = {
     }
   },
 
+  /**
+   * حذف یک گروه و حذف آن از تمام مخاطبین مرتبط
+   * @param id شناسه گروه برای حذف
+   * @returns نتیجه عملیات
+   */
   async deleteGroup(id: string): Promise<ApiResult<null>> {
     try {
-      // soft delete برای هم‌راستایی با قرارداد sync
-      const row = await db.groups.get(id as any);
-      if (!row) {
-        // اگر موجود نیست، برای idempotency موفق برگردیم
+      // دریافت گروه برای بررسی وجود
+      const group = await db.groups.get(id as any);
+      if (!group) {
+        // اگر گروه وجود ندارد، برای idempotency موفق برگردیم
         return ok(null);
       }
+
       const deletedAt = nowIso();
-      const next = { ...row, deleted_at: deletedAt, updated_at: deletedAt, version: (row.version ?? 1) + 1 };
-      await db.transaction('rw', db.groups, db.outbox_queue, async () => {
-        await db.groups.put(next as any);
-        await enqueue('groups', id, 'delete', { id, deleted_at: deletedAt });
+      
+      // شروع تراکنش اتمی
+      await db.transaction('rw', 
+        db.groups, 
+        db.contact_groups, 
+        db.outbox_queue, 
+        db.contacts, 
+      async () => {
+        // 1. حذف تمام روابط گروه-مخاطب
+        const contactGroups = await db.contact_groups
+          .where('group_id')
+          .equals(id)
+          .toArray();
+
+        // 2. به‌روزرسانی هر مخاطب برای حذف گروه
+        for (const cg of contactGroups) {
+          // حذف رابطه گروه-مخاطب
+          await db.contact_groups
+            .where(['contact_id', 'group_id'])
+            .equals([cg.contact_id, cg.group_id])
+            .delete();
+
+          // اضافه کردن به صف برای همگام‌سازی
+          await enqueue('contact_groups', `${cg.contact_id}_${cg.group_id}`, 'delete', {
+            contact_id: cg.contact_id,
+            group_id: cg.group_id,
+            deleted_at: deletedAt
+          });
+        }
+
+        // 3. حذف نرم گروه
+        const updatedGroup = { 
+          ...group, 
+          deleted_at: deletedAt, 
+          updated_at: deletedAt, 
+          version: (group.version ?? 1) + 1 
+        };
+        
+        await db.groups.put(updatedGroup as any);
+        
+        // 4. اضافه کردن به صف برای همگام‌سازی
+        await enqueue('groups', id, 'delete', { 
+          id, 
+          deleted_at: deletedAt 
+        });
       });
+
       return ok(null);
-    } catch (e: any) {
-      return err(e?.message ?? 'deleteGroup failed');
+    } catch (error: any) {
+      console.error('Error in deleteGroup:', error);
+      return err(error?.message ?? 'خطا در حذف گروه');
     }
   },
   // وضعیت صف Outbox برای یک entity خاص را به‌صورت map برمی‌گرداند
