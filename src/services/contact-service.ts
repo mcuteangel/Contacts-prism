@@ -388,6 +388,223 @@ export const ContactService = {
       return err(e?.message ?? 'getOutboxMap failed');
     }
   },
+
+  /**
+   * صادر کردن تمام مخاطبین و گروه‌ها به فرمت JSON
+   * @returns رشته JSON حاوی تمام داده‌های صادر شده
+   */
+  async exportAllData(): Promise<ApiResult<string>> {
+    try {
+      // دریافت تمام داده‌های مورد نیاز
+      const [contacts, groups, contactGroups] = await Promise.all([
+        db.contacts.toArray(),
+        db.groups.toArray(),
+        db.contact_groups.toArray()
+      ]);
+
+      // ساخت شیء داده نهایی
+      const exportData = {
+        meta: {
+          version: '1.0',
+          exportedAt: nowIso(),
+          itemCount: {
+            contacts: contacts.length,
+            groups: groups.length,
+            contactGroups: contactGroups.length
+          }
+        },
+        data: {
+          contacts: contacts.map(c => ({
+            id: c.id,
+            firstName: c.first_name,
+            lastName: c.last_name,
+            position: c.role,
+            company: c.company,
+            address: c.address,
+            notes: c.notes,
+            createdAt: c.created_at,
+            updatedAt: c.updated_at,
+            version: c._version,
+            deletedAt: c._deleted_at
+          })),
+          groups: groups.map(g => ({
+            id: g.id,
+            name: g.name,
+            color: g.color,
+            createdAt: g.created_at,
+            updatedAt: g.updated_at,
+            version: g.version,
+            deletedAt: g.deleted_at
+          })),
+          contactGroups: contactGroups.map(cg => ({
+            contactId: cg.contact_id,
+            groupId: cg.group_id,
+            assignedAt: cg.assigned_at
+          }))
+        }
+      };
+
+      return ok(JSON.stringify(exportData, null, 2));
+    } catch (error: any) {
+      console.error('Error in exportAllData:', error);
+      return err(error?.message ?? 'خطا در صادر کردن داده‌ها');
+    }
+  },
+
+  /**
+   * وارد کردن داده‌ها از یک رشته JSON
+   * @param jsonString رشته JSON حاوی داده‌های وارد شونده
+   * @returns نتیجه عملیات وارد کردن
+   */
+  async importData(jsonString: string): Promise<ApiResult<{
+    imported: { contacts: number; groups: number; contactGroups: number };
+    skipped: { contacts: number; groups: number; contactGroups: number };
+  }>> {
+    try {
+      const data = JSON.parse(jsonString);
+      
+      // اعتبارسنجی اولیه ساختار داده
+      if (!data || typeof data !== 'object' || !data.data) {
+        return err('قالب فایل وارد شده نامعتبر است');
+      }
+
+      const { contacts = [], groups = [], contactGroups = [] } = data.data;
+      const result = {
+        imported: { contacts: 0, groups: 0, contactGroups: 0 },
+        skipped: { contacts: 0, groups: 0, contactGroups: 0 }
+      };
+
+      // شروع تراکنش اتمی
+      await db.transaction('rw', 
+        db.contacts, 
+        db.groups, 
+        db.contact_groups, 
+        db.outbox_queue,
+      async () => {
+        const now = nowIso();
+        
+        // وارد کردن گروه‌ها
+        for (const group of groups) {
+          try {
+            // بررسی وجود گروه با همین شناسه
+            const exists = await db.groups.get(group.id);
+            if (exists) {
+              result.skipped.groups++;
+              continue;
+            }
+
+            // ایجاد رکورد جدید گروه
+            await db.groups.add({
+              id: group.id,
+              user_id: group.user_id || 'imported-user',
+              name: group.name,
+              color: group.color || null,
+              created_at: group.createdAt || now,
+              updated_at: group.updatedAt || now,
+              deleted_at: group.deletedAt || null,
+              version: group.version || 1
+            });
+
+            // اضافه کردن به صف همگام‌سازی
+            await enqueue('groups', group.id, 'insert', {
+              ...group,
+              created_at: group.createdAt || now,
+              updated_at: group.updatedAt || now
+            });
+
+            result.imported.groups++;
+          } catch (error) {
+            console.error('Error importing group:', group.id, error);
+            result.skipped.groups++;
+          }
+        }
+
+        // وارد کردن مخاطبین
+        for (const contact of contacts) {
+          try {
+            // بررسی وجود مخاطب با همین شناسه
+            const exists = await db.contacts.get(contact.id);
+            if (exists) {
+              result.skipped.contacts++;
+              continue;
+            }
+
+            // ایجاد رکورد جدید مخاطب
+            await db.contacts.add({
+              id: contact.id,
+              user_id: contact.user_id || 'imported-user',
+              first_name: contact.firstName,
+              last_name: contact.lastName,
+              role: contact.position || null,
+              company: contact.company || null,
+              address: contact.address || null,
+              notes: contact.notes || null,
+              gender: 'not_specified',
+              created_at: contact.createdAt || now,
+              updated_at: contact.updatedAt || now,
+              _deleted_at: contact.deletedAt || null,
+              _version: contact.version || 1,
+              _conflict: false
+            });
+
+            // اضافه کردن به صف همگام‌سازی
+            await enqueue('contacts', contact.id, 'insert', {
+              ...contact,
+              created_at: contact.createdAt || now,
+              updated_at: contact.updatedAt || now,
+              _deleted_at: contact.deletedAt || null
+            });
+
+            result.imported.contacts++;
+          } catch (error) {
+            console.error('Error importing contact:', contact.id, error);
+            result.skipped.contacts++;
+          }
+        }
+
+        // وارد کردن ارتباطات مخاطب-گروه
+        for (const cg of contactGroups) {
+          try {
+            // بررسی وجود رابطه
+            const exists = await db.contact_groups
+              .where(['contact_id', 'group_id'])
+              .equals([cg.contactId, cg.groupId])
+              .first();
+
+            if (exists) {
+              result.skipped.contactGroups++;
+              continue;
+            }
+
+            // ایجاد رابطه جدید
+            await db.contact_groups.add({
+              contact_id: cg.contactId,
+              group_id: cg.groupId,
+              user_id: 'imported-user',
+              assigned_at: cg.assignedAt || now
+            });
+
+            // اضافه کردن به صف همگام‌سازی
+            await enqueue('contact_groups', `${cg.contactId}_${cg.groupId}`, 'insert', {
+              contact_id: cg.contactId,
+              group_id: cg.groupId,
+              assigned_at: cg.assignedAt || now
+            });
+
+            result.imported.contactGroups++;
+          } catch (error) {
+            console.error('Error importing contact-group relationship:', cg, error);
+            result.skipped.contactGroups++;
+          }
+        }
+      });
+
+      return ok(result);
+    } catch (error: any) {
+      console.error('Error in importData:', error);
+      return err(error?.message ?? 'خطا در وارد کردن داده‌ها');
+    }
+  },
 };
  
 export default ContactService;
