@@ -1,6 +1,17 @@
 // ===== IMPORTS & DEPENDENCIES =====
 import { toast } from "sonner";
 import type { Contact } from "@/database/db";
+import QRCode from 'qrcode';
+import { saveAs } from 'file-saver';
+
+/**
+ * Interface for phone number information
+ */
+interface PhoneNumber {
+  number: string;
+  type?: 'mobile' | 'home' | 'work' | 'other';
+  is_primary?: boolean;
+}
 
 // ===== CORE BUSINESS LOGIC =====
 export class DeviceIntegration {
@@ -40,15 +51,21 @@ export class DeviceIntegration {
   /**
    * Converts a contact object to the standard VCard (.vcf) format string.
    * This format is universally recognized by contact applications.
+   * @param contact - The contact information to convert
+   * @param phoneNumbers - Optional array of phone numbers to include in the VCard
+   * @returns VCF formatted string
    */
-  private static formatContactAsVCard(contact: Contact): string {
+  private static formatContactAsVCard(contact: Contact, phoneNumbers: PhoneNumber[] = []): string {
     let vCard = "BEGIN:VCARD\n";
     vCard += "VERSION:3.0\n";
     vCard += `N:${contact.last_name || ''};${contact.first_name || ''}\n`;
     vCard += `FN:${contact.first_name || ''} ${contact.last_name || ''}\n`;
     
-    // Note: Phone numbers are stored in a separate table and would need to be fetched
-    // You can implement phone number fetching here if needed
+    // Add phone numbers if provided
+    phoneNumbers.forEach(phone => {
+      const type = phone.type ? `;TYPE=${phone.type.toUpperCase()}` : '';
+      vCard += `TEL${type}:${phone.number}\n`;
+    });
     
     // Add role if exists (using it as TITLE since job_title doesn't exist)
     if (contact.role) {
