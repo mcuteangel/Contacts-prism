@@ -105,9 +105,16 @@ export class DeviceIntegration {
    * Shares a contact using the Web Share API if available, with a fallback to clipboard.
    * The contact is shared as a standard .vcf file.
    */
-  static async shareContact(contact: Contact): Promise<void> {
+  /**
+   * Shares a contact using the Web Share API if available, with a fallback to clipboard.
+   * The contact is shared as a standard .vcf file.
+   * @param contact - The contact to share
+   * @param phoneNumbers - Optional array of phone numbers to include in the VCard
+   * @throws Will throw an error if sharing fails and clipboard fallback also fails
+   */
+  static async shareContact(contact: Contact, phoneNumbers: PhoneNumber[] = []): Promise<void> {
     try {
-      const vCardData = this.formatContactAsVCard(contact);
+      const vCardData = this.formatContactAsVCard(contact, phoneNumbers);
       const fileName = `${contact.first_name || 'contact'}.vcf`;
       
       // Create a Blob with the VCard data
