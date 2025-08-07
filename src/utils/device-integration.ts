@@ -139,17 +139,118 @@ export class DeviceIntegration {
       }
       
       // Fallback: Copy VCard to clipboard
-      await this.copyToClipboard(vCardData);
-      toast.success('اطلاعات مخاطب (VCard) در کلیپ‌بورد کپی شد!');
-      
+      try {
+        await this.copyToClipboard(vCardData);
+        toast.success('اطلاعات مخاطب (VCard) در کلیپ‌بورد کپی شد!');
+        return;
+      } catch (clipboardError) {
+        console.error('Failed to copy to clipboard:', clipboardError);
+        throw new Error('خطا در کپی اطلاعات به حافظه موقت');
+      }
     } catch (error) {
       console.error('Error in shareContact:', error);
-      toast.error('خطا در اشتراک‌گذاری مخاطب');
+      const errorMessage = error instanceof Error ? error.message : 'خطای ناشناخته';
+      toast.error(`خطا در اشتراک‌گذاری مخاطب: ${errorMessage}`);
+      throw error; // Re-throw to allow calling code to handle the error
+    }
+  }
+
+  /**
+   * Generates a QR code image for the given contact information
+   * @param contact - The contact information to encode in the QR code
+   * @param phoneNumbers - Optional array of phone numbers to include
+   * @returns Promise that resolves to a data URL of the QR code image
+   */
+  static async generateContactQR(contact: Contact, phoneNumbers: PhoneNumber[] = []): Promise<string> {
+    try {
+      // Format contact as vCard for QR code
+      const vCardData = this.formatContactAsVCard(contact, phoneNumbers);
+      
+      // Generate QR code as data URL
+      return await QRCode.toDataURL(vCardData, {
+        errorCorrectionLevel: 'H', // High error correction
+        margin: 1,
+        scale: 8,
+        color: {
+          dark: '#000000',
+          light: '#ffffff'
+        }
+      });
+    } catch (error) {
+      console.error('Error generating QR code:', error);
+      throw new Error('خطا در تولید کد QR');
+    }
+  }
+
+  /**
+   * Shares a contact as a QR code image
+   * @param contact - The contact to share
+   * @param phoneNumbers - Optional array of phone numbers to include
+   * @returns Promise that resolves when sharing is complete
+   */
+  static async shareAsQR(contact: Contact, phoneNumbers: PhoneNumber[] = []): Promise<void> {
+    try {
+      const qrDataUrl = await this.generateContactQR(contact, phoneNumbers);
+      
+      // Convert data URL to blob
+      const response = await fetch(qrDataUrl);
+      const blob = await response.blob();
+      
+      // Create file from blob
+      const fileName = `${contact.first_name || 'contact'}_${Date.now()}.png`;
+      const file = new File([blob], fileName, { type: 'image/png' });
+      
+      // Try Web Share API first
+      if (navigator.share && navigator.canShare && navigator.canShare({ files: [file] })) {
+        await navigator.share({
+          title: `کد QR مخاطب: ${contact.first_name || ''} ${contact.last_name || ''}`.trim(),
+          text: `اسکن کنید تا اطلاعات مخاطب ذخیره شود`,
+          files: [file]
+        });
+        return;
+      }
+      
+      // Fallback: Download QR code
+      this.downloadQRCode(blob, fileName);
+      
+    } catch (error) {
+      console.error('Error in shareAsQR:', error);
+      const errorMessage = error instanceof Error ? error.message : 'خطای ناشناخته';
+      toast.error(`خطا در اشتراک‌گذاری کد QR: ${errorMessage}`);
+      throw error;
+    }
+  }
+
+  /**
+   * Downloads QR code as an image file
+   * @param blob - The QR code image blob
+   * @param fileName - The name of the file to save
+   */
+  private static downloadQRCode(blob: Blob, fileName: string): void {
+    try {
+      // Create a temporary URL for the blob
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = fileName;
+      document.body.appendChild(a);
+      a.click();
+      
+      // Cleanup
+      window.URL.revokeObjectURL(url);
+      document.body.removeChild(a);
+      
+      toast.success('کد QR با موفقیت دانلود شد');
+    } catch (error) {
+      console.error('Error downloading QR code:', error);
+      throw new Error('خطا در ذخیره‌سازی کد QR');
     }
   }
 
   /**
    * A helper function to copy text to the clipboard with a fallback for older browsers.
+   * @param text - The text to copy to clipboard
+   * @throws Will throw an error if both modern and fallback methods fail
    */
   private static async copyToClipboard(text: string): Promise<void> {
     if (navigator.clipboard && window.isSecureContext) {
