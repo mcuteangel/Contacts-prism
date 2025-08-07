@@ -1,18 +1,57 @@
 /**
  * PRISM Contacts - IndexedDB (Dexie) offline database
- * همگام با اسکیمای Supabase و افزودن فیلدهای کمکی برای سنکرون (prefixed with _)
+ * 
+ * این ماژول شامل تعاریف پایگاه داده و مدل‌های داده‌ای است.
+ * همگام با اسکیمای Supabase و شامل فیلدهای کمکی برای سنکرون آفلاین.
  */
-import Dexie, { Table } from 'dexie';
 
-// Types aligned with Supabase schema (plus local sync helpers)
+import Dexie, { type Table } from 'dexie';
+
+// ===== Type Definitions =====
+
+/**
+ * شناسه یکتای جهانی (UUID)
+ */
 export type UUID = string;
 
+/**
+ * انواع جنسیت
+ */
+export type Gender = 'male' | 'female' | 'other' | 'not_specified';
+
+/**
+ * وضعیت‌های مختلف آیتم‌های صف خروجی
+ */
+export type OutboxStatus = 'queued' | 'sending' | 'error' | 'done';
+
+/**
+ * انواع عملیات قابل انجام بر روی آیتم‌های صف خروجی
+ */
+export type OutboxOp = 'insert' | 'update' | 'delete';
+
+/**
+ * انواع موجودیت‌هایی که می‌توانند در صف خروجی قرار گیرند
+ */
+export type OutboxEntity = 
+  | 'contacts' 
+  | 'phone_numbers' 
+  | 'email_addresses' 
+  | 'groups' 
+  | 'custom_fields' 
+  | 'contact_groups';
+
+// ===== Core Models =====
+
+/**
+ * مدل مخاطب
+ */
 export type Contact = {
   id: UUID;
   user_id: UUID;
   first_name: string;
   last_name: string;
-  gender: 'male' | 'female' | 'other' | 'not_specified';
+  /** جنسیت */
+  gender: Gender;
   role: string | null;
   company: string | null;
   address: string | null;
@@ -25,206 +64,393 @@ export type Contact = {
   _conflict?: boolean; // mark if conflict detected
 };
 
-export type PhoneNumber = {
+/**
+ * مدل شماره تلفن
+ */
+export interface PhoneNumber {
+  /** شناسه یکتای شماره تلفن */
   id: UUID;
+  /** شناسه کاربر مالک */
   user_id: UUID;
+  /** شناسه مخاطب مرتبط */
   contact_id: UUID;
+  /** نوع شماره (مثل: موبایل، منزل، محل کار) */
   phone_type: string;
+  /** شماره تلفن */
   phone_number: string;
-  created_at: string; // ISO
-};
+  /** تاریخ ایجاد به فرمت ISO */
+  created_at: string;
+}
 
-export type EmailAddress = {
+/**
+ * مدل آدرس ایمیل
+ */
+export interface EmailAddress {
+  /** شناسه یکتای ایمیل */
   id: UUID;
+  /** شناسه کاربر مالک */
   user_id: UUID;
+  /** شناسه مخاطب مرتبط */
   contact_id: UUID;
+  /** نوع ایمیل (مثل: شخصی، کاری) */
   email_type: string;
+  /** آدرس ایمیل */
   email_address: string;
-  created_at: string; // ISO
-};
+  /** تاریخ ایجاد به فرمت ISO */
+  created_at: string;
+}
 
-export type Group = {
+/**
+ * مدل گروه‌بندی مخاطبین
+ */
+export interface Group {
+  /** شناسه یکتای گروه */
   id: UUID;
+  /** شناسه کاربر مالک */
   user_id: UUID;
+  /** نام گروه */
   name: string;
+  /** رنگ گروه (اختیاری) */
   color: string | null;
-  created_at: string; // ISO
-  // برای هم‌راستاسازی با قرارداد Sync (LWW)
-  updated_at: string; // ISO
-  deleted_at?: string | null; // ISO or null
-  version?: number; // نسخه افزایشی
-};
+  /** تاریخ ایجاد به فرمت ISO */
+  created_at: string;
+  /** تاریخ آخرین به‌روزرسانی برای سنکرون */
+  updated_at: string;
+  /** تاریخ حذف (حذف نرم‌افزاری) */
+  deleted_at?: string | null;
+  /** شماره نسخه برای حل تعارض */
+  version?: number;
+}
 
-export type CustomField = {
+/**
+ * مدل فیلدهای سفارشی مخاطبین
+ */
+export interface CustomField {
+  /** شناسه یکتای فیلد */
   id: UUID;
+  /** شناسه کاربر مالک */
   user_id: UUID;
+  /** شناسه مخاطب مرتبط */
   contact_id: UUID;
+  /** نام فیلد */
   field_name: string;
+  /** مقدار فیلد */
   field_value: string;
-  created_at: string; // ISO
-};
+  /** تاریخ ایجاد به فرمت ISO */
+  created_at: string;
+}
 
-export type ContactGroup = {
+/**
+ * رابطه چند به چند بین مخاطبین و گروه‌ها
+ */
+export interface ContactGroup {
+  /** شناسه مخاطب */
   contact_id: UUID;
+  /** شناسه گروه */
   group_id: UUID;
+  /** شناسه کاربر مالک */
   user_id: UUID;
-  assigned_at: string; // ISO
-};
+  /** تاریخ انتساب به فرمت ISO */
+  assigned_at: string;
+}
 
-export type SyncMeta = {
+// ===== Sync & Auth Models =====
+
+/**
+ * متادیتاهای سنکرون
+ */
+export interface SyncMeta {
+  /** کلید متادیتا */
   key: string;
+  /** مقدار متادیتا */
   value: unknown;
-};
+}
 
-// ذخایر Auth آفلاین
-export type AuthSecretRow = {
-  key: string; // 'auth:secret' یا کلیدهای مرتبط
+/**
+ * اطلاعات احراز هویت آفلاین
+ */
+export interface AuthSecretRow {
+  /** کلید ذخیره اطلاعات احراز هویت */
+  key: 'auth:secret' | string;
+  /** مقدار رمزگذاری شده */
   value: {
-    // AES-GCM master key بسته‌بندی‌شده
+    /** کلید اصلی رمزگذاری شده */
     wrappedAesKey?: ArrayBuffer | Uint8Array | string | null;
+    /** روش بسته‌بندی کلید */
     wrapMethod?: 'webauthn' | 'pin';
+    /** تنظیمات KDF برای رمز عبور */
     pinKdf?: {
       saltB64: string;
       iterations: number;
       hash: 'SHA-256';
     } | null;
     // متادیتا
+    /** تاریخ ایجاد */
     createdAt: string;    // ISO
-    lastOnlineAuthAt: string; // ISO - آخرین تایید آنلاین Supabase
-    lastUnlockAt?: string | null; // ISO - آخرین بازکردن قفل آفلاین
-    offlineAllowedUntil?: string | null; // ISO - سقف 7 روز
-    inactivityMs?: number; // مثلا 3600000 (1h)
+    /** آخرین احراز هویت آنلاین */
+    lastOnlineAuthAt: string; // ISO
+    /** آخرین باز کردن قفل آفلاین */
+    lastUnlockAt?: string | null; // ISO
+    /** حداکثر زمان مجاز برای استفاده آفلاین */
+    offlineAllowedUntil?: string | null; // ISO
+    /** زمان عدم فعالیت مجاز (به میلی‌ثانیه) */
+    inactivityMs?: number;
   };
-};
+}
 
-// Telemetry: لاگ‌های همگام‌سازی
-export type SyncLog = {
-  id?: number;             // auto-increment
-  startedAt: string;       // ISO
-  endedAt: string;         // ISO
+/**
+ * لاگ عملیات سنکرون
+ */
+export interface SyncLog {
+  /** شناسه یکتای لاگ (اتوماتیک) */
+  id?: number;
+  /** زمان شروع سنکرون به فرمت ISO */
+  startedAt: string;
+  /** زمان پایان سنکرون به فرمت ISO */
+  endedAt: string;
+  /** آیا عملیات با موفقیت انجام شد؟ */
   ok: boolean;
-  tryCount: number;        // تعداد تلاش‌ها در این ران
-  // آمار push/pull (ساختار سبک برای ثبت خلاصه)
+  /** تعداد تلاش‌ها */
+  tryCount: number;
+  
+  /** آمار ارسال داده به سرور */
   pushStats?: {
+    /** تعداد رکوردهای ارسال شده */
     attempted?: number;
+    /** تعداد رکوردهای ارسال شده با موفقیت */
     sent?: number;
+    /** تعداد رکوردهای اعمال شده در سرور */
     applied?: number;
+    /** تعداد تعارضات */
     conflicts?: number;
+    /** تعداد خطاها */
     errors?: number;
   } | null;
+  
+  /** آمار دریافت داده از سرور */
   pullStats?: {
-    contacts?: { upserts?: number; deletes?: number } | null;
-    groups?: { upserts?: number; deletes?: number } | null;
+    /** آمار مخاطبین */
+    contacts?: { 
+      /** تعداد افزوده/به‌روزرسانی شده‌ها */
+      upserts?: number;
+      /** تعداد حذف شده‌ها */
+      deletes?: number;
+    } | null;
+    /** آمار گروه‌ها */
+    groups?: { 
+      /** تعداد افزوده/به‌روزرسانی شده‌ها */
+      upserts?: number;
+      /** تعداد حذف شده‌ها */
+      deletes?: number;
+    } | null;
+    /** تعداد کل رکوردهای دریافت شده */
     total?: number;
   } | null;
-  error?: string | null;   // خلاصه پیام خطا در صورت ok=false
+  
+  /** پیغام خطا در صورت شکست */
+  error?: string | null;
+  
+  // --- اطلاعات تکمیلی ---
+  
+  /** آدرس سرور استفاده شده */
+  endpointUsed?: string;
+  /** مقدار lastSyncAt قبل از اجرا */
+  lastSyncBefore?: string | null;
+  /** مقدار جدید lastSyncAt بعد از اجرا */
+  lastSyncAfter?: string | null;
+  /** مدت زمان اجرا به میلی‌ثانیه */
+  durationMs?: number;
+}
 
-  // Telemetry افزوده‌شده
-  endpointUsed?: string;          // آدرس پایه استفاده‌شده برای pull
-  lastSyncBefore?: string | null; // مقدار lastSyncAt قبل از اجرا
-  lastSyncAfter?: string | null;  // مقدار جدید (serverTime) بعد از pull
-  durationMs?: number;            // مدت‌زمان اجرای runSync برحسب میلی‌ثانیه
-};
-
-export type OutboxStatus = 'queued' | 'sending' | 'error' | 'done';
-export type OutboxOp = 'insert' | 'update' | 'delete';
-
-export type OutboxItem = {
-  id?: number; // auto-increment
-  entity: 'contacts' | 'phone_numbers' | 'email_addresses' | 'groups' | 'custom_fields' | 'contact_groups';
-  entityId: string; // UUID or composite key stringified for join table
+/**
+ * آیتم‌های صف خروجی برای سنکرون
+ */
+export interface OutboxItem {
+  /** شناسه یکتای آیتم (اتوماتیک) */
+  id?: number;
+  /** نوع موجودیت */
+  entity: OutboxEntity;
+  /** شناسه موجودیت (ممکن است به صورت رشته ترکیبی باشد) */
+  entityId: string;
+  /** نوع عملیات */
   op: OutboxOp;
-  clientTime: string; // ISO
+  /** زمان ثبت درخواست به فرمت ISO */
+  clientTime: string;
+  /** تعداد دفعات تلاش برای ارسال */
   tryCount: number;
+  /** وضعیت فعلی آیتم */
   status: OutboxStatus;
-  payload: unknown; // the delta or full row to push
-};
+  /** محتوای درخواست */
+  payload: unknown;
+}
 
+/**
+ * کلاس اصلی پایگاه داده Prism Contacts
+ * 
+ * این کلاس ساختار پایگاه داده IndexedDB را با استفاده از Dexie تعریف می‌کند
+ * و شامل تمام جداول و روابط بین آن‌ها می‌شود.
+ */
 class PrismContactsDB extends Dexie {
-  // Tables
+  // ===== Table Definitions =====
+  
+  /** جدول مخاطبین */
   contacts!: Table<Contact, string>;
+  
+  /** جدول شماره تلفن‌ها */
   phone_numbers!: Table<PhoneNumber, string>;
+  
+  /** جدول آدرس‌های ایمیل */
   email_addresses!: Table<EmailAddress, string>;
+  
+  /** جدول گروه‌ها */
   groups!: Table<Group, string>;
+  
+  /** جدول فیلدهای سفارشی */
   custom_fields!: Table<CustomField, string>;
-  contact_groups!: Table<ContactGroup, [string, string]>; // composite pk (contact_id, group_id) stringified via idx
+  
+  /** 
+   * جدول رابطه چند به چند بین مخاطبین و گروه‌ها
+   * از کلید ترکیبی (contact_id, group_id) استفاده می‌کند
+   */
+  contact_groups!: Table<ContactGroup, [string, string]>;
+  
+  /** جدول متادیتاهای سنکرون */
   sync_meta!: Table<SyncMeta, string>;
+  
+  /** صف عملیات خروجی برای سنکرون */
   outbox_queue!: Table<OutboxItem, number>;
+  
+  /** جدول لاگ‌های عملیات سنکرون */
   sync_logs!: Table<SyncLog, number>;
-  // جدول اختصاصی برای اسرار auth (کلید بسته‌بندی‌شده، متادیتا)
+  /** 
+   * جدول ذخیره اطلاعات احراز هویت آفلاین
+   * شامل کلیدهای رمزگذاری شده و اطلاعات احراز هویت
+   */
   auth_secrets!: Table<AuthSecretRow, string>;
 
   constructor() {
     super('prism_contacts_db');
 
-    // Versioned schema for evolvability
-    // v1: initial schema aligned with Supabase
+    // ===== Schema Versions =====
+    // هر نسخه شامل تغییرات اسکیمای پایگاه داده است
+    // و می‌تواند شامل منطق ارتقا (upgrade) باشد
+
+    // نسخه 1: اسکیمای اولیه منطبق با Supabase
     this.version(1).stores({
-      // Primary keys and indexes:
-      // Dexie syntax: 'primaryKey, idx1, idx2, [compoundIdx1+compoundIdx2]'
-      contacts:
-        'id, user_id, updated_at, [_deleted_at], [_conflict]',
-      phone_numbers:
-        'id, user_id, contact_id',
-      email_addresses:
-        'id, user_id, contact_id',
-      groups:
-        'id, user_id',
-      custom_fields:
-        'id, user_id, contact_id',
-      // For join table, we simulate composite primary key by using compound index and uniqueness handled in code
-      contact_groups:
-        '[contact_id+group_id], user_id',
-      sync_meta:
-        'key',
-      outbox_queue:
-        '++id, entity, entityId, op, clientTime, status'
+      // ساختار ایندکس‌ها:
+      // سینتکس Dexie: 'کلید_اصلی, ایندکس1, ایندکس2, [ایندکس_ترکیبی1+ایندکس_ترکیبی2]'
+      
+      // ایندکس‌های جدول مخاطبین
+      contacts: 'id, user_id, updated_at, [_deleted_at], [_conflict]',
+      
+      // ایندکس‌های جدول شماره تلفن‌ها
+      phone_numbers: 'id, user_id, contact_id',
+      
+      // ایندکس‌های جدول آدرس‌های ایمیل
+      email_addresses: 'id, user_id, contact_id',
+      
+      // ایندکس‌های جدول گروه‌ها
+      groups: 'id, user_id',
+      
+      // ایندکس‌های جدول فیلدهای سفارشی
+      custom_fields: 'id, user_id, contact_id',
+      
+      // ایندکس‌های جدول رابطه مخاطبین و گروه‌ها
+      contact_groups: '[contact_id+group_id], user_id',
+      
+      // ایندکس‌های جدول متادیتاهای سنکرون
+      sync_meta: 'key',
+      
+      // ایندکس‌های صف عملیات خروجی
+      outbox_queue: '++id, entity, entityId, op, clientTime, status, [entity+status]',
     });
 
-    // v3: جدول لاگ‌های سنک
+    // نسخه 2: افزودن ایندکس‌های LWW برای گروه‌ها (updated_at, deleted_at, version)
+    this.version(2)
+      .stores({
+        groups: 'id, user_id, updated_at, [deleted_at], version',
+      })
+      .upgrade(async (tx) => {
+        const now = new Date().toISOString();
+        
+        // مقداردهی اولیه برای رکوردهای موجود
+        const groups = await tx.table('groups').toArray();
+        for (const group of groups) {
+          const updates: Partial<Group> = {};
+          
+          if (!group.updated_at) {
+            updates.updated_at = group.created_at || now;
+          }
+          
+          if (typeof group.version === 'undefined') {
+            updates.version = 1;
+          }
+          
+          if (typeof group.deleted_at === 'undefined') {
+            updates.deleted_at = null;
+          }
+          
+          if (Object.keys(updates).length > 0) {
+            await tx.table('groups').update(group.id, updates);
+          }
+        }
+      });
+
+    // نسخه 3: اضافه کردن جدول لاگ‌های سنکرون
     this.version(3).stores({
-      sync_logs: '++id, startedAt, endedAt, ok, tryCount'
+      sync_logs: '++id, startedAt, endedAt, ok, tryCount, [startedAt+ok]',
     });
 
-    // v4: جدول اسرار احراز هویت آفلاین
+    // نسخه 4: اضافه کردن جدول اسرار احراز هویت آفلاین
     this.version(4).stores({
-      auth_secrets: 'key'
+      auth_secrets: 'key',
     });
 
-    // v2: افزودن ایندکس‌های LWW برای groups (updated_at, deleted_at, version)
-    this.version(2).stores({
-      groups:
-        'id, user_id, updated_at, [deleted_at], version',
-    }).upgrade(async (tx) => {
-      const now = new Date().toISOString();
-      // backfill برای رکوردهای موجود: مقداردهی updated_at, version, deleted_at
-      const all = await tx.table('groups').toArray();
-      for (const g of all as any[]) {
-        if (g.updated_at == null) g.updated_at = g.created_at ?? now;
-        if (g.version == null) g.version = 1;
-        if (typeof g.deleted_at === 'undefined') g.deleted_at = null;
-        await tx.table('groups').put(g);
-      }
-    });
-
-    // Map tables
+    // ===== Initialize Table Mappings =====
+    
+    /** @inheritdoc */
     this.contacts = this.table('contacts');
+    /** @inheritdoc */
     this.phone_numbers = this.table('phone_numbers');
+    /** @inheritdoc */
     this.email_addresses = this.table('email_addresses');
+    /** @inheritdoc */
     this.groups = this.table('groups');
+    /** @inheritdoc */
     this.custom_fields = this.table('custom_fields');
+    /** @inheritdoc */
     this.contact_groups = this.table('contact_groups');
+    /** @inheritdoc */
     this.sync_meta = this.table('sync_meta');
+    /** @inheritdoc */
     this.outbox_queue = this.table('outbox_queue');
+    /** @inheritdoc */
     this.sync_logs = this.table('sync_logs');
+    /** @inheritdoc */
     this.auth_secrets = this.table('auth_secrets');
   }
 }
 
-// Singleton DB instance
+// ===== Singleton Instance =====
+
+/**
+ * نمونه یکتای پایگاه داده Prism Contacts
+ * 
+ * این نمونه برای دسترسی به تمام جداول و عملیات پایگاه داده در سراسر برنامه استفاده می‌شود.
+ */
 export const db = new PrismContactsDB();
 
-// Small helpers
+// ===== Helper Functions =====
+
+/**
+ * تاریخ و زمان فعلی را به فرمت ISO برمی‌گرداند
+ * 
+ * @returns رشته حاوی تاریخ و زمان فعلی به فرمت ISO
+ * 
+ * @example
+ * const timestamp = nowIso();
+ * // مثال خروجی: '2023-04-05T12:34:56.789Z'
+ */
 export function nowIso(): string {
   return new Date().toISOString();
 }
