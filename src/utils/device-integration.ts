@@ -1,113 +1,155 @@
+// ===== IMPORTS & DEPENDENCIES =====
+import { toast } from "sonner";
+import type { Contact } from "@/database/db";
+
+// ===== CORE BUSINESS LOGIC =====
 export class DeviceIntegration {
-  static makeCall(phoneNumber: string) {
+  static makeCall(phoneNumber: string): void {
     if (phoneNumber) {
-      window.open(`tel:${phoneNumber}`, '_blank');
+      window.open(`tel:${phoneNumber}`);
     }
   }
 
-  static openMaps(address?: string, latitude?: number, longitude?: number) {
-    if (latitude && longitude) {
-      // Using coordinates
-      window.open(`https://www.google.com/maps?q=${latitude},${longitude}`, '_blank');
-    } else if (address) {
-      // Using address
+  static openMaps(address?: string): void {
+    if (address) {
       const encodedAddress = encodeURIComponent(address);
+      // Using a more universal format that works better across platforms
       window.open(`https://www.google.com/maps/search/?api=1&query=${encodedAddress}`, '_blank');
     } else {
-      // Default to user's location if available
-      if (navigator.geolocation) {
-        navigator.geolocation.getCurrentPosition(
-          (position) => {
-            const { latitude, longitude } = position.coords;
-            window.open(`https://www.google.com/maps?q=${latitude},${longitude}`, '_blank');
-          },
-          (error) => {
-            console.error('Error getting location:', error);
-            window.open('https://www.google.com/maps', '_blank');
-          }
-        );
-      } else {
-        window.open('https://www.google.com/maps', '_blank');
-      }
+      // Default to maps home
+      window.open('https://www.google.com/maps', '_blank');
     }
   }
 
-  static sendSMS(phoneNumber: string, message?: string) {
+  static sendSMS(phoneNumber: string, message?: string): void {
     if (phoneNumber) {
       const smsUrl = message ? `sms:${phoneNumber}?body=${encodeURIComponent(message)}` : `sms:${phoneNumber}`;
-      window.open(smsUrl, '_blank');
+      window.open(smsUrl);
     }
   }
 
-  static sendEmail(emailAddress: string, subject?: string, body?: string) {
+  static sendEmail(emailAddress: string, subject?: string, body?: string): void {
     if (emailAddress) {
       const emailUrl = subject || body 
         ? `mailto:${emailAddress}?subject=${encodeURIComponent(subject || '')}&body=${encodeURIComponent(body || '')}`
         : `mailto:${emailAddress}`;
-      window.open(emailUrl, '_blank');
+      window.open(emailUrl);
     }
   }
 
-  static shareContact(contact: any) {
-    if (navigator.share) {
-      const shareData = {
-        title: `مخاطب: ${contact.firstName} ${contact.lastName}`,
-        text: `اطلاعات مخاطب ${contact.firstName} ${contact.lastName}`,
-        url: window.location.href
-      };
-      
-      navigator.share(shareData).catch(console.error);
-    } else {
-      // Fallback for browsers that don't support Web Share API
-      this.copyToClipboard(this.formatContactForShare(contact));
-      alert('اطلاعات مخاطب در کلیپ‌بورد کپی شد!');
-    }
-  }
-
-  static formatContactForShare(contact: any): string {
-    let shareText = `مخاطب: ${contact.firstName} ${contact.lastName}\n\n`;
+  /**
+   * Converts a contact object to the standard VCard (.vcf) format string.
+   * This format is universally recognized by contact applications.
+   */
+  private static formatContactAsVCard(contact: Contact): string {
+    let vCard = "BEGIN:VCARD\n";
+    vCard += "VERSION:3.0\n";
+    vCard += `N:${contact.last_name || ''};${contact.first_name || ''}\n`;
+    vCard += `FN:${contact.first_name || ''} ${contact.last_name || ''}\n`;
     
-    if (contact.phoneNumbers && contact.phoneNumbers.length > 0) {
-      shareText += 'شماره‌ها:\n';
-      contact.phoneNumbers.forEach((phone: any) => {
-        shareText += `- ${phone.type}: ${phone.number}\n`;
-      });
+    // Note: Phone numbers are stored in a separate table and would need to be fetched
+    // You can implement phone number fetching here if needed
+    
+    // Add role if exists (using it as TITLE since job_title doesn't exist)
+    if (contact.role) {
+      vCard += `TITLE:${contact.role}\n`;
     }
     
-    if (contact.email) {
-      shareText += `ایمیل: ${contact.email}\n`;
-    }
-    
-    if (contact.position) {
-      shareText += `سمت: ${contact.position}\n`;
-    }
-    
+    // Add organization/company if exists
     if (contact.company) {
-      shareText += `شرکت: ${contact.company}\n`;
+      vCard += `ORG:${contact.company}\n`;
     }
     
+    // Add address if exists
     if (contact.address) {
-      shareText += `آدرس: ${contact.address}\n`;
+      vCard += `ADR;TYPE=HOME:;;${contact.address.replace(/\n/g, ';')};;;;\n`;
     }
     
+    // Add gender if exists
+    if (contact.gender && contact.gender !== 'not_specified') {
+      const genderMap: Record<string, string> = {
+        'male': 'M',
+        'female': 'F',
+        'other': 'O'
+      };
+      vCard += `GENDER:${genderMap[contact.gender] || ''}\n`;
+    }
+    
+    // Add notes if exists
     if (contact.notes) {
-      shareText += `یادداشت: ${contact.notes}\n`;
+      vCard += `NOTE:${contact.notes.replace(/\n/g, '\\\\n')}\n`;
     }
     
-    return shareText;
+    vCard += "END:VCARD";
+    return vCard;
   }
 
-  static copyToClipboard(text: string) {
-    if (navigator.clipboard) {
-      navigator.clipboard.writeText(text).catch(console.error);
+  /**
+   * Shares a contact using the Web Share API if available, with a fallback to clipboard.
+   * The contact is shared as a standard .vcf file.
+   */
+  static async shareContact(contact: Contact): Promise<void> {
+    try {
+      const vCardData = this.formatContactAsVCard(contact);
+      const fileName = `${contact.first_name || 'contact'}.vcf`;
+      
+      // Create a Blob with the VCard data
+      const blob = new Blob([vCardData], { type: 'text/vcard' });
+      const file = new File([blob], fileName, { type: 'text/vcard' });
+      
+      const shareData = {
+        title: `مخاطب: ${contact.first_name || ''} ${contact.last_name || ''}`.trim(),
+        text: `اطلاعات مخاطب ${contact.first_name || ''} ${contact.last_name || ''}`.trim(),
+        files: [file]
+      };
+
+      // Check if Web Share API with files is supported
+      if (navigator.share && navigator.canShare && navigator.canShare({ files: [file] })) {
+        try {
+          await navigator.share(shareData);
+          return;
+        } catch (err) {
+          console.error('Error sharing contact:', err);
+          // Continue to fallback if sharing fails
+        }
+      }
+      
+      // Fallback: Copy VCard to clipboard
+      await this.copyToClipboard(vCardData);
+      toast.success('اطلاعات مخاطب (VCard) در کلیپ‌بورد کپی شد!');
+      
+    } catch (error) {
+      console.error('Error in shareContact:', error);
+      toast.error('خطا در اشتراک‌گذاری مخاطب');
+    }
+  }
+
+  /**
+   * A helper function to copy text to the clipboard with a fallback for older browsers.
+   */
+  private static async copyToClipboard(text: string): Promise<void> {
+    if (navigator.clipboard && window.isSecureContext) {
+      await navigator.clipboard.writeText(text);
     } else {
-      // Fallback for older browsers
-      const textArea = document.createElement('textarea');
-      textArea.value = text;
-      document.body.appendChild(textArea);
-      textArea.select();
-      document.execCommand('copy');
-      document.body.removeChild(textArea);
+      // Fallback for older/insecure contexts
+      return new Promise((resolve, reject) => {
+        const textArea = document.createElement('textarea');
+        textArea.value = text;
+        textArea.style.position = 'fixed';
+        textArea.style.opacity = '0';
+        document.body.appendChild(textArea);
+        textArea.focus();
+        textArea.select();
+        
+        try {
+          document.execCommand('copy');
+          resolve();
+        } catch (err) {
+          reject(err);
+        } finally {
+          document.body.removeChild(textArea);
+        }
+      });
     }
   }
 }
