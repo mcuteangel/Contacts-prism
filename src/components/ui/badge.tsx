@@ -4,17 +4,20 @@ import { cva, type VariantProps } from "class-variance-authority"
 import { cn } from "@/lib/utils"
 
 const badgeVariants = cva(
-  "inline-flex items-center rounded-md border px-2.5 py-0.5 text-xs font-semibold transition-colors focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2",
+  "inline-flex items-center rounded-full px-3 py-1 text-xs font-medium transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 backdrop-blur-sm border shadow-sm",
   {
     variants: {
       variant: {
         default:
-          "border-transparent bg-primary text-primary-foreground shadow hover:bg-primary/80",
+          "bg-primary/80 text-primary-foreground border-primary/30 hover:bg-primary/90 hover:shadow-primary/10 hover:border-primary/50",
         secondary:
-          "border-transparent bg-secondary text-secondary-foreground hover:bg-secondary/80",
+          "bg-secondary/80 text-secondary-foreground border-secondary/30 hover:bg-secondary/90 hover:shadow-secondary/10 hover:border-secondary/50",
         destructive:
-          "border-transparent bg-destructive text-destructive-foreground shadow hover:bg-destructive/80",
-        outline: "text-foreground",
+          "bg-destructive/80 text-destructive-foreground border-destructive/30 hover:bg-destructive/90 hover:shadow-destructive/10 hover:border-destructive/50",
+        outline: 
+          "bg-background/60 text-foreground border-border/40 hover:bg-background/80 hover:border-primary/50 shadow-sm hover:shadow-md",
+        glass:
+          "bg-background/50 text-foreground border-border/30 hover:bg-background/70 hover:border-primary/50 shadow-sm hover:shadow-md backdrop-blur-lg",
       },
     },
     defaultVariants: {

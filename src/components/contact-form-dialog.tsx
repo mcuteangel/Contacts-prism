@@ -6,6 +6,8 @@ import { zodResolver } from "@hookform/resolvers/zod";
 // استفاده واحد از اسکیمای دامِین
 import { baseContactSchema, type BaseContactInput } from "@/domain/schemas/contact";
 import { toast } from "sonner";
+import { useErrorHandler, useValidationErrorHandler } from "@/hooks/use-error-handler";
+import { ErrorManager } from "@/lib/error-manager";
 import {
   Dialog,
   DialogContent,
@@ -70,6 +72,29 @@ export function ContactFormDialog({
   onAddGroup,
   onGroupsRefreshed,
 }: ContactFormDialogProps) {
+  // استفاده از Error Handler پیشرفته
+  const {
+    isLoading,
+    error,
+    errorMessage,
+    retryCount,
+    retry,
+    executeAsync
+  } = useErrorHandler(null, {
+    maxRetries: 3,
+    retryDelay: 1000,
+    showToast: true,
+    customErrorMessage: "خطایی در ذخیره مخاطب رخ داد",
+    onError: (error) => {
+      // لاگ کردن خطا با جزئیات بیشتر
+      ErrorManager.logError(error, {
+        component: 'ContactFormDialog',
+        action: 'saveContact',
+        metadata: { contactId: editingContact?.id }
+      });
+    }
+  });
+
   // توجه: baseContactSchema ممکن است customFields را به صورت required تعریف کرده باشد.
   // بنابرین defaultValues باید دقیقا با اسکیمای دامِین هم‌خوان باشد.
   const form = useForm<BaseContactInput>({
@@ -188,62 +213,97 @@ export function ContactFormDialog({
   };
 
   const onSubmit = async (values: BaseContactInput) => {
-    try {
-      const phoneNumbers = phoneInputs.map(({ id, ...rest }) => rest);
+    const phoneNumbers = phoneInputs.map(({ id, ...rest }) => rest);
 
-      // ولیدیشن پیش از ارسال: الزامی‌ها و همچنین نوع 'list' مطابق options
-      const invalid = customFieldInputs.some(cf => {
-        const tpl = templates.find(t => t.name === cf.name && t.type === cf.type);
-        if (!tpl) return false;
-        if (tpl.required && !cf.value.trim()) return true;
-        if (tpl.type === 'list' && tpl.options && tpl.options.length > 0) {
-          return !tpl.options.includes(cf.value);
-        }
-        return false;
-      });
-      if (invalid) {
-        toast.error("برخی فیلدهای سفارشی نامعتبرند یا مقداردهی نشده‌اند.");
-        return;
+    // ولیدیشن پیش از ارسال: الزامی‌ها و همچنین نوع 'list' مطابق options
+    const invalid = customFieldInputs.some(cf => {
+      const tpl = templates.find(t => t.name === cf.name && t.type === cf.type);
+      if (!tpl) return false;
+      if (tpl.required && !cf.value.trim()) {
+        ErrorManager.notifyUser("این فیلد الزامی است", "error");
+        return true;
       }
+      if (tpl.type === 'list' && tpl.options && tpl.options.length > 0) {
+        if (!tpl.options.includes(cf.value)) {
+          ErrorManager.notifyUser("مقدار انتخاب شده معتبر نیست", "error");
+          return true;
+        }
+      }
+      return false;
+    });
+    if (invalid) {
+      return;
+    }
 
-      const customFields = customFieldInputs.map(({ id, ...rest }) => rest);
-      // اطمینان از رشته بودن برای تطابق با نوع UIContact
-      const contactData: Omit<UIContact, 'id' | 'searchablePhoneNumbers'> = {
-        firstName: (values.firstName ?? "").toString(),
-        lastName: (values.lastName ?? "").toString(),
-        phoneNumbers,
-        gender: values.gender,
-        notes: values.notes,
-        position: values.position,
-        address: values.address,
-        groupId: values.groupId,
-        customFields,
-      };
+    const customFields = customFieldInputs.map(({ id, ...rest }) => rest);
+    // اطمینان از رشته بودن برای تطابق با نوع UIContact
+    const contactData: Omit<UIContact, 'id' | 'searchablePhoneNumbers'> = {
+      firstName: (values.firstName ?? "").toString(),
+      lastName: (values.lastName ?? "").toString(),
+      phoneNumbers,
+      gender: values.gender,
+      notes: values.notes,
+      position: values.position,
+      address: values.address,
+      groupId: values.groupId,
+      customFields,
+    };
 
+    try {
+      let res;
       if (editingContact?.id != null) {
         // امضای سرویس: updateContact(id: string, partial)
-        const res = await (ContactService as any).updateContact(String(editingContact.id), contactData);
-        if (!res?.ok) {
-          toast.error("به‌روزرسانی مخاطب با شکست مواجه شد.");
-          console.error("updateContact error:", res?.error);
-          return;
-        }
+        res = await executeAsync(async () => {
+          const result = await (ContactService as any).updateContact(String(editingContact.id), contactData);
+          if (!result?.ok) {
+            throw new Error(result?.error || "به‌روزرسانی مخاطب با شکست مواجه شد");
+          }
+          return result;
+        }, {
+          component: "ContactFormDialog",
+          action: "update",
+          // maxRetries: 3, // Handled by useErrorHandler
+          // retryDelay: 1000, // Handled by useErrorHandler
+          // onRetry: (retryCount: number) => {
+          //   toast.warning(`خطا در به‌روزرسانی مخاطب. تلاش مجدد (${retryCount + 1}/3)...`);
+          //   return true;
+          // }
+        });
+        
         toast.success("مخاطب با موفقیت به‌روزرسانی شد!");
       } else {
         // امضای سرویس: createContact(dto)
-        const res = await (ContactService as any).createContact(contactData);
-        if (!res?.ok) {
-          toast.error("افزودن مخاطب با شکست مواجه شد.");
-          console.error("createContact error:", res?.error);
-          return;
-        }
+        res = await executeAsync(async () => {
+          const result = await (ContactService as any).createContact(contactData);
+          if (!result?.ok) {
+            throw new Error(result?.error || "افزودن مخاطب با شکست مواجه شد");
+          }
+          return result;
+        }, {
+          component: "ContactFormDialog",
+          action: "create",
+          // maxRetries: 3, // Handled by useErrorHandler
+          // retryDelay: 1000, // Handled by useErrorHandler
+          // onRetry: (retryCount: number) => {
+          //   toast.warning(`خطا در ایجاد مخاطب. تلاش مجدد (${retryCount + 1}/3)...`);
+          //   return true;
+          // }
+        });
+        
         toast.success("مخاطب با موفقیت اضافه شد!");
       }
+      
       onContactSaved();
       onOpenChange(false);
+      return res;
     } catch (error) {
-      toast.error("ذخیره مخاطب با شکست مواجه شد.");
-      console.error("Error saving contact:", error);
+      // خطاهایی که خارج از executeAsync رخ می‌دهند (مثل خطاهای اعتبارسنجی)
+      console.error("خطا در ارسال فرم:", error);
+      ErrorManager.logError(error as Error, {
+        component: "ContactFormDialog",
+        action: editingContact ? "update" : "create"
+      });
+      toast.error("خطایی در ارسال فرم رخ داد. لطفاً دوباره تلاش کنید.");
     }
   };
 
@@ -514,7 +574,12 @@ export function ContactFormDialog({
           </div>
 
           <DialogFooter className="col-span-full flex justify-end pt-4">
-            <Button type="submit">{editingContact ? "ذخیره تغییرات" : "افزودن مخاطب"}</Button>
+            <Button
+              type="submit"
+              disabled={isLoading}
+            >
+              {isLoading ? "در حال ذخیره..." : editingContact ? "ذخیره تغییرات" : "افزودن مخاطب"}
+            </Button>
           </DialogFooter>
         </form>
       </DialogContent>

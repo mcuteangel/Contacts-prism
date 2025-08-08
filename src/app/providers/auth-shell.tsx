@@ -28,14 +28,13 @@ export function AuthShell({ children }: { children: React.ReactNode }) {
  * - نوار هدر برای نمایش وضعیت ورود/خروج کاربر + شبکه
  * - سبک و مستقل از SyncBootstrapper برای جلوگیری از تداخل
  */
-function HeaderAuthStatus() {
-  const { loading, user, session, role, signOut } = useAuth() as any;
+// This component is no longer needed as the auth status is now displayed in the main header
+export function HeaderAuthStatus() {
+  // We're keeping the network status logic in case it's needed elsewhere
   const [network, setNetwork] = React.useState<"online" | "offline">("offline");
 
+  // Track network status
   React.useEffect(() => {
-    if (typeof navigator !== "undefined") {
-      setNetwork(navigator.onLine ? "online" : "offline");
-    }
     const on = () => setNetwork("online");
     const off = () => setNetwork("offline");
     window.addEventListener("online", on);
@@ -46,44 +45,8 @@ function HeaderAuthStatus() {
     };
   }, []);
 
-  return (
-    <div className="fixed top-0 left-0 right-0 z-50">
-      <div className="flex items-center justify-between px-3 py-2 text-xs bg-muted/80 backdrop-blur border-b border-border">
-        <div className="flex items-center gap-3">
-          <span className="font-medium">Auth:</span>
-          {loading ? (
-            <span className="opacity-70">Loading…</span>
-          ) : user && session ? (
-            <>
-              <span className="text-green-600">Logged in</span>
-              <span className="opacity-70">•</span>
-              <span title={user?.email ?? user?.id}>{user?.email ?? user?.id}</span>
-              {role ? (
-                <>
-                  <span className="opacity-70">•</span>
-                  <span className="uppercase">{role}</span>
-                </>
-              ) : null}
-              <button
-                className="ml-3 px-2 py-1 rounded border border-border hover:bg-accent transition-colors"
-                onClick={() => signOut()}
-                title="خروج"
-              >
-                خروج
-              </button>
-            </>
-          ) : (
-            <span className="text-red-600">Logged out</span>
-          )}
-        </div>
-        <div className="flex items-center gap-2">
-          <span className={network === "online" ? "text-green-600" : "text-red-600"}>{network}</span>
-        </div>
-      </div>
-      {/* spacer to not overlap page content */}
-      <div className="h-10" />
-    </div>
-  );
+  // Return null to render nothing
+  return null;
 }
 
 /**

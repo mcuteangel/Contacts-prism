@@ -8,16 +8,24 @@ import { Search } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { Dialog, DialogContent } from "@/components/ui/dialog"
 
+interface CommandProps extends React.ComponentPropsWithoutRef<typeof CommandPrimitive> {
+  variant?: 'default' | 'glass';
+}
+
 const Command = React.forwardRef<
   React.ElementRef<typeof CommandPrimitive>,
-  React.ComponentPropsWithoutRef<typeof CommandPrimitive>
->(({ className, ...props }, ref) => (
+  CommandProps
+>(({ className, variant = 'default', ...props }, ref) => (
   <CommandPrimitive
     ref={ref}
     className={cn(
-      "flex h-full w-full flex-col overflow-hidden rounded-md bg-popover text-popover-foreground",
+      "flex h-full w-full flex-col overflow-hidden rounded-xl text-popover-foreground transition-all duration-300",
+      variant === 'glass' 
+        ? "bg-background/60 backdrop-blur-lg border border-border/30 shadow-xl"
+        : "bg-popover",
       className
     )}
+    data-variant={variant}
     {...props}
   />
 ))
@@ -35,16 +43,32 @@ const CommandDialog = ({ children, ...props }: DialogProps) => {
   )
 }
 
+interface CommandInputProps extends React.ComponentPropsWithoutRef<typeof CommandPrimitive.Input> {
+  variant?: 'default' | 'glass';
+}
+
 const CommandInput = React.forwardRef<
   React.ElementRef<typeof CommandPrimitive.Input>,
-  React.ComponentPropsWithoutRef<typeof CommandPrimitive.Input>
->(({ className, ...props }, ref) => (
-  <div className="flex items-center border-b px-3" cmdk-input-wrapper="">
-    <Search className="mr-2 h-4 w-4 shrink-0 opacity-50" />
+  CommandInputProps
+>(({ className, variant = 'default', ...props }, ref) => (
+  <div 
+    className={cn(
+      "flex items-center px-3 transition-colors duration-300",
+      variant === 'glass' 
+        ? "border-b border-border/30 bg-background/30" 
+        : "border-b"
+    )} 
+    cmdk-input-wrapper=""
+  >
+    <Search className={cn(
+      "mr-2 h-4 w-4 shrink-0 transition-opacity duration-300",
+      variant === 'glass' ? "opacity-70" : "opacity-50"
+    )} />
     <CommandPrimitive.Input
       ref={ref}
       className={cn(
-        "flex h-10 w-full rounded-md bg-transparent py-3 text-sm outline-none placeholder:text-muted-foreground disabled:cursor-not-allowed disabled:opacity-50",
+        "flex h-12 w-full bg-transparent py-3 text-sm outline-none placeholder:text-muted-foreground/70 disabled:cursor-not-allowed disabled:opacity-50 transition-all duration-300",
+        variant === 'glass' ? "rounded-lg" : "rounded-md",
         className
       )}
       {...props}
@@ -54,13 +78,22 @@ const CommandInput = React.forwardRef<
 
 CommandInput.displayName = CommandPrimitive.Input.displayName
 
+interface CommandListProps extends React.ComponentPropsWithoutRef<typeof CommandPrimitive.List> {
+  variant?: 'default' | 'glass';
+}
+
 const CommandList = React.forwardRef<
   React.ElementRef<typeof CommandPrimitive.List>,
-  React.ComponentPropsWithoutRef<typeof CommandPrimitive.List>
->(({ className, ...props }, ref) => (
+  CommandListProps
+>(({ className, variant = 'default', ...props }, ref) => (
   <CommandPrimitive.List
     ref={ref}
-    className={cn("max-h-[300px] overflow-y-auto overflow-x-hidden", className)}
+    className={cn(
+      "max-h-[300px] overflow-y-auto overflow-x-hidden transition-all duration-300",
+      variant === 'glass' ? "p-2 space-y-1" : "",
+      className
+    )}
+    data-variant={variant}
     {...props}
   />
 ))
@@ -69,27 +102,40 @@ CommandList.displayName = CommandPrimitive.List.displayName
 
 const CommandEmpty = React.forwardRef<
   React.ElementRef<typeof CommandPrimitive.Empty>,
-  React.ComponentPropsWithoutRef<typeof CommandPrimitive.Empty>
->((props, ref) => (
+  React.ComponentPropsWithoutRef<typeof CommandPrimitive.Empty> & { variant?: 'default' | 'glass' }
+>(({ className, variant = 'default', ...props }, ref) => (
   <CommandPrimitive.Empty
     ref={ref}
-    className="py-6 text-center text-sm"
+    className={cn(
+      "py-6 text-center text-sm text-muted-foreground/80 transition-colors duration-300",
+      variant === 'glass' && "bg-background/30 mx-2 rounded-lg py-4",
+      className
+    )}
+    data-variant={variant}
     {...props}
   />
 ))
 
 CommandEmpty.displayName = CommandPrimitive.Empty.displayName
 
+interface CommandGroupProps extends React.ComponentPropsWithoutRef<typeof CommandPrimitive.Group> {
+  variant?: 'default' | 'glass';
+}
+
 const CommandGroup = React.forwardRef<
   React.ElementRef<typeof CommandPrimitive.Group>,
-  React.ComponentPropsWithoutRef<typeof CommandPrimitive.Group>
->(({ className, ...props }, ref) => (
+  CommandGroupProps
+>(({ className, variant = 'default', ...props }, ref) => (
   <CommandPrimitive.Group
     ref={ref}
     className={cn(
-      "overflow-hidden p-1 text-foreground [&_[cmdk-group-heading]]:px-2 [&_[cmdk-group-heading]]:py-1.5 [&_[cmdk-group-heading]]:text-xs [&_[cmdk-group-heading]]:font-medium [&_[cmdk-group-heading]]:text-muted-foreground",
+      "overflow-hidden text-foreground transition-all duration-300",
+      variant === 'glass' 
+        ? "rounded-lg bg-background/40 backdrop-blur-sm p-1.5 [&_[cmdk-group-heading]]:px-3 [&_[cmdk-group-heading]]:py-2 [&_[cmdk-group-heading]]:text-xs [&_[cmdk-group-heading]]:font-medium [&_[cmdk-group-heading]]:text-foreground/80 [&_[cmdk-group-heading]]:bg-background/30 [&_[cmdk-group-heading]]:rounded-md [&_[cmdk-group-heading]]:mb-1.5 [&_[cmdk-group-heading]]:mx-0.5 [&_[cmdk-group-heading]]:shadow-sm"
+        : "p-1 [&_[cmdk-group-heading]]:px-2 [&_[cmdk-group-heading]]:py-1.5 [&_[cmdk-group-heading]]:text-xs [&_[cmdk-group-heading]]:font-medium [&_[cmdk-group-heading]]:text-muted-foreground",
       className
     )}
+    data-variant={variant}
     {...props}
   />
 ))
@@ -108,16 +154,24 @@ const CommandSeparator = React.forwardRef<
 ))
 CommandSeparator.displayName = CommandPrimitive.Separator.displayName
 
+interface CommandItemProps extends React.ComponentPropsWithoutRef<typeof CommandPrimitive.Item> {
+  variant?: 'default' | 'glass';
+}
+
 const CommandItem = React.forwardRef<
   React.ElementRef<typeof CommandPrimitive.Item>,
-  React.ComponentPropsWithoutRef<typeof CommandPrimitive.Item>
->(({ className, ...props }, ref) => (
+  CommandItemProps
+>(({ className, variant = 'default', ...props }, ref) => (
   <CommandPrimitive.Item
     ref={ref}
     className={cn(
-      "relative flex cursor-default gap-2 select-none items-center rounded-sm px-2 py-1.5 text-sm outline-none data-[disabled=true]:pointer-events-none data-[selected=true]:bg-accent data-[selected=true]:text-accent-foreground data-[disabled=true]:opacity-50 [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0",
+      "relative flex cursor-default select-none items-center rounded-md px-3 py-2.5 text-sm outline-none transition-all duration-200 data-[disabled]:pointer-events-none data-[disabled]:opacity-50",
+      variant === 'glass' 
+        ? "mx-1 my-0.5 aria-selected:bg-background/70 aria-selected:shadow-sm aria-selected:border aria-selected:border-border/50"
+        : "aria-selected:bg-accent aria-selected:text-accent-foreground",
       className
     )}
+    data-variant={variant}
     {...props}
   />
 ))

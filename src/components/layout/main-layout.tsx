@@ -3,7 +3,7 @@
 import React, { useState, useEffect } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { useIsMobile } from "@/hooks/use-is-mobile";
-import { Header } from "./header";
+import { HeaderAuthStatus } from "./header";
 import { MobileNav } from "@/components/mobile-nav";
 import { DesktopSidebar } from "@/components/desktop-sidebar";
 import { Toaster } from "sonner";
@@ -96,7 +96,7 @@ export function MainLayout({ children }: MainLayoutProps) {
       
       {isMobile ? (
         <>
-          <Header
+          <HeaderAuthStatus
             onContactsRefreshed={() => window.location.reload()}
             onOpenAppLock={() => setIsAppLockOpen(true)}
             onOpenThemeSelector={() => setIsThemeSelectorOpen(true)}
@@ -118,7 +118,7 @@ export function MainLayout({ children }: MainLayoutProps) {
           {/* ساختار دسکتاپ با RTL/LTR داینامیک؛ از logical padding-inline استفاده می‌کنیم */}
           <div className="flex flex-1">
             <div className="flex-1 flex flex-col">
-              <Header
+              <HeaderAuthStatus
                 onContactsRefreshed={() => window.location.reload()}
                 onOpenAppLock={() => setIsAppLockOpen(true)}
                 onOpenThemeSelector={() => setIsThemeSelectorOpen(true)}

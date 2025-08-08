@@ -15,7 +15,13 @@ import {
 import { cn } from "@/lib/utils"
 import { Label } from "@/components/ui/label"
 
-const Form = FormProvider
+const Form = ({ children, ...props }: React.ComponentProps<typeof FormProvider>) => (
+  <div className="space-y-6">
+    <FormProvider {...props}>
+      {children}
+    </FormProvider>
+  </div>
+)
 
 type FormFieldContextValue<
   TFieldValues extends FieldValues = FieldValues,
@@ -80,7 +86,14 @@ const FormItem = React.forwardRef<
 
   return (
     <FormItemContext.Provider value={{ id }}>
-      <div ref={ref} className={cn("space-y-2", className)} {...props} />
+      <div 
+        ref={ref} 
+        className={cn(
+          "space-y-2 p-4 rounded-lg bg-background/50 backdrop-blur-sm border border-border/20 transition-all duration-200 hover:bg-background/60",
+          className
+        )} 
+        {...props} 
+      />
     </FormItemContext.Provider>
   )
 })
@@ -95,7 +108,11 @@ const FormLabel = React.forwardRef<
   return (
     <Label
       ref={ref}
-      className={cn(error && "text-destructive", className)}
+      className={cn(
+        "text-sm font-medium text-foreground/90 mb-1.5 transition-colors",
+        error ? "text-destructive" : "",
+        className
+      )}
       htmlFor={formItemId}
       {...props}
     />
@@ -135,7 +152,10 @@ const FormDescription = React.forwardRef<
     <p
       ref={ref}
       id={formDescriptionId}
-      className={cn("text-[0.8rem] text-muted-foreground", className)}
+      className={cn(
+        "text-[0.8rem] text-foreground/70 transition-colors",
+        className
+      )}
       {...props}
     />
   )
@@ -157,7 +177,10 @@ const FormMessage = React.forwardRef<
     <p
       ref={ref}
       id={formMessageId}
-      className={cn("text-[0.8rem] font-medium text-destructive", className)}
+      className={cn(
+        "text-[0.8rem] font-medium text-destructive mt-1.5 px-2 py-1.5 rounded-md bg-destructive/10 border border-destructive/20",
+        className
+      )}
       {...props}
     >
       {body}

@@ -6,7 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { PieChart, Pie, Cell, ResponsiveContainer, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend } from "recharts";
 import { ContactService } from "@/services/contact-service";
 import { type Contact, type Group } from "@/database/db";
-import { Users, Phone, Building2, MapPin, TrendingUp } from "lucide-react";
+import { Users, Phone, Building2, MapPin, TrendingUp, NotebookText } from "lucide-react";
 
 const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#8884D8'];
 
@@ -24,8 +24,8 @@ export function AnalyticsDashboard() {
         ]);
         const list = contactsRes.ok ? contactsRes.data.data : [];
         const groups = groupsRes.ok ? groupsRes.data : [];
-        setContacts(list);
-        setGroups(groups);
+        setContacts(list as any);
+        setGroups(groups as any);
       } catch (error) {
         console.error("Error fetching analytics data:", error);
       } finally {
@@ -54,9 +54,10 @@ export function AnalyticsDashboard() {
   // Calculate statistics
   const totalContacts = contacts.length;
   const totalGroups = groups.length;
-  const totalPhoneNumbers = contacts.reduce((sum, contact) => sum + contact.phoneNumbers.length, 0);
-  const contactsWithAddress = contacts.filter(contact => contact.address).length;
+  const totalPhoneNumbers = contacts.reduce((sum, contact) => sum + (contact.phoneNumbers?.length || 0), 0);
+  const contactsWithAddress = contacts.filter(contact => contact.address && contact.address.trim() !== '').length;
   const contactsWithPosition = contacts.filter(contact => contact.position).length;
+  const contactsWithNotes = contacts.filter(contact => contact.notes && contact.notes.trim() !== '').length;
 
   // Gender distribution
   const genderData = [
@@ -68,12 +69,12 @@ export function AnalyticsDashboard() {
   // Group distribution
   const groupData = groups.map(group => ({
     name: group.name,
-    contacts: contacts.filter(c => c.groupId === group.id).length
+    contacts: contacts.filter(c => String(c.groupId ?? '') === String(group.id ?? '')).length
   }));
 
   // Phone type distribution
   const phoneTypeData = contacts.reduce((acc, contact) => {
-    contact.phoneNumbers.forEach(phone => {
+    (contact.phoneNumbers ?? []).forEach((phone: any) => {
       const existing = acc.find(item => item.name === phone.type);
       if (existing) {
         existing.value++;
@@ -178,6 +179,20 @@ export function AnalyticsDashboard() {
             </ResponsiveContainer>
           </CardContent>
         </Card>
+
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">یادداشت‌ها</CardTitle>
+            <NotebookText className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{contactsWithNotes}</div>
+            <p className="text-xs text-muted-foreground">
+              از {totalContacts} مخاطب ({((contactsWithNotes / totalContacts) * 100).toFixed(1)}%)
+            </p>
+          </CardContent>
+        </Card>
+
 
         {/* Group Distribution */}
         <Card>

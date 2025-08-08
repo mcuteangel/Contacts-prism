@@ -7,19 +7,17 @@ import { cva, type VariantProps } from "class-variance-authority";
 import { cn } from "@/lib/utils";
 
 const buttonVariants = cva(
-  "inline-flex items-center justify-center whitespace-nowrap rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 backdrop-blur-sm border", // Added backdrop-blur-sm and border to base styles
+  "inline-flex items-center justify-center whitespace-nowrap rounded-xl text-sm font-medium transition-all duration-300 ease-in-out focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 border",
   {
     variants: {
       variant: {
-        default: "bg-primary/70 text-primary-foreground hover:bg-primary/80 border-primary/50", // Modified for glassmorphism
-        destructive:
-          "bg-destructive/70 text-destructive-foreground hover:bg-destructive/80 border-destructive/50", // Modified for glassmorphism
-        outline:
-          "border-input/50 bg-background/70 hover:bg-accent/80 hover:text-accent-foreground", // Modified for glassmorphism (border is now in base)
-        secondary:
-          "bg-secondary/70 text-secondary-foreground hover:bg-secondary/80 border-secondary/50", // Modified for glassmorphism
-        ghost: "hover:bg-accent/70 hover:text-accent-foreground border-transparent", // Modified for glassmorphism, transparent border
-        link: "text-primary underline-offset-4 hover:underline border-transparent", // Added transparent border
+        default: "bg-primary/80 text-primary-foreground hover:bg-primary/90 border-primary/30 shadow-lg hover:shadow-primary/20 backdrop-blur-md",
+        destructive: "bg-destructive/80 text-destructive-foreground hover:bg-destructive/90 border-destructive/30 shadow-lg hover:shadow-destructive/20 backdrop-blur-md",
+        outline: "border-2 border-border/30 bg-background/60 hover:bg-background/80 text-foreground hover:border-primary/50 shadow-sm hover:shadow-md transition-all duration-300 backdrop-blur-md",
+        secondary: "bg-secondary/80 text-secondary-foreground hover:bg-secondary/90 border-secondary/30 shadow-lg hover:shadow-secondary/20 backdrop-blur-md",
+        ghost: "bg-transparent hover:bg-accent/30 text-foreground border-transparent hover:border-accent/50 shadow-sm hover:shadow-accent/10 backdrop-blur-sm",
+        link: "text-primary underline-offset-4 hover:underline border-transparent bg-transparent shadow-none hover:bg-transparent",
+        glass: "bg-background/60 backdrop-blur-lg border border-border/30 shadow-lg hover:shadow-xl hover:bg-background/80 text-foreground transition-all duration-300 hover:border-primary/50",
       },
       size: {
         default: "h-10 px-4 py-2",

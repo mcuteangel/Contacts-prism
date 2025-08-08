@@ -5,7 +5,7 @@
  * - پاسخ‌ها به‌صورت API-like: { ok, data, error }
  */
 
-import { db, type Contact as ContactDB, nowIso, type OutboxItem, type OutboxOp } from '../database/db';
+import { db, type Contact as ContactDB, nowIso, type OutboxItem, type OutboxOp, type CustomFieldTemplate } from '../database/db';
 
 // ===== Type Definitions =====
 
@@ -599,12 +599,138 @@ export const ContactService = {
         }
       });
 
+      // Return the import results
       return ok(result);
     } catch (error: any) {
       console.error('Error in importData:', error);
       return err(error?.message ?? 'خطا در وارد کردن داده‌ها');
     }
   },
+
+  /**
+   * مقداردهی اولیه قالب‌های فیلد سفارشی پیش‌فرض
+   */
+  async seedDefaultCustomFieldTemplates() {
+    try {
+      // First check if table exists
+      try {
+        await db.custom_field_templates.count();
+      } catch (e) {
+        console.error('custom_field_templates table does not exist or is not accessible');
+        return;
+      }
+
+      const count = await db.custom_field_templates.count();
+      if (count > 0) {
+        return; // فقط اگر خالی بود، مقداردهی اولیه کن
+      }
+
+      const defaultTemplates: Omit<CustomFieldTemplate, 'id'>[] = [
+        { 
+          name: 'تاریخ تولد', 
+          type: 'date', 
+          required: false, 
+          is_default: true, 
+          deleted_at: '' 
+        },
+        { 
+          name: 'آدرس وبسایت', 
+          type: 'text', 
+          required: false, 
+          is_default: true, 
+          deleted_at: '' 
+        },
+        { 
+          name: 'لینکدین', 
+          type: 'text', 
+          required: false, 
+          is_default: true, 
+          deleted_at: '' 
+        },
+      ];
+
+      try {
+        await db.custom_field_templates.bulkAdd(defaultTemplates as any);
+        console.log('Successfully seeded default custom field templates');
+      } catch (e) {
+        console.error('Error adding default templates:', e);
+      }
+    } catch (e) {
+      console.error("Failed to seed default custom field templates", e);
+    }
+  },
+
+  /**
+   * دریافت تمام قالب‌های فیلد سفارشی (به‌جز حذف شده‌ها)
+   */
+  async getAllCustomFieldTemplates(): Promise<ApiResult<CustomFieldTemplate[]>> {
+    try {
+      await this.seedDefaultCustomFieldTemplates(); // Ensure defaults are seeded
+      
+      // Get all templates and filter in memory since we can't use the compound index directly
+      const allTemplates = await db.custom_field_templates.toArray();
+      
+      // Filter out deleted templates (where deleted_at is not empty)
+      const activeTemplates = allTemplates.filter(template => 
+        !template.deleted_at || template.deleted_at === ''
+      );
+      
+      console.log('Retrieved custom field templates:', activeTemplates);
+      return ok(activeTemplates);
+    } catch (e: any) {
+      console.error('Error in getAllCustomFieldTemplates:', e);
+      return err(e?.message ?? 'Failed to get custom field templates');
+    }
+  },
+
+  /**
+   * افزودن یک قالب فیلد سفارشی جدید
+   */
+  async addCustomFieldTemplate(template: Omit<CustomFieldTemplate, 'id' | 'is_default' | 'deleted_at'>): Promise<ApiResult<CustomFieldTemplate>> {
+    try {
+      const newTemplate: Omit<CustomFieldTemplate, 'id'> = {
+        ...template,
+        is_default: false,
+        deleted_at: null,
+      };
+      const id = await db.custom_field_templates.add(newTemplate as any);
+      return ok({ ...newTemplate, id });
+    } catch (e: any) {
+      return err(e?.message ?? 'Failed to add custom field template');
+    }
+  },
+
+  /**
+   * به‌روزرسانی یک قالب فیلد سفارشی
+   */
+  async updateCustomFieldTemplate(id: number, patch: Partial<CustomFieldTemplate>): Promise<ApiResult<CustomFieldTemplate>> {
+    try {
+      await db.custom_field_templates.update(id, patch);
+      const updatedTemplate = await db.custom_field_templates.get(id);
+      return ok(updatedTemplate!);
+    } catch (e: any) {
+      return err(e?.message ?? 'Failed to update custom field template');
+    }
+  },
+
+  /**
+   * حذف یک قالب فیلد سفارشی
+   * - اگر پیش‌فرض بود، حذف نرم
+   * - اگر کاربر ساخته بود، حذف کامل
+   */
+  async deleteCustomFieldTemplate(id: number): Promise<ApiResult<null>> {
+    try {
+      const template = await db.custom_field_templates.get(id);
+      if (!template) return ok(null);
+
+      if (template.is_default) {
+        await db.custom_field_templates.update(id, { deleted_at: nowIso() });
+      } else {
+        await db.custom_field_templates.delete(id);
+      }
+      return ok(null);
+    } catch (e: any) {
+      return err(e?.message ?? 'Failed to delete custom field template');
+    }
+  },
 };
- 
-export default ContactService;

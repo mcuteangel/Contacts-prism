@@ -46,6 +46,9 @@ export type OutboxEntity =
  * مدل مخاطب
  */
 export type Contact = {
+  phoneNumbers: any;
+  position: unknown;
+  groupId: string;
   id: UUID;
   user_id: UUID;
   first_name: string;
@@ -138,6 +141,28 @@ export interface CustomField {
   field_value: string;
   /** تاریخ ایجاد به فرمت ISO */
   created_at: string;
+}
+
+/**
+ * مدل قالب‌های فیلدهای سفارشی
+ */
+export interface CustomFieldTemplate {
+  /** شناسه یکتای قالب */
+  id: number; // Auto-incremented
+  /** نام قالب */
+  name: string;
+  /** نوع داده (text, number, date, list) */
+  type: string;
+  /** گزینه‌ها (برای نوع list) */
+  options?: string[];
+  /** توضیحات */
+  description?: string;
+  /** آیا فیلد الزامی است؟ */
+  required: boolean;
+  /** آیا این یک قالب پیش‌فرض است؟ */
+  is_default: boolean;
+  /** تاریخ حذف (حذف نرم) */
+  deleted_at?: string | null;
 }
 
 /**
@@ -308,6 +333,9 @@ class PrismContactsDB extends Dexie {
   /** جدول فیلدهای سفارشی */
   custom_fields!: Table<CustomField, string>;
   
+  /** جدول قالب‌های فیلدهای سفارشی */
+  custom_field_templates!: Table<CustomFieldTemplate, number>;
+
   /** 
    * جدول رابطه چند به چند بین مخاطبین و گروه‌ها
    * از کلید ترکیبی (contact_id, group_id) استفاده می‌کند
@@ -406,6 +434,11 @@ class PrismContactsDB extends Dexie {
       auth_secrets: 'key',
     });
 
+    // نسخه 5: اضافه کردن جدول قالب‌های فیلدهای سفارشی
+    this.version(5).stores({
+      custom_field_templates: '++id, name, type, is_default, [deleted_at]',
+    });
+
     // ===== Initialize Table Mappings =====
     
     /** @inheritdoc */
@@ -418,6 +451,8 @@ class PrismContactsDB extends Dexie {
     this.groups = this.table('groups');
     /** @inheritdoc */
     this.custom_fields = this.table('custom_fields');
+    /** @inheritdoc */
+    this.custom_field_templates = this.table('custom_field_templates');
     /** @inheritdoc */
     this.contact_groups = this.table('contact_groups');
     /** @inheritdoc */

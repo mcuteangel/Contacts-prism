@@ -14,14 +14,28 @@ const ToggleGroupContext = React.createContext<
   variant: "default",
 })
 
+type ToggleGroupProps = {
+  variant?: 'default' | 'outline' | 'glass';
+  size?: 'default' | 'sm' | 'lg';
+  className?: string;
+  children?: React.ReactNode;
+} & (
+  | (ToggleGroupPrimitive.ToggleGroupSingleProps & { type: 'single' })
+  | (ToggleGroupPrimitive.ToggleGroupMultipleProps & { type: 'multiple' })
+)
+
 const ToggleGroup = React.forwardRef<
   React.ElementRef<typeof ToggleGroupPrimitive.Root>,
-  React.ComponentPropsWithoutRef<typeof ToggleGroupPrimitive.Root> &
-    VariantProps<typeof toggleVariants>
->(({ className, variant, size, children, ...props }, ref) => (
+  ToggleGroupProps
+>(({ className, variant = 'default', size, children, ...props }, ref) => (
   <ToggleGroupPrimitive.Root
     ref={ref}
-    className={cn("flex items-center justify-center gap-1", className)}
+    className={cn(
+      "inline-flex items-center justify-center gap-0.5 p-0.5 rounded-xl",
+      variant === 'glass' && "bg-background/40 backdrop-blur-sm border border-border/20 shadow-inner",
+      className
+    )}
+    data-variant={variant}
     {...props}
   >
     <ToggleGroupContext.Provider value={{ variant, size }}>

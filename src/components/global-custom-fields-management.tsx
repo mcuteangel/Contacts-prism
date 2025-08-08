@@ -10,8 +10,9 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Plus, Trash2, Edit, Save, X } from "lucide-react";
-import { toast } from "sonner";
 import { ContactService } from "@/services/contact-service";
+import { useErrorHandler } from "@/hooks/use-error-handler";
+import { ErrorManager } from "@/lib/error-manager";
 import {
   customFieldTemplateSchema,
   updateCustomFieldTemplateSchema,
@@ -33,6 +34,34 @@ export function GlobalCustomFieldsManagement() {
   const [customFields, setCustomFields] = useState<TemplateViewModel[]>([]);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingField, setEditingField] = useState<TemplateViewModel | null>(null);
+  
+  // Initialize advanced error handler with retry support
+  const {
+    isLoading: loading,
+    error,
+    errorMessage,
+    retryCount, // Keep retryCount
+    retry: retryLastOperation, // Rename retryLastOperation to retry
+    executeAsync,
+    setError
+  } = useErrorHandler(null, {
+    maxRetries: 3,
+    retryDelay: 1000,
+    showToast: true,
+    customErrorMessage: "خطایی در مدیریت فیلدهای سفارشی رخ داد",
+    onError: (error) => {
+      ErrorManager.logError(error, {
+        component: 'GlobalCustomFieldsManagement',
+        action: 'customFieldsOperation',
+        metadata: { 
+          operation: error.message.includes('دریافت') ? 'fetch' : 
+                   error.message.includes('افزودن') ? 'add' : 
+                   error.message.includes('ویرایش') ? 'edit' :
+                   error.message.includes('حذف') ? 'delete' : 'unknown'
+        }
+      });
+    }
+  });
 
   // RHF forms: یکی برای create و یکی برای edit
   // نکته: به‌دلیل تفاوت‌های کوچک بین نوع خروجی zodResolver و نوع generic RHF،
@@ -56,20 +85,23 @@ export function GlobalCustomFieldsManagement() {
   });
 
   const loadTemplates = async () => {
-    const res = await ContactService.getAllCustomFieldTemplates();
-    if (!res.ok) {
-      toast.error("بارگذاری قالب‌ها با شکست مواجه شد");
-      console.error("getAllCustomFieldTemplates error:", res.error);
-      return;
-    }
-    setCustomFields(res.data.map(t => ({
-      id: t.id!,
-      name: t.name,
-      type: t.type as TemplateType,
-      options: t.options || [],
-      description: t.description || "",
-      required: t.required
-    })));
+    await executeAsync(async () => {
+      const res = await (ContactService as any).getAllCustomFieldTemplates();
+      if (!res.ok) {
+        throw new Error(res.error || "خطا در دریافت لیست قالب‌های فیلدهای سفارشی");
+      }
+      setCustomFields(res.data.map((t: any) => ({
+        id: t.id!,
+        name: t.name,
+        type: t.type as TemplateType,
+        options: t.options || [],
+        description: t.description || "",
+        required: t.required
+      })));
+    }, {
+      component: "GlobalCustomFieldsManagement",
+      action: "loadTemplates"
+    });
   };
 
   useEffect(() => {
@@ -101,56 +133,108 @@ export function GlobalCustomFieldsManagement() {
   }, [isDialogOpen, editingField]);
 
   const handleAddField = async (data: CreateCustomFieldTemplateInput) => {
-    const res = await ContactService.addCustomFieldTemplate({
-      name: data.name.trim(),
-      type: data.type,
-      options: data.type === 'list' ? (data.options || []).filter(Boolean) : undefined,
-      description: data.description?.trim() || "",
-      required: !!data.required,
+    await executeAsync(async () => {
+      const res = await (ContactService as any).addCustomFieldTemplate({
+        name: data.name.trim(),
+        type: data.type,
+        options: data.type === 'list' ? (data.options || []).filter(Boolean) : undefined,
+        description: data.description?.trim() || "",
+        required: !!data.required,
+      });
+      if (!res.ok) {
+        throw new Error(res.error || "خطا در افزودن قالب فیلد سفارشی");
+      }
+      
+      // نمایش پیام موفقیت
+      ErrorManager.notifyUser("قالب با موفقیت اضافه شد", "success");
+      setIsDialogOpen(false);
+      await loadTemplates();
+    }, {
+      component: "GlobalCustomFieldsManagement",
+      action: "addCustomField"
     });
-    if (!res.ok) {
-      toast.error("افزودن قالب با شکست مواجه شد");
-      console.error("addCustomFieldTemplate error:", res.error);
-      return;
-    }
-    toast.success("قالب با موفقیت اضافه شد");
-    setIsDialogOpen(false);
-    await loadTemplates();
   };
 
   const handleEditField = async (data: Partial<CreateCustomFieldTemplateInput>) => {
     if (!editingField?.id) return;
-    // اگر type به list است ولی options خالی است، اعتبارسنجی Zod مانع شده؛ اینجا فقط ارسال می‌کنیم
-    const res = await ContactService.updateCustomFieldTemplate(editingField.id, {
-      ...(data.name !== undefined ? { name: data.name.trim() } : {}),
-      ...(data.type !== undefined ? { type: data.type } : {}),
-      ...(data.type === 'list' ? { options: (data.options || []).filter(Boolean) } : { options: undefined }),
-      ...(data.description !== undefined ? { description: data.description?.trim() || "" } : {}),
-      ...(data.required !== undefined ? { required: !!data.required } : {}),
+    
+    await executeAsync(async () => {
+      // اگر type به list است ولی options خالی است، اعتبارسنجی Zod مانع شده؛ اینجا فقط ارسال می‌کنیم
+      const res = await (ContactService as any).updateCustomFieldTemplate(editingField.id, {
+        ...(data.name !== undefined ? { name: data.name.trim() } : {}),
+        ...(data.type !== undefined ? { type: data.type } : {}),
+        ...(data.type === 'list' ? { options: (data.options || []).filter(Boolean) } : { options: undefined }),
+        ...(data.description !== undefined ? { description: data.description?.trim() || "" } : {}),
+        ...(data.required !== undefined ? { required: !!data.required } : {}),
+      });
+      
+      if (!res.ok) {
+        throw new Error(res.error || "خطا در به‌روزرسانی قالب فیلد سفارشی");
+      }
+      
+      // نمایش پیام موفقیت
+      ErrorManager.notifyUser("قالب با موفقیت به‌روزرسانی شد", "success");
+      setEditingField(null);
+      setIsDialogOpen(false);
+      await loadTemplates();
+    }, {
+      component: "GlobalCustomFieldsManagement",
+      action: "updateCustomField"
     });
-    if (!res.ok) {
-      toast.error("به‌روزرسانی قالب با شکست مواجه شد");
-      console.error("updateCustomFieldTemplate error:", res.error);
-      return;
-    }
-    toast.success("قالب با موفقیت به‌روزرسانی شد");
-    setEditingField(null);
-    setIsDialogOpen(false);
-    await loadTemplates();
   };
 
   const handleDeleteField = async (id?: number) => {
     if (id == null) return;
+    
     if (window.confirm("آیا از حذف این فیلد مطمئن هستید؟ این عمل داده‌های موجود را حذف نمی‌کند.")) {
-      const res = await ContactService.deleteCustomFieldTemplate(id);
-      if (!res.ok) {
-        toast.error("حذف قالب با شکست مواجه شد");
-        console.error("deleteCustomFieldTemplate error:", res.error);
-        return;
-      }
-      toast.success("قالب با موفقیت حذف شد");
-      await loadTemplates();
+      await executeAsync(async () => {
+        const res = await (ContactService as any).deleteCustomFieldTemplate(id);
+        if (!res.ok) {
+          throw new Error(res.error || "خطا در حذف قالب فیلد سفارشی");
+        }
+        
+        // نمایش پیام موفقیت
+        ErrorManager.notifyUser("قالب با موفقیت حذف شد", "success");
+        await loadTemplates();
+      }, {
+        component: "GlobalCustomFieldsManagement",
+        action: "deleteCustomField"
+      });
     }
+  };
+
+  const handleCreateField = async (data: CreateCustomFieldTemplateInput) => {
+    await executeAsync(async () => {
+      const res = await (ContactService as any).createCustomFieldTemplate(data);
+      if (!res.ok) {
+        throw new Error(res.error || "خطا در ایجاد فیلد سفارشی");
+      }
+      
+      await loadTemplates();
+      createForm.reset();
+      setIsDialogOpen(false);
+      
+      // نمایش پیام موفقیت
+      ErrorManager.notifyUser("فیلد سفارشی با موفقیت ایجاد شد!", "success");
+      
+      // گزارش موفقیت‌آمیز بودن عملیات
+      ErrorManager.logError(new Error(`Custom field created: ${data.name} (${data.type})`), {
+        component: 'GlobalCustomFieldsManagement',
+        action: 'createField',
+        metadata: { 
+          fieldName: data.name,
+          fieldType: data.type,
+          hasOptions: data.type === 'list' && data.options && data.options.length > 0
+        }
+      });
+    }, {
+      component: "GlobalCustomFieldsManagement",
+      action: "createField",
+      metadata: {
+        fieldName: data.name,
+        fieldType: data.type
+      }
+    });
   };
 
   // کمک‌متدها برای options در UI
@@ -306,7 +390,27 @@ export function GlobalCustomFieldsManagement() {
           </DialogTrigger>
           <DialogContent className="sm:max-w-[500px] glass">
             <DialogHeader>
-              <DialogTitle>{editingField ? "ویرایش فیلد سفارشی" : "افزودن فیلد سفارشی"}</DialogTitle>
+              <div className="flex items-center justify-between">
+                <DialogTitle>
+                  {editingField ? 'ویرایش فیلد سفارشی' : 'افزودن فیلد سفارشی جدید'}
+                </DialogTitle>
+                {error && (
+                  <div className="text-sm text-destructive flex items-center gap-2">
+                    <span>{errorMessage}</span>
+                    {retryCount > 0 && (
+                      <Button 
+                        variant="ghost" 
+                        size="sm" 
+                        onClick={retryLastOperation}
+                        disabled={loading}
+                        className="text-destructive hover:bg-destructive/10"
+                      >
+                        تلاش مجدد ({retryCount} از ۳)
+                      </Button>
+                    )}
+                  </div>
+                )}
+              </div>
             </DialogHeader>
 
             {editingField ? renderFormFields(true) : renderFormFields(false)}
@@ -338,8 +442,8 @@ export function GlobalCustomFieldsManagement() {
         </div>
       ) : (
         <div className="grid gap-4">
-          {customFields.map((field) => (
-            <div key={field.id} className="glass p-4 rounded-lg">
+          {customFields.map((field, index) => (
+            <div key={field.id || index} className="glass p-4 rounded-lg">
               <div className="flex justify-between items-start">
                 <div className="flex-grow">
                   <div className="flex items-center gap-2 mb-2">

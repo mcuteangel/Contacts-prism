@@ -2,7 +2,6 @@
 
 import React, { useEffect, useMemo, useState } from "react";
 import { ContactService } from "@/services/contact-service";
-import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Trash2, Plus } from "lucide-react";
@@ -11,13 +10,40 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { createGroupSchema, type CreateGroupInput } from "@/domain/schemas/group";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { AddGroupDialog } from "./add-group-dialog";
-
+import { useErrorHandler } from "@/hooks/use-error-handler";
+import { ErrorManager } from "@/lib/error-manager";
 import type { GroupUI as UIGroup } from "@/domain/ui-types";
 
 export function GroupsManagement() {
   const [groups, setGroups] = useState<UIGroup[]>([]);
   const [filter, setFilter] = useState("");
-  const [loading, setLoading] = useState(false);
+  
+  // استفاده از هوک مدیریت خطای پیشرفته
+  const {
+    isLoading: loading,
+    error,
+    errorMessage,
+    retryCount,
+    retry,
+    executeAsync,
+    setError
+  } = useErrorHandler(null, {
+    maxRetries: 3,
+    retryDelay: 1000,
+    showToast: true,
+    customErrorMessage: "خطایی در مدیریت گروه‌ها رخ داد",
+    onError: (error) => {
+      ErrorManager.logError(error, {
+        component: 'GroupsManagement',
+        action: 'groupsOperation',
+        metadata: { 
+          operation: error.message.includes('دریافت') ? 'fetch' : 
+                   error.message.includes('افزودن') ? 'add' : 
+                   error.message.includes('حذف') ? 'delete' : 'unknown'
+        }
+      });
+    }
+  });
 
   // RHF setup for adding a group via inline form (kept for keyboard UX)
   const form = useForm<CreateGroupInput>({
@@ -33,13 +59,10 @@ export function GroupsManagement() {
   }, [groups, filter]);
 
   const fetchGroups = async () => {
-    try {
-      setLoading(true);
+    await executeAsync(async () => {
       const res = await ContactService.getAllGroups();
       if (!res.ok) {
-        toast.error("بارگذاری گروه‌ها با شکست مواجه شد.");
-        console.error("Error fetching groups:", res.error);
-        return;
+        throw new Error(res.error || "خطا در دریافت لیست گروه‌ها");
       }
       const list = (res.data ?? []).map((g: any) => ({
         id: String(g.id ?? ""),
@@ -48,12 +71,10 @@ export function GroupsManagement() {
         updatedAt: g.updatedAt ?? g.updated_at,
       })) as UIGroup[];
       setGroups(list);
-    } catch (error) {
-      toast.error("بارگذاری گروه‌ها با شکست مواجه شد.");
-      console.error("Error fetching groups:", error);
-    } finally {
-      setLoading(false);
-    }
+    }, {
+      component: "GroupsManagement",
+      action: "fetchGroups"
+    });
   };
 
   useEffect(() => {
@@ -64,48 +85,102 @@ export function GroupsManagement() {
     const parsed = createGroupSchema.safeParse(values);
     if (!parsed.success) {
       const first = parsed.error.issues[0]?.message ?? "نام گروه نامعتبر است.";
-      toast.error(first);
+      setError(new Error(first), { 
+        component: "GroupsManagement", 
+        action: "validateAddGroup",
+        metadata: { groupName: values.name }
+      });
       return;
     }
     const name = parsed.data.name.trim();
-    try {
+    
+    await executeAsync(async () => {
       const res = await ContactService.addGroup(name);
       if (!res.ok) {
-        toast.error("افزودن گروه با شکست مواجه شد.");
-        console.error("Error adding group:", res.error);
-        return;
+        throw new Error(res.error || "خطا در افزودن گروه");
       }
-      toast.success("گروه با موفقیت اضافه شد!");
       form.reset({ name: "" });
-      fetchGroups();
-    } catch (error) {
-      toast.error("افزودن گروه با شکست مواجه شد.");
-      console.error("Error adding group:", error);
-    }
+      await fetchGroups();
+      
+      // نمایش پیام موفقیت
+      ErrorManager.notifyUser("گروه با موفقیت اضافه شد!", "success");
+      
+      // گزارش موفقیت‌آمیز بودن عملیات
+      ErrorManager.logError(new Error(`Group added: ${name}`), {
+        component: 'GroupsManagement',
+        action: 'addGroup',
+        metadata: { groupName: name }
+      });
+    }, {
+      component: "GroupsManagement",
+      action: "addGroup",
+      metadata: { groupName: name }
+    });
   };
 
   const handleDeleteGroup = async (id: string | number) => {
-    if (window.confirm("آیا از حذف این گروه مطمئن هستید؟ مخاطبین مرتبط با این گروه حذف نمی‌شوند.")) {
-      try {
-        const delRes = await ContactService.deleteGroup(String(id));
-        if (!delRes.ok) {
-          toast.error("حذف گروه با شکست مواجه شد.");
-          console.error("Error deleting group:", delRes.error);
-          return;
-        }
-        toast.success("گروه با موفقیت حذف شد!");
-        fetchGroups();
-      } catch (error) {
-        toast.error("حذف گروه با شکست مواجه شد.");
-        console.error("Error deleting group:", error);
-      }
+    const groupToDelete = groups.find(g => String(g.id) === String(id));
+    if (!groupToDelete) {
+      setError(new Error("گروه مورد نظر یافت نشد"), {
+        component: "GroupsManagement",
+        action: "deleteGroup",
+        metadata: { groupId: id }
+      });
+      return;
     }
+    
+    if (!window.confirm(`آیا از حذف گروه "${groupToDelete.name}" مطمئن هستید؟ مخاطبین مرتبط با این گروه حذف نمی‌شوند.`)) {
+      return;
+    }
+    
+    await executeAsync(async () => {
+      const res = await ContactService.deleteGroup(String(id));
+      if (!res.ok) {
+        throw new Error(res.error || `خطا در حذف گروه ${groupToDelete.name}`);
+      }
+      await fetchGroups();
+      
+      // نمایش پیام موفقیت
+      ErrorManager.notifyUser(`گروه "${groupToDelete.name}" با موفقیت حذف شد!`, "success");
+      
+      // گزارش موفقیت‌آمیز بودن عملیات
+      ErrorManager.logError(new Error(`Group deleted: ${groupToDelete.name} (${id})`), {
+        component: 'GroupsManagement',
+        action: 'deleteGroup',
+        metadata: { groupId: id, groupName: groupToDelete.name }
+      });
+    }, {
+      component: "GroupsManagement",
+      action: "deleteGroup",
+      metadata: { 
+        groupId: id,
+        groupName: groupToDelete.name
+      }
+    });
   };
 
   return (
     <Card className="glass">
       <CardHeader className="flex flex-row items-center justify-between gap-2">
-        <CardTitle>مدیریت گروه‌ها</CardTitle>
+        <div className="flex items-center gap-2">
+          <CardTitle>مدیریت گروه‌ها</CardTitle>
+          {error && (
+            <div className="text-sm text-destructive flex items-center gap-2">
+              <span>{errorMessage}</span>
+              {retryCount > 0 && (
+                <Button 
+                  variant="ghost" 
+                  size="sm" 
+                  onClick={retry}
+                  disabled={loading}
+                  className="text-destructive hover:bg-destructive/10"
+                >
+                  تلاش مجدد ({retryCount} از ۳)
+                </Button>
+              )}
+            </div>
+          )}
+        </div>
         <div className="flex items-center gap-2">
           <Input
             placeholder="جست‌وجوی گروه..."
@@ -142,7 +217,7 @@ export function GroupsManagement() {
           <div className="text-sm opacity-70">گروهی یافت نشد. یک گروه جدید اضافه کنید!</div>
         ) : (
           <div className="grid gap-3">
-            {filtered.map((group) => (
+            {filtered.map((group: UIGroup) => (
               <div key={String(group.id)} className="glass p-3 rounded-lg flex justify-between items-center">
                 <span className="font-medium">{group.name}</span>
                 <Button variant="destructive" size="icon" onClick={() => handleDeleteGroup(String(group.id))}>

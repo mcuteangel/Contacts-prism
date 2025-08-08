@@ -8,7 +8,7 @@ const Pagination = ({ className, ...props }: React.ComponentProps<"nav">) => (
   <nav
     role="navigation"
     aria-label="pagination"
-    className={cn("mx-auto flex w-full justify-center", className)}
+    className={cn("glass mx-auto flex w-fit justify-center rounded-lg p-1.5 backdrop-blur-sm", className)}
     {...props}
   />
 )
@@ -20,7 +20,7 @@ const PaginationContent = React.forwardRef<
 >(({ className, ...props }, ref) => (
   <ul
     ref={ref}
-    className={cn("flex flex-row items-center gap-1", className)}
+    className={cn("flex flex-row items-center gap-0.5", className)}
     {...props}
   />
 ))
@@ -49,9 +49,11 @@ const PaginationLink = ({
     aria-current={isActive ? "page" : undefined}
     className={cn(
       buttonVariants({
-        variant: isActive ? "outline" : "ghost",
+        variant: isActive ? "default" : "ghost",
         size,
       }),
+      "h-9 min-w-9 p-0 transition-all hover:bg-accent/50",
+      isActive && "bg-primary/10 text-primary hover:bg-primary/20",
       className
     )}
     {...props}
@@ -66,10 +68,13 @@ const PaginationPrevious = ({
   <PaginationLink
     aria-label="Go to previous page"
     size="default"
-    className={cn("gap-1 pl-2.5", className)}
+    className={cn(
+      "mr-1 h-9 rounded-md border border-transparent px-3 text-sm font-medium transition-colors hover:border-border hover:bg-accent/50",
+      className
+    )}
     {...props}
   >
-    <ChevronLeft className="h-4 w-4" />
+    <ChevronLeft className="mr-1 h-4 w-4" />
     <span>Previous</span>
   </PaginationLink>
 )
@@ -82,11 +87,14 @@ const PaginationNext = ({
   <PaginationLink
     aria-label="Go to next page"
     size="default"
-    className={cn("gap-1 pr-2.5", className)}
+    className={cn(
+      "ml-1 h-9 rounded-md border border-transparent px-3 text-sm font-medium transition-colors hover:border-border hover:bg-accent/50",
+      className
+    )}
     {...props}
   >
     <span>Next</span>
-    <ChevronRight className="h-4 w-4" />
+    <ChevronRight className="ml-1 h-4 w-4" />
   </PaginationLink>
 )
 PaginationNext.displayName = "PaginationNext"
@@ -97,7 +105,10 @@ const PaginationEllipsis = ({
 }: React.ComponentProps<"span">) => (
   <span
     aria-hidden
-    className={cn("flex h-9 w-9 items-center justify-center", className)}
+    className={cn(
+      "flex h-9 w-9 items-center justify-center text-muted-foreground/60",
+      className
+    )}
     {...props}
   >
     <MoreHorizontal className="h-4 w-4" />
