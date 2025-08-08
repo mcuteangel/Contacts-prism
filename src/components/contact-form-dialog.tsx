@@ -197,279 +197,43 @@ export function ContactFormDialog({
 
   return (
     <Dialog open={isOpen} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[600px] glass overflow-y-auto max-h-[90vh]">
-        <DialogHeader>
-          <DialogTitle>{editingContact ? "ویرایش مخاطب" : "افزودن مخاطب جدید"}</DialogTitle>
-          <DialogDescription>
-            {editingContact ? "تغییرات مخاطب را اینجا اعمال کنید." : "مخاطب جدیدی به لیست خود اضافه کنید."}
-          </DialogDescription>
-        </DialogHeader>
-        <form onSubmit={form.handleSubmit(onSubmit)} className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-4 py-4">
-          <div className="flex flex-col gap-2">
-            <Label htmlFor="firstName" className="text-right">
-              نام
-            </Label>
-            <Input id="firstName" {...form.register("firstName")} />
-            {form.formState.errors.firstName && <p className="text-right text-red-500 text-sm">{form.formState.errors.firstName.message}</p>}
-          </div>
-          <div className="flex flex-col gap-2">
-            <Label htmlFor="lastName" className="text-right">
-              نام خانوادگی
-            </Label>
-            <Input id="lastName" {...form.register("lastName")} />
-          </div>
-
-          {/* Dynamic Phone Numbers */}
-          <div className="col-span-full flex flex-col gap-2">
-            <Label className="text-right">شماره(ها)</Label>
-            {phoneInputs.map((phoneInput) => (
-              <div key={phoneInput.id} className="flex items-center gap-2">
-                <Select
-                  value={phoneInput.type}
-                  onValueChange={(value) => updatePhoneNumberField(phoneInput.id!, 'type', value as "mobile" | "home" | "work" | "other")}
-                >
-                  <SelectTrigger className="w-[120px] flex-shrink-0">
-                    <SelectValue placeholder="نوع" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="mobile">موبایل</SelectItem>
-                    <SelectItem value="home">خانه</SelectItem>
-                    <SelectItem value="work">کار</SelectItem>
-                    <SelectItem value="other">سایر</SelectItem>
-                  </SelectContent>
-                </Select>
-                <Input
-                  placeholder="شماره تلفن"
-                  value={phoneInput.number}
-                  onChange={(e) => updatePhoneNumberField(phoneInput.id!, 'number', e.target.value)}
-                  className="flex-grow"
-                />
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="icon"
-                  onClick={() => removePhoneNumberField(phoneInput.id!)}
-                  className="flex-shrink-0"
-                >
-                  <X size={16} />
-                </Button>
-              </div>
-            ))}
-            <Button type="button" variant="outline" onClick={addPhoneNumberField} className="flex items-center gap-2">
-              <Plus size={16} /> افزودن شماره تلفن
-            </Button>
-            {form.formState.errors.phoneNumbers && <p className="text-right text-red-500 text-sm">{form.formState.errors.phoneNumbers.message}</p>}
-          </div>
-
-          <div className="flex flex-col gap-2">
-            <Label htmlFor="gender" className="text-right">
-              جنسیت
-            </Label>
-            <Select onValueChange={(value) => form.setValue("gender", value as "male" | "female" | "other")} value={form.watch("gender")}>
-              <SelectTrigger>
-                <SelectValue placeholder="انتخاب جنسیت" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="male">مرد</SelectItem>
-                <SelectItem value="female">زن</SelectItem>
-                <SelectItem value="other">سایر</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-
-          <div className="flex flex-col gap-2">
-            <Label htmlFor="position" className="text-right">
-              سمت/تخصص
-            </Label>
-            <Input id="position" {...form.register("position")} />
-          </div>
-
-          <div className="flex flex-col gap-2">
-            <Label htmlFor="address" className="text-right">
-              آدرس
-            </Label>
-            <Textarea id="address" {...form.register("address")} />
-          </div>
-
-          <div className="col-span-full flex flex-col gap-2">
-            <Label htmlFor="groupId" className="text-right">
-              گروه
-            </Label>
-            <div className="flex gap-2">
-              <Select onValueChange={(value) => form.setValue("groupId", value ? parseInt(value) : undefined)} value={form.watch("groupId")?.toString()}>
-                <SelectTrigger className="flex-grow">
-                  <SelectValue placeholder="انتخاب گروه" />
-                </SelectTrigger>
-                <SelectContent>
-                  {groups.map(group => (
-                    <SelectItem key={group.id} value={group.id!.toString()}>{group.name}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              <AddGroupDialog onAddGroup={onAddGroup} onGroupAdded={onGroupsRefreshed} />
-            </div>
-          </div>
-
-          <div className="flex flex-col gap-2">
-            <Label htmlFor="notes" className="text-right">
-              یادداشت‌ها
-            </Label>
-            <Textarea id="notes" {...form.register("notes")} />
-          </div>
-
-          {/* Dynamic Custom Fields */}
-          <div className="col-span-full flex flex-col gap-2">
-            <div className="flex items-center justify-between">
-              <Label className="text-right">فیلدهای سفارشی</Label>
-              <div className="flex items-center gap-2">
-                <Button type="button" variant="outline" onClick={addCustomField} className="flex items-center gap-2">
-                  <Plus size={16} /> افزودن فیلد دستی
-                </Button>
-                <Popover>
-                  <PopoverTrigger asChild>
-                    <Button type="button" variant="secondary" className="flex items-center gap-2">
-                      <Plus size={16} /> افزودن از قالب
-                    </Button>
-                  </PopoverTrigger>
-                  <PopoverContent className="w-80">
-                    <div className="space-y-2">
-                      <div className="text-sm font-medium">قالب‌های سراسری</div>
-                      {templates.length === 0 ? (
-                        <p className="text-sm text-muted-foreground">هیچ قالبی تعریف نشده است.</p>
-                      ) : (
-                        <div className="flex flex-col gap-2">
-                          {templates.map(tpl => (
-                            <Button
-                              key={tpl.id}
-                              variant="outline"
-                              className="justify-between"
-                              type="button"
-                              onClick={() => addCustomFieldFromTemplate(tpl.id)}
-                            >
-                              <span>{tpl.name}</span>
-                              <Badge variant="secondary">
-                                {tpl.type === 'text' ? 'متن' : tpl.type === 'number' ? 'عدد' : tpl.type === 'date' ? 'تاریخ' : 'لیست'}
-                              </Badge>
-                            </Button>
-                          ))}
-                        </div>
-                      )}
-                    </div>
-                  </PopoverContent>
-                </Popover>
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={() => {
-                    // به‌روزرسانی از قالب‌ها: هم‌ترازی نوع/گزینه‌ها با Templateهای فعلی
-                    setCustomFieldInputs(prev => {
-                      return prev.map(cf => {
-                        const tpl = templates.find(t => t.name === cf.name);
-                        if (!tpl) return cf;
-                        // همسان‌سازی نوع
-                        let next = { ...cf, type: tpl.type };
-                        // اگر نوع لیست است و مقدار فعلی خارج از گزینه‌ها باشد، مقدار را خالی کن تا کاربر انتخاب کند
-                        if (tpl.type === 'list' && tpl.options && tpl.options.length > 0) {
-                          if (!tpl.options.includes(next.value)) {
-                            next.value = "";
-                          }
-                        }
-                        return next;
-                      });
-                    });
-                    toast.success("فیلدهای سفارشی با قالب‌های سراسری همگام شد");
-                  }}
-                >
-                  به‌روزرسانی از قالب‌ها
-                </Button>
-              </div>
-            </div>
-
-            {customFieldInputs.map((cfInput) => (
-              <div key={cfInput.id} className="flex items-center gap-2">
-                <Input
-                  placeholder="نام فیلد"
-                  value={cfInput.name}
-                  onChange={(e) => updateCustomField(cfInput.id!, 'name', e.target.value)}
-                  className="w-[140px] flex-shrink-0"
-                />
-                <Select
-                  value={cfInput.type}
-                  onValueChange={(value) => updateCustomField(cfInput.id!, 'type', value as 'text' | 'number' | 'date' | 'list')}
-                >
-                  <SelectTrigger className="w-[110px] flex-shrink-0">
-                    <SelectValue placeholder="نوع" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="text">متن</SelectItem>
-                    <SelectItem value="number">عدد</SelectItem>
-                    <SelectItem value="date">تاریخ</SelectItem>
-                    <SelectItem value="list">لیست</SelectItem>
-                  </SelectContent>
-                </Select>
-
-                {/* مقدار فیلد: اگر نوع list باشد و Template متناظر options داشته باشد، Select نمایش بده */}
-                {cfInput.type === 'list' ? (
-                  (() => {
-                    const tpl = templates.find(t => t.name === cfInput.name && t.type === 'list');
-                    const options = tpl?.options || [];
-                    if (options.length > 0) {
-                      return (
-                        <Select
-                          value={cfInput.value}
-                          onValueChange={(value) => updateCustomField(cfInput.id!, 'value', value)}
-                        >
-                          <SelectTrigger className="flex-grow">
-                            <SelectValue placeholder="انتخاب مقدار" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {options.map((opt, idx) => (
-                              <SelectItem key={idx} value={opt}>{opt}</SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                      );
-                    }
-                    // اگر options وجود ندارد، به ورودی متن برگرد
-                    return (
-                      <Input
-                        placeholder="مقدار فیلد"
-                        value={cfInput.value}
-                        onChange={(e) => updateCustomField(cfInput.id!, 'value', e.target.value)}
-                        className="flex-grow"
-                      />
-                    );
-                  })()
-                ) : (
-                  <Input
-                    placeholder="مقدار فیلد"
-                    value={cfInput.value}
-                    onChange={(e) => updateCustomField(cfInput.id!, 'value', e.target.value)}
-                    className="flex-grow"
-                  />
-                )}
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="icon"
-                  onClick={() => removeCustomField(cfInput.id!)}
-                  className="flex-shrink-0"
-                >
-                  <X size={16} />
-                </Button>
-              </div>
-            ))}
-          </div>
-
-          <DialogFooter className="col-span-full flex justify-end pt-4">
+      <DialogContent className="sm:max-w-[600px] bg-transparent border-none overflow-y-auto max-h-[90vh]">
+        <Card className="glass">
+          <CardHeader>
+            <CardTitle>{editingContact ? "ویرایش مخاطب" : "افزودن مخاطب جدید"}</CardTitle>
+            <CardDescription>
+              {editingContact ? "تغییرات مخاطب را اینجا اعمال کنید." : "مخاطب جدیدی به لیست خود اضافه کنید."}
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <FormProvider {...methods}>
+              <form onSubmit={methods.handleSubmit(onSubmit)} className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-4 py-4">
+                <BasicInfoSection />
+                <PhoneNumbersSection />
+                <ProfessionalInfoSection />
+                <GroupsSection groups={groups} onAddGroup={onAddGroup} onGroupsRefreshed={onGroupsRefreshed} />
+                <AdditionalInfoSection />
+                <CustomFieldsSection templates={templates} />
+              </form>
+            </FormProvider>
+          </CardContent>
+          <CardFooter className="flex justify-end pt-4">
             <Button
               type="submit"
               disabled={isLoading}
+              onClick={methods.handleSubmit(onSubmit)}
+              className="flex items-center gap-2"
             >
-              {isLoading ? "در حال ذخیره..." : editingContact ? "ذخیره تغییرات" : "افزودن مخاطب"}
+              {isLoading ? (
+                "در حال ذخیره..."
+              ) : editingContact ? (
+                <><Save size={16} /> ذخیره تغییرات</>
+              ) : (
+                <><UserPlus size={16} /> افزودن مخاطب</>
+              )}
             </Button>
-          </DialogFooter>
-        </form>
+          </CardFooter>
+        </Card>
       </DialogContent>
     </Dialog>
   );
