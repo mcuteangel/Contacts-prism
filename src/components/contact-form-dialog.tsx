@@ -48,7 +48,7 @@ interface ContactFormDialogProps {
   onContactSaved: () => void;
   groups: UIGroup[];
   onAddGroup: (groupName: string) => Promise<void>;
-  onGroupsRefreshed: () => void; // Callback to refresh groups in parent
+  onGroupsRefreshed: () => void;
 }
 
 export function ContactFormDialog({
@@ -60,32 +60,21 @@ export function ContactFormDialog({
   onAddGroup,
   onGroupsRefreshed,
 }: ContactFormDialogProps) {
-  // استفاده از Error Handler پیشرفته
-  const {
-    isLoading,
-    error,
-    errorMessage,
-    retryCount,
-    retry,
-    executeAsync
-  } = useErrorHandler(null, {
+  const { isLoading, executeAsync } = useErrorHandler(null, {
     maxRetries: 3,
     retryDelay: 1000,
     showToast: true,
     customErrorMessage: "خطایی در ذخیره مخاطب رخ داد",
     onError: (error) => {
-      // لاگ کردن خطا با جزئیات بیشتر
       ErrorManager.logError(error, {
         component: 'ContactFormDialog',
         action: 'saveContact',
-        metadata: { contactId: editingContact?.id }
+        metadata: { contactId: editingContact?.id },
       });
-    }
+    },
   });
 
-  // توجه: baseContactSchema ممکن است customFields را به صورت required تعریف کرده باشد.
-  // بنابرین defaultValues باید دقیقا با اسکیمای دامِین هم‌خوان باشد.
-  const form = useForm<BaseContactInput>({
+  const methods = useForm<BaseContactInput>({
     resolver: zodResolver(baseContactSchema) as any,
     defaultValues: {
       firstName: "",
@@ -96,19 +85,16 @@ export function ContactFormDialog({
       position: "",
       address: "",
       groupId: undefined,
-      customFields: [], // ensure defined array to satisfy resolver options typing
+      customFields: [],
       avatar: undefined,
     },
   });
 
-  const [phoneInputs, setPhoneInputs] = useState<{ id: number; type: "mobile" | "home" | "work" | "other"; number: string }[]>([]);
-  const [customFieldInputs, setCustomFieldInputs] = useState<{ id: number; name: string; value: string; type: 'text' | 'number' | 'date' | 'list' }[]>([]);
-  // Templateهای سراسری برای فیلدهای سفارشی
-  const [templates, setTemplates] = useState<Array<{ id: number; name: string; type: 'text' | 'number' | 'date' | 'list'; options?: string[]; required: boolean }>>([]);
+  const [templates, setTemplates] = useState<Template[]>([]);
 
   useEffect(() => {
     if (editingContact) {
-      form.reset({
+      methods.reset({
         firstName: editingContact.firstName,
         lastName: editingContact.lastName,
         gender: editingContact.gender,
@@ -116,15 +102,12 @@ export function ContactFormDialog({
         position: editingContact.position,
         address: editingContact.address,
         groupId: (editingContact.groupId as any) as number | undefined,
-        customFields: (editingContact.customFields ?? []).map((cf: UICustomField) => ({ name: cf.name, value: cf.value })),
-        phoneNumbers: (editingContact.phoneNumbers ?? []).map((pn: UIPhone) => ({ type: pn.type as "mobile"|"home"|"work"|"other", number: pn.number })),
+        customFields: (editingContact.customFields ?? []).map((cf) => ({ name: cf.name, value: cf.value, type: cf.type || 'text' })),
+        phoneNumbers: (editingContact.phoneNumbers ?? []).map((pn) => ({ type: pn.type, number: pn.number })),
         avatar: (editingContact.avatar as any),
       });
-      // همگام‌سازی state داخلی ورودی‌ها با داده‌های ویرایشی
-      setPhoneInputs((editingContact.phoneNumbers ?? []).map((pn: UIPhone, index: number) => ({ id: index, type: pn.type as "mobile"|"home"|"work"|"other", number: pn.number })));
-      setCustomFieldInputs((editingContact.customFields ?? []).map((cf: UICustomField, index: number) => ({ id: index, name: cf.name, value: cf.value, type: (cf as any).type ?? "text" })));
     } else {
-      form.reset({
+      methods.reset({
         firstName: "",
         lastName: "",
         phoneNumbers: [{ type: "mobile", number: "" }],
@@ -136,75 +119,32 @@ export function ContactFormDialog({
         customFields: [],
         avatar: undefined,
       });
-      setPhoneInputs([{ id: 0, type: "mobile", number: "" }]);
-      setCustomFieldInputs([]);
     }
-  }, [editingContact, form]);
+  }, [editingContact, methods]);
 
- // بارگیری Templateها در mount
- useEffect(() => {
-   (async () => {
-     // اگر سرویسی برای Templateها در دسترس نیست، فعلاً از مقدار خالی استفاده می‌کنیم تا UI کار کند
-     if (!("getAllCustomFieldTemplates" in ContactService)) {
-       setTemplates([]);
-       return;
-     }
-     // @ts-ignore - نوع در سرویس ممکن است به‌صورت اختیاری تعریف شده باشد
-     const res = await (ContactService as any).getAllCustomFieldTemplates();
-     if (res?.ok) {
-       setTemplates(res.data.map((t: any) => ({
-         id: t.id!,
-         name: t.name,
-         type: t.type as 'text' | 'number' | 'date' | 'list',
-         options: t.options,
-         required: t.required
-       })));
-     } else {
-       console.error("getAllCustomFieldTemplates error:", res?.error);
-     }
-   })();
- }, []);
-
-  const addPhoneNumberField = () => {
-    setPhoneInputs(prev => [...prev, { id: prev.length > 0 ? Math.max(...prev.map(p => p.id || 0)) + 1 : 0, type: "mobile", number: "" }]);
-  };
-
-  const removePhoneNumberField = (idToRemove: number) => {
-    setPhoneInputs(prev => prev.filter(p => p.id !== idToRemove));
-  };
-
-  const updatePhoneNumberField = (id: number, field: 'type' | 'number', value: string) => {
-    setPhoneInputs(prev => prev.map(p => p.id === id ? { ...p, [field]: value } : p));
-  };
-
-  const addCustomField = () => {
-    setCustomFieldInputs(prev => [...prev, { id: prev.length > 0 ? Math.max(...prev.map(cf => cf.id || 0)) + 1 : 0, name: "", value: "", type: "text" }]);
-  };
-
-  // افزودن از روی Template سراسری
-  const addCustomFieldFromTemplate = (templateId: number) => {
-    const tpl = templates.find(t => t.id === templateId);
-    if (!tpl) return;
-    setCustomFieldInputs(prev => {
-      const nextId = prev.length > 0 ? Math.max(...prev.map(cf => cf.id || 0)) + 1 : 0;
-      // اگر لیست است و options دارد، مقدار اولیه را خالی می‌گذاریم تا کاربر انتخاب کند
-      return [...prev, { id: nextId, name: tpl.name, value: "", type: tpl.type }];
-    });
-  };
-
-  const removeCustomField = (idToRemove: number) => {
-    setCustomFieldInputs(prev => prev.filter(cf => cf.id !== idToRemove));
-  };
-
-  const updateCustomField = (id: number, field: 'name' | 'value' | 'type', value: string) => {
-    setCustomFieldInputs(prev => prev.map(cf => cf.id === id ? { ...cf, [field]: value } : cf));
-  };
+  useEffect(() => {
+    (async () => {
+      if (!("getAllCustomFieldTemplates" in ContactService)) {
+        setTemplates([]);
+        return;
+      }
+      const res = await (ContactService as any).getAllCustomFieldTemplates();
+      if (res?.ok) {
+        setTemplates(res.data.map((t: any) => ({
+          id: t.id!,
+          name: t.name,
+          type: t.type as 'text' | 'number' | 'date' | 'list',
+          options: t.options,
+          required: t.required
+        })));
+      } else {
+        console.error("getAllCustomFieldTemplates error:", res?.error);
+      }
+    })();
+  }, []);
 
   const onSubmit = async (values: BaseContactInput) => {
-    const phoneNumbers = phoneInputs.map(({ id, ...rest }) => rest);
-
-    // ولیدیشن پیش از ارسال: الزامی‌ها و همچنین نوع 'list' مطابق options
-    const invalid = customFieldInputs.some(cf => {
+    const invalid = (values.customFields || []).some(cf => {
       const tpl = templates.find(t => t.name === cf.name && t.type === cf.type);
       if (!tpl) return false;
       if (tpl.required && !cf.value.trim()) {
@@ -223,69 +163,29 @@ export function ContactFormDialog({
       return;
     }
 
-    const customFields = customFieldInputs.map(({ id, ...rest }) => rest);
-    // اطمینان از رشته بودن برای تطابق با نوع UIContact
-    const contactData: Omit<UIContact, 'id' | 'searchablePhoneNumbers'> = {
-      firstName: (values.firstName ?? "").toString(),
-      lastName: (values.lastName ?? "").toString(),
-      phoneNumbers,
-      gender: values.gender,
-      notes: values.notes,
-      position: values.position,
-      address: values.address,
-      groupId: values.groupId,
-      customFields,
-    };
-
     try {
-      let res;
       if (editingContact?.id != null) {
-        // امضای سرویس: updateContact(id: string, partial)
-        res = await executeAsync(async () => {
-          const result = await (ContactService as any).updateContact(String(editingContact.id), contactData);
+        await executeAsync(async () => {
+          const result = await (ContactService as any).updateContact(String(editingContact.id), values);
           if (!result?.ok) {
             throw new Error(result?.error || "به‌روزرسانی مخاطب با شکست مواجه شد");
           }
           return result;
-        }, {
-          component: "ContactFormDialog",
-          action: "update",
-          // maxRetries: 3, // Handled by useErrorHandler
-          // retryDelay: 1000, // Handled by useErrorHandler
-          // onRetry: (retryCount: number) => {
-          //   toast.warning(`خطا در به‌روزرسانی مخاطب. تلاش مجدد (${retryCount + 1}/3)...`);
-          //   return true;
-          // }
         });
-        
         toast.success("مخاطب با موفقیت به‌روزرسانی شد!");
       } else {
-        // امضای سرویس: createContact(dto)
-        res = await executeAsync(async () => {
-          const result = await (ContactService as any).createContact(contactData);
+        await executeAsync(async () => {
+          const result = await (ContactService as any).createContact(values);
           if (!result?.ok) {
             throw new Error(result?.error || "افزودن مخاطب با شکست مواجه شد");
           }
           return result;
-        }, {
-          component: "ContactFormDialog",
-          action: "create",
-          // maxRetries: 3, // Handled by useErrorHandler
-          // retryDelay: 1000, // Handled by useErrorHandler
-          // onRetry: (retryCount: number) => {
-          //   toast.warning(`خطا در ایجاد مخاطب. تلاش مجدد (${retryCount + 1}/3)...`);
-          //   return true;
-          // }
         });
-        
         toast.success("مخاطب با موفقیت اضافه شد!");
       }
-      
       onContactSaved();
       onOpenChange(false);
-      return res;
     } catch (error) {
-      // خطاهایی که خارج از executeAsync رخ می‌دهند (مثل خطاهای اعتبارسنجی)
       console.error("خطا در ارسال فرم:", error);
       ErrorManager.logError(error as Error, {
         component: "ContactFormDialog",
