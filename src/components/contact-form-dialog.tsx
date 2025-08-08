@@ -5,14 +5,17 @@ import { baseContactSchema, BaseContactInput } from '@/domain/schemas/contact';
 import { toast } from 'sonner';
 import { useErrorHandler } from '@/hooks/use-error-handler';
 import { ErrorManager } from '@/lib/error-manager';
-import { Dialog, DialogContent, DialogFooter } from '@/components/ui/dialog';
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
+import { Dialog, DialogContent, DialogFooter, DialogTitle, DialogHeader } from '@/components/ui/dialog';
+import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { UserPlus, Save } from 'lucide-react';
+import { UserPlus, Save, ChevronDown, ChevronUp } from 'lucide-react';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Textarea } from '@/components/ui/textarea';
 import { ContactService } from '@/services/contact-service';
 import { BasicInfoSection } from './contact-form/sections/basic-info-section';
 import { PhoneNumbersSection } from './contact-form/sections/phone-numbers-section';
-import { ProfessionalInfoSection } from './contact-form/sections/professional-info-section';
 import { GroupsSection } from './contact-form/sections/groups-section';
 import { AdditionalInfoSection } from './contact-form/sections/additional-info-section';
 import { CustomFieldsSection } from './contact-form/sections/custom-fields-section';
@@ -60,6 +63,7 @@ export function ContactFormDialog({
   onAddGroup,
   onGroupsRefreshed,
 }: ContactFormDialogProps) {
+  const [showAdvancedFields, setShowAdvancedFields] = React.useState(false);
   const { isLoading, executeAsync } = useErrorHandler(null, {
     maxRetries: 3,
     retryDelay: 1000,
@@ -197,43 +201,141 @@ export function ContactFormDialog({
 
   return (
     <Dialog open={isOpen} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[600px] bg-transparent border-none overflow-y-auto max-h-[90vh]">
-        <Card className="glass">
-          <CardHeader>
-            <CardTitle>{editingContact ? "ویرایش مخاطب" : "افزودن مخاطب جدید"}</CardTitle>
-            <CardDescription>
-              {editingContact ? "تغییرات مخاطب را اینجا اعمال کنید." : "مخاطب جدیدی به لیست خود اضافه کنید."}
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <FormProvider {...methods}>
-              <form onSubmit={methods.handleSubmit(onSubmit)} className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-4 py-4">
-                <BasicInfoSection />
-                <PhoneNumbersSection />
-                <ProfessionalInfoSection />
-                <GroupsSection groups={groups} onAddGroup={onAddGroup} onGroupsRefreshed={onGroupsRefreshed} />
-                <AdditionalInfoSection />
-                <CustomFieldsSection templates={templates} />
-              </form>
-            </FormProvider>
-          </CardContent>
-          <CardFooter className="flex justify-end pt-4">
-            <Button
-              type="submit"
-              disabled={isLoading}
-              onClick={methods.handleSubmit(onSubmit)}
-              className="flex items-center gap-2"
-            >
-              {isLoading ? (
-                "در حال ذخیره..."
-              ) : editingContact ? (
-                <><Save size={16} /> ذخیره تغییرات</>
-              ) : (
-                <><UserPlus size={16} /> افزودن مخاطب</>
-              )}
-            </Button>
-          </CardFooter>
-        </Card>
+      <DialogContent className="sm:max-w-[500px] max-h-[90vh] overflow-y-auto">
+        <DialogHeader>
+          <DialogTitle className="text-xl font-bold text-center">
+            {editingContact ? 'ویرایش مخاطب' : 'افزودن مخاطب جدید'}
+          </DialogTitle>
+        </DialogHeader>
+        
+        <FormProvider {...methods}>
+          <form onSubmit={methods.handleSubmit(onSubmit)} className="space-y-4">
+            <Card>
+              <CardContent className="pt-6 space-y-4">
+                {/* Always Visible Sections */}
+                <div className="space-y-4">
+                  <BasicInfoSection />
+                  <PhoneNumbersSection />
+                  
+                  {/* Gender and Position Section */}
+                  <div className="space-y-4 pt-2">
+                    <h3 className="text-lg font-medium">اطلاعات تکمیلی</h3>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div className="space-y-2">
+                        <Label className="block text-sm font-medium mb-1" htmlFor="gender">
+                          جنسیت
+                        </Label>
+                        <Select
+                          value={methods.watch('gender') || ''}
+                          onValueChange={(value) => methods.setValue('gender', value || null)}
+                        >
+                          <SelectTrigger id="gender">
+                            <SelectValue placeholder="انتخاب نشده" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="male">آقا</SelectItem>
+                            <SelectItem value="female">خانم</SelectItem>
+                            <SelectItem value="other">سایر</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      
+                      <div className="space-y-2">
+                        <Label className="block text-sm font-medium mb-1" htmlFor="position">
+                          سمت/تخصص
+                        </Label>
+                        <Input
+                          id="position"
+                          {...methods.register('position')}
+                          placeholder="مثال: مدیر فنی"
+                        />
+                      </div>
+                    </div>
+                  </div>
+                  
+                  {/* Groups Section */}
+                  <GroupsSection 
+                    groups={groups} 
+                    onAddGroup={onAddGroup} 
+                    onGroupsRefreshed={onGroupsRefreshed} 
+                  />
+                  
+                  {/* Address */}
+                  <div className="space-y-2">
+                    <Label htmlFor="address">آدرس</Label>
+                    <Textarea
+                      id="address"
+                      {...methods.register('address')}
+                      placeholder="آدرس کامل"
+                      rows={3}
+                      className={methods.formState.errors.address ? 'border-red-500' : ''}
+                    />
+                    {methods.formState.errors.address && (
+                      <p className="text-sm text-red-500">
+                        {String(methods.formState.errors.address.message || '')}
+                      </p>
+                    )}
+                  </div>
+                </div>
+
+                {/* Advanced Fields Toggle */}
+                <div className="pt-2">
+                  <Button 
+                    type="button" 
+                    variant="ghost" 
+                    className="w-full flex items-center justify-between text-sm text-muted-foreground"
+                    onClick={() => setShowAdvancedFields(!showAdvancedFields)}
+                  >
+                    <span>سایر اطلاعات</span>
+                    {showAdvancedFields ? (
+                      <ChevronUp className="h-4 w-4" />
+                    ) : (
+                      <ChevronDown className="h-4 w-4" />
+                    )}
+                  </Button>
+                </div>
+
+                {/* Advanced Fields Section (Conditional) */}
+                {showAdvancedFields && (
+                  <div className="space-y-6 pt-4 border-t border-border">
+                    <AdditionalInfoSection />
+                    <CustomFieldsSection templates={templates} />
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+            
+            <DialogFooter className="flex flex-row-reverse gap-2">
+              <Button 
+                type="submit" 
+                className="flex-1 sm:flex-initial" 
+                disabled={isLoading}
+              >
+                {isLoading ? (
+                  'در حال ذخیره...'
+                ) : editingContact ? (
+                  <>
+                    <Save className="ml-2 h-4 w-4" />
+                    ذخیره تغییرات
+                  </>
+                ) : (
+                  <>
+                    <UserPlus className="ml-2 h-4 w-4" />
+                    افزودن مخاطب
+                  </>
+                )}
+              </Button>
+              <Button 
+                type="button" 
+                variant="outline" 
+                className="flex-1 sm:flex-initial" 
+                onClick={() => onOpenChange(false)}
+              >
+                انصراف
+              </Button>
+            </DialogFooter>
+          </form>
+        </FormProvider>
       </DialogContent>
     </Dialog>
   );
