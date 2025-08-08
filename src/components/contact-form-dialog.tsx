@@ -1,57 +1,45 @@
-"use client";
+import React, { useEffect, useState } from 'react';
+import { useForm, FormProvider } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
+import { baseContactSchema, BaseContactInput } from '@/domain/schemas/contact';
+import { toast } from 'sonner';
+import { useErrorHandler } from '@/hooks/use-error-handler';
+import { ErrorManager } from '@/lib/error-manager';
+import { Dialog, DialogContent, DialogFooter } from '@/components/ui/dialog';
+import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { UserPlus, Save } from 'lucide-react';
+import { ContactService } from '@/services/contact-service';
+import { BasicInfoSection } from './contact-form/sections/basic-info-section';
+import { PhoneNumbersSection } from './contact-form/sections/phone-numbers-section';
+import { ProfessionalInfoSection } from './contact-form/sections/professional-info-section';
+import { GroupsSection } from './contact-form/sections/groups-section';
+import { AdditionalInfoSection } from './contact-form/sections/additional-info-section';
+import { CustomFieldsSection } from './contact-form/sections/custom-fields-section';
 
-import React, { useEffect, useState } from "react";
-import { useForm, type SubmitHandler } from "react-hook-form";
-import { zodResolver } from "@hookform/resolvers/zod";
-// استفاده واحد از اسکیمای دامِین
-import { baseContactSchema, type BaseContactInput } from "@/domain/schemas/contact";
-import { toast } from "sonner";
-import { useErrorHandler, useValidationErrorHandler } from "@/hooks/use-error-handler";
-import { ErrorManager } from "@/lib/error-manager";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-  DialogFooter,
-} from "@/components/ui/dialog";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import { Plus, X } from "lucide-react";
-import { ContactService } from "@/services/contact-service";
-// UI-level lightweight types به جای وارد کردن از دیتابیس
-type UIPhone = { type: "mobile" | "home" | "work" | "other"; number: string };
-type UICustomField = { name: string; value: string; type?: 'text' | 'number' | 'date' | 'list' };
 type UIContact = {
   id?: number | string;
   firstName: string;
   lastName: string;
-  phoneNumbers: UIPhone[];
-  searchablePhoneNumbers?: string[];
+  phoneNumbers: { type: "mobile" | "home" | "work" | "other"; number: string }[];
   gender?: "male" | "female" | "other";
   notes?: string;
   position?: string;
   address?: string;
   groupId?: number | string;
-  customFields?: UICustomField[];
+  customFields?: { name: string; value: string; type?: 'text' | 'number' | 'date' | 'list' }[];
   avatar?: string | null;
 };
+
 type UIGroup = { id?: number | string; name: string };
 
-import { AddGroupDialog } from "./add-group-dialog";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { Badge } from "@/components/ui/badge";
-
+type Template = {
+  id: number;
+  name: string;
+  type: 'text' | 'number' | 'date' | 'list';
+  options?: string[];
+  required: boolean;
+};
 
 interface ContactFormDialogProps {
   isOpen: boolean;
