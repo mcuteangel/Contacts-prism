@@ -45,6 +45,8 @@ export default function Home() {
   const [searchTerm, setSearchTerm] = useState("");
   const [mounted, setMounted] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
+  const [starredContacts, setStarredContacts] = useState<Set<string | number>>(new Set());
+  const [pinnedContacts, setPinnedContacts] = useState<Set<string | number>>(new Set());
 
   // Live data (Dexie liveQuery)
   const liveContacts = useLiveContacts(searchTerm);
@@ -126,13 +128,45 @@ export default function Home() {
           console.error("Error deleting contact (Result):", res.error);
           return;
         }
-        toast.success("মخاطب با موفقیت حذف شد!");
+        toast.success("مخاطب با موفقیت حذف شد!");
         // نیازی به refreshData نیست؛ liveContacts خودکار آپدیت می‌شود
       } catch (error) {
         toast.error("حذف مخاطب با شکست مواجه شد.");
         console.error("Error deleting contact:", error);
       }
     }
+  };
+
+  const handleStarContact = (contact: UIContact) => {
+    setStarredContacts(prev => {
+      const newSet = new Set(prev);
+      if (contact.id) {
+        if (newSet.has(contact.id)) {
+          newSet.delete(contact.id);
+          toast.success("ستاره مخاطب برداشته شد");
+        } else {
+          newSet.add(contact.id);
+          toast.success("مخاطب ستاره‌دار شد");
+        }
+      }
+      return newSet;
+    });
+  };
+
+  const handlePinContact = (contact: UIContact) => {
+    setPinnedContacts(prev => {
+      const newSet = new Set(prev);
+      if (contact.id) {
+        if (newSet.has(contact.id)) {
+          newSet.delete(contact.id);
+          toast.success("پین مخاطب برداشته شد");
+        } else {
+          newSet.add(contact.id);
+          toast.success("مخاطب پین شد");
+        }
+      }
+      return newSet;
+    });
   };
 
   const handleAddGroup = async (groupName: string) => {
@@ -180,7 +214,18 @@ export default function Home() {
               groups={groups}
               onEditContact={handleEdit}
               onDeleteContact={handleDelete}
+              onShareContact={(contact) => {
+                // Implement share functionality
+                console.log('Share contact:', contact);
+              }}
+              onStarContact={handleStarContact}
+              onPinContact={handlePinContact}
               outboxById={outboxMap}
+              starredContacts={starredContacts}
+              pinnedContacts={pinnedContacts}
+              showStar={true}
+              showPin={true}
+              rowSize="md"
             />
           </div>
         </div>
