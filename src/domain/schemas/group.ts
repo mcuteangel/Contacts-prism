@@ -15,6 +15,7 @@ export const groupNameSchema = z
 // Create/Update inputs
 export const createGroupSchema = z.object({
   name: groupNameSchema,
+  parentId: z.number().int().positive().optional(),
 });
 
 export const updateGroupSchema = z.object({

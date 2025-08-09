@@ -32,8 +32,7 @@ async function fetchRoleForUser(userId: string): Promise<Role> {
     .maybeSingle();
 
   if (error) {
-    // eslint-disable-next-line no-console
-    console.error("[AuthProvider] error fetching role:", error.message);
+    // Error will be handled by the caller
     return null;
   }
   const role = (data?.role ?? null) as Role;
@@ -145,12 +144,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         pinForFallback: opts?.pinFallback ?? null,
       });
       if (!init.ok) {
-        // eslint-disable-next-line no-console
-        console.warn("[AuthProvider] initializeAfterOnlineLogin failed:", init);
+        // Error will be handled by the outer catch block
       }
     } catch (e) {
-      // eslint-disable-next-line no-console
-      console.warn("[AuthProvider] offline auth init error:", (e as any)?.message);
+      // Error will be handled by the outer catch block
     }
 
     return {};

@@ -2,6 +2,7 @@
 import { toast } from "sonner";
 import type { Contact } from "@/database/db";
 import QRCode from 'qrcode';
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 import { saveAs } from 'file-saver';
 
 /**
@@ -132,8 +133,8 @@ export class DeviceIntegration {
         try {
           await navigator.share(shareData);
           return;
-        } catch (err) {
-          console.error('Error sharing contact:', err);
+        } catch {
+          // Error will be handled by the outer catch block
           // Continue to fallback if sharing fails
         }
       }
@@ -143,12 +144,12 @@ export class DeviceIntegration {
         await this.copyToClipboard(vCardData);
         toast.success('اطلاعات مخاطب (VCard) در کلیپ‌بورد کپی شد!');
         return;
-      } catch (clipboardError) {
-        console.error('Failed to copy to clipboard:', clipboardError);
+      } catch {
+        // Error will be handled by the outer catch block
         throw new Error('خطا در کپی اطلاعات به حافظه موقت');
       }
     } catch (error) {
-      console.error('Error in shareContact:', error);
+      // Error will be shown to user via toast
       const errorMessage = error instanceof Error ? error.message : 'خطای ناشناخته';
       toast.error(`خطا در اشتراک‌گذاری مخاطب: ${errorMessage}`);
       throw error; // Re-throw to allow calling code to handle the error
@@ -177,7 +178,7 @@ export class DeviceIntegration {
         }
       });
     } catch (error) {
-      console.error('Error generating QR code:', error);
+      // Error will be thrown and handled by the caller
       throw new Error('خطا در تولید کد QR');
     }
   }

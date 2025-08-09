@@ -2,9 +2,11 @@ import js from "@eslint/js";
 import nextPlugin from "@next/eslint-plugin-next";
 import reactRefresh from "eslint-plugin-react-refresh";
 import globals from "globals";
+import tseslint from "typescript-eslint";
 
-export default [
+export default tseslint.config(
   js.configs.recommended,
+  ...tseslint.configs.recommended,
   {
     files: ["**/*.{js,jsx,ts,tsx}"],
     ignores: [".next/**","node_modules/**","dist/**","out/**"],
@@ -27,4 +29,4 @@ export default [
       "no-console": ["warn", { "allow": ["warn", "error"] }]
     }
   }
-];
+);

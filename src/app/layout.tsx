@@ -7,6 +7,7 @@ import { ContactFormProvider } from "@/contexts/contact-form-context";
 import { AuthShell } from "./providers/auth-shell";
 import { getDirFromLang } from "@/lib/direction";
 import { I18nProvider } from "@/i18n/I18nProvider";
+import { ReactQueryProvider } from "@/components/react-query-provider";
 
 /**
  * توجه: RootLayout باید سروری باقی بماند تا بتواند metadata صادر کند.
@@ -66,7 +67,9 @@ export default function RootLayout({
           <I18nProvider>
             <AuthShell>
               <ContactFormProvider>
-                <MainLayout>{children}</MainLayout>
+                <ReactQueryProvider>
+                  <MainLayout>{children}</MainLayout>
+                </ReactQueryProvider>
               </ContactFormProvider>
             </AuthShell>
           </I18nProvider>

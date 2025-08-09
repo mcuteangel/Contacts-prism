@@ -60,10 +60,14 @@ function toDB(ui: ContactUI): ContactDB {
     _deleted_at: ui.deletedAt ?? null,
     _version: ui.version ?? 1,
     _conflict: ui.conflict ?? false,
+    // Add the missing required properties with default values
+    phoneNumbers: [], // Will be handled separately in the phoneNumbers table
+    position: ui.position ?? null,
+    groupId: '' // Will be set when adding to a group
   };
 }
 
-function toUI(row: ContactDB): ContactUI {
+export function toUI(row: ContactDB): ContactUI {
   return {
     id: row.id,
     userId: row.user_id,
@@ -198,55 +202,165 @@ export const ContactService = {
   },
 
   /**
-   * جستجوی پیشرفته در مخاطبین با پشتیبانی از فیلدهای مختلف
+   * پارسر کوئری جستجو برای تجزیه عملگرهای پیشرفته
    * @param query متن جستجو
-   * @returns لیست مخاطبین منطبق با جستجو
+   * @returns آبجکت حاوی فیلدها و مقادیر جستجو
    */
-  async searchContacts(query: string): Promise<ApiResult<{ data: ContactUI[] }>> {
-    try {
-      const q = (query || "").trim().toLowerCase();
-      if (!q) {
-        // If query is empty, return all contacts (paginated if needed)
-        return this.getAllContacts();
-      }
+  parseSearchQuery(query: string): Record<string, string> {
+    const result: Record<string, string> = {};
+  
+    // استخراج جستجوهای فیلد خاص با فرمت field:value
+    const fieldRegex = /(\w+):([^\s"]+|"[^"]+")/g;
+    let match;
+  
+    while ((match = fieldRegex.exec(query)) !== null) {
+      const [, field, value] = match;
+      result[field] = value.replace(/^"|"$/g, ''); // حذف کوتیشن‌ها در صورت وجود
+      query = query.replace(match[0], '').trim(); // حذف عبارت پردازش شده از کوئری
+    }
+  
+    // اگر متن باقی‌مانده‌ای وجود داشت، به عنوان جستجوی عمومی در نظر بگیر
+    if (query.trim()) {
+      result['_all'] = query.trim();
+    }
+  
+    return result;
+  },
 
-      // Get all contacts from the database
-      const allContacts = await db.contacts.toArray();
-      const mappedContacts = allContacts.map(toUI);
+  /**
+   * بررسی تطابق یک مخاطب با معیارهای جستجو
+   */
+  matchContact(contact: ContactUI, searchTerms: Record<string, string>): boolean {
+    // تابع کمکی برای جستجوی فازی
+    const fuzzyMatch = (text: string, term: string): boolean => {
+      if (!text) return false;
+      text = text.toLowerCase();
+      term = term.toLowerCase();
+    
+      // تطابق دقیق
+      if (text.includes(term)) return true;
+    
+      // تطابق فازی (حداقل 3 کاراکتر اول مشترک)
+      if (term.length >= 3 && text.startsWith(term)) return true;
+    
+      // تطابق کلمات (حتی اگر بهم چسبیده باشند)
+      const words = term.split(/\s+/);
+      return words.every(word => 
+        word.length >= 2 && text.includes(word)
+      );
+    };
 
-      // Define searchable fields for each contact
-      const getSearchableText = (contact: ContactUI): string => {
-        const searchableFields = [
+    // بررسی هر فیلد جستجو
+    return Object.entries(searchTerms).every(([field, term]) => {
+      // جستجوی عمومی در همه فیلدها
+      if (field === '_all') {
+        const searchableText = [
           contact.firstName,
           contact.lastName,
           contact.position,
           contact.company,
           contact.address,
           contact.notes,
-          // Search in phone numbers
           ...(contact.phoneNumbers?.map(p => p.number) || []),
-          // Search in email addresses
           ...(contact.emails?.map(e => e.address) || []),
-          // Search in custom fields (if any)
           ...(contact.customFields?.map(f => f.value) || [])
-        ];
-
-        // Join all fields with spaces and convert to lowercase for case-insensitive search
-        return searchableFields
-          .filter(Boolean) // Remove empty/null/undefined values
+        ]
+          .filter(Boolean)
           .join(' ')
           .toLowerCase();
-      };
+      
+        return fuzzyMatch(searchableText, term);
+      }
+    
+      // جستجوی فیلد خاص
+      switch (field) {
+        case 'name':
+          return fuzzyMatch(`${contact.firstName} ${contact.lastName}`, term);
+        case 'firstname':
+          return fuzzyMatch(contact.firstName ?? '', term);
+        case 'lastname':
+          return fuzzyMatch(contact.lastName ?? '', term);
+        case 'company':
+          return fuzzyMatch(contact.company ?? '', term);
+        case 'position':
+          return fuzzyMatch(contact.position ?? '', term);
+        case 'phone':
+          return (contact.phoneNumbers || []).some(p => fuzzyMatch(p.number ?? '', term));
+        case 'email':
+          return (contact.emails || []).some(e => fuzzyMatch(e.address ?? '', term));
+        case 'address':
+          return fuzzyMatch(contact.address ?? '', term);
+        case 'notes':
+          return fuzzyMatch(contact.notes ?? '', term);
+        case 'group':
+          // در اینجا باید منطق جستجوی گروه را اضافه کنید
+          return false;
+        default:
+          // بررسی فیلدهای سفارشی
+          if (contact.customFields) {
+            return contact.customFields.some(
+              f => f.name.toLowerCase() === field && fuzzyMatch(f.value ?? '', term)
+            );
+          }
+          return false;
+      }
+    });
+  },
 
-      // Filter contacts where any field contains the query
+  /**
+   * جستجوی پیشرفته در مخاطبین با پشتیبانی از فیلدهای مختلف و عملگرها
+   * @param query متن جستجو (مثال: 'name:علی company:شرکت تلفن همراه')
+   * @returns لیست مخاطبین منطبق با جستجو
+   */
+  async searchContacts(query: string): Promise<ApiResult<{ data: ContactUI[] }>> {
+    try {
+      const q = (query || '').trim();
+    
+      // اگر کوئری خالی بود، همه مخاطبین را برگردان
+      if (!q) {
+        return this.getAllContacts();
+      }
+
+      // تجزیه کوئری به فیلدها و مقادیر
+      const searchTerms = this.parseSearchQuery(q);
+    
+      // دریافت همه مخاطبین از دیتابیس
+      const allContacts = await db.contacts.toArray();
+      const mappedContacts = allContacts.map(toUI);
+    
+      // فیلتر کردن مخاطبین بر اساس معیارهای جستجو
       const filtered = mappedContacts.filter(contact => 
-        getSearchableText(contact).includes(q)
+        this.matchContact(contact, searchTerms)
       );
+
+      // ذخیره جستجوی اخیر
+      this.saveRecentSearch(q);
 
       return ok({ data: filtered });
     } catch (error: any) {
       console.error('Error in searchContacts:', error);
       return err(error?.message ?? 'خطا در جستجوی مخاطبین');
+    }
+  },
+
+  /**
+   * ذخیره جستجوی اخیر کاربر
+   */
+  saveRecentSearch(query: string) {
+    try {
+      const recentSearches = JSON.parse(
+        localStorage.getItem('recentSearches') || '[]'
+      ) as string[];
+    
+      // حذف موارد تکراری و اضافه کردن به ابتدای لیست
+      const updatedSearches = [
+        query,
+        ...recentSearches.filter(s => s.toLowerCase() !== query.toLowerCase())
+      ].slice(0, 10); // فقط 10 مورد آخر را نگه دار
+    
+      localStorage.setItem('recentSearches', JSON.stringify(updatedSearches));
+    } catch (error) {
+      console.error('Error saving recent search:', error);
     }
   },
 
@@ -544,7 +658,11 @@ export const ContactService = {
               updated_at: contact.updatedAt || now,
               _deleted_at: contact.deletedAt || null,
               _version: contact.version || 1,
-              _conflict: false
+              _conflict: false,
+              // اضافه کردن فیلدهای اجباری
+              phoneNumbers: contact.phoneNumbers || [],
+              position: contact.position || null,
+              groupId: contact.groupId || ''
             });
 
             // اضافه کردن به صف همگام‌سازی

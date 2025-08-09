@@ -62,4 +62,5 @@ export type ContactUI = {
   phoneNumbers?: PhoneNumberUI[];
   emails?: EmailAddressUI[];
   customFields?: CustomFieldUI[];
+  tags?: string[];
 };

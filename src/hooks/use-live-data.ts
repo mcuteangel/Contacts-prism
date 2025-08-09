@@ -1,7 +1,96 @@
-import { useEffect, useState, useMemo, useRef } from "react";
+import { useEffect, useState, useMemo, useRef, useCallback } from "react";
 import { liveQuery } from "dexie";
 import { db } from "@/database/db";
 import type { ContactUI, GroupUI } from "@/domain/ui-types";
+
+/**
+ * انواع عملگرهای پشتیبانی شده در جستجو
+ */
+type SearchOperator = 'AND' | 'OR' | 'NOT';
+
+/**
+ * شرط جستجو می‌تواند یک عبارت ساده یا ترکیبی از شرط‌ها باشد
+ */
+type SearchCondition = {
+  field?: string; // فیلد اختیاری (مثلاً name, company و ...)
+  value: string;  // مقدار جستجو
+  operator?: SearchOperator; // عملگر منطقی (پیش‌فرض: AND)
+  exact?: boolean; // آیا جستجو دقیق باشد یا نه
+};
+
+/**
+ * تجزیه عبارت جستجو به اجزای مختلف
+ * @param query عبارت جستجوی ورودی
+ * @returns آرایه‌ای از شرایط جستجو
+ */
+function parseSearchQuery(query: string): SearchCondition[] {
+  if (!query.trim()) return [];
+  
+  const conditions: SearchCondition[] = [];
+  const tokens = query.match(/\S+"\S+\"|\S+'\.*?'|\S+/g) || [];
+  
+  let currentCondition: SearchCondition = { value: '', operator: 'AND' };
+  
+  for (const token of tokens) {
+    // بررسی عملگرهای منطقی
+    if (token.toUpperCase() === 'AND' || token.toUpperCase() === 'OR' || token.toUpperCase() === 'NOT') {
+      if (currentCondition.value) {
+        conditions.push({...currentCondition});
+      }
+      currentCondition = { value: '', operator: token.toUpperCase() as SearchOperator };
+      continue;
+    }
+    
+    // بررسی فیلدهای خاص (مثلاً name:علی)
+    const fieldMatch = token.match(/^(\w+):(.+)$/);
+    if (fieldMatch) {
+      if (currentCondition.value) {
+        conditions.push({...currentCondition});
+      }
+      currentCondition = {
+        field: fieldMatch[1],
+        value: fieldMatch[2].replace(/^["']|["']$/g, ''),
+        operator: 'AND',
+        exact: fieldMatch[2].startsWith('"') && fieldMatch[2].endsWith('"')
+      };
+      continue;
+    }
+    
+    // اضافه کردن به مقدار فعلی
+    if (currentCondition.value) {
+      currentCondition.value += ' ' + token.replace(/^["']|["']$/g, '');
+    } else {
+      currentCondition.value = token.replace(/^["']|["']$/g, '');
+      currentCondition.exact = token.startsWith('"') && token.endsWith('"');
+    }
+  }
+  
+  // اضافه کردن آخرین شرط
+  if (currentCondition.value) {
+    conditions.push(currentCondition);
+  }
+  
+  return conditions;
+}
+
+/**
+ * بررسی می‌کند آیا رشته داده شده با عبارت جستجو مطابقت دارد یا خیر
+ * @param text متن مورد بررسی
+ * @param searchTerm عبارت جستجو
+ * @param exact آیا جستجو دقیق باشد یا نه
+ * @returns نتیجه تطابق
+ */
+function matchesSearchTerm(text: string, searchTerm: string, exact: boolean = false): boolean {
+  if (!text) return false;
+  const normalizedText = text.toLowerCase();
+  const normalizedSearch = searchTerm.toLowerCase();
+  
+  if (exact) {
+    return normalizedText === normalizedSearch;
+  }
+  
+  return normalizedText.includes(normalizedSearch);
+}
 
 /**
  * shallowEqualArray - مقایسه سطحی آرایه‌ها (طول و === برای آیتم‌ها)
@@ -63,12 +152,82 @@ function useDexieLive<T>(factory: () => Promise<T> | T, deps: any[]): T | null {
   return value;
 }
 
-// Live contacts with client-side search (case-insensitive)
+/**
+ * بررسی می‌کند آیا یک مخاطب با شرایط جستجوی داده شده مطابقت دارد یا خیر
+ * @param contact مخاطب مورد بررسی
+ * @param condition شرط جستجو
+ * @returns نتیجه تطابق
+ */
+function contactMatchesCondition(contact: ContactUI, condition: SearchCondition): boolean {
+  const { field, value, exact } = condition;
+  
+  // اگر فیلد مشخص شده باشد، فقط در آن فیلد جستجو می‌کنیم
+  if (field) {
+    const fieldValue = (contact as any)[field]?.toString() || '';
+    return matchesSearchTerm(fieldValue, value, exact);
+  }
+  
+  // در غیر این صورت در همه فیلدهای متنی جستجو می‌کنیم
+  const searchableFields = [
+    contact.firstName,
+    contact.lastName,
+    contact.company,
+    contact.address,
+    contact.notes,
+    contact.position,
+  ].filter(Boolean).join(' ');
+  
+  return matchesSearchTerm(searchableFields, value, exact);
+}
+
+/**
+ * بررسی می‌کند آیا یک مخاطب با تمامی شرایط جستجو مطابقت دارد یا خیر
+ * @param contact مخاطب مورد بررسی
+ * @param conditions آرایه‌ای از شرایط جستجو
+ * @returns نتیجه نهایی تطابق
+ */
+function contactMatchesAllConditions(contact: ContactUI, conditions: SearchCondition[]): boolean {
+  if (conditions.length === 0) return true;
+  
+  let result = true;
+  let currentOperator: SearchOperator = 'AND';
+  
+  for (const condition of conditions) {
+    const matches = contactMatchesCondition(contact, condition);
+    const operator = condition.operator || 'AND';
+    
+    if (currentOperator === 'AND') {
+      result = result && matches;
+    } else if (currentOperator === 'OR') {
+      result = result || matches;
+    } else if (currentOperator === 'NOT') {
+      result = result && !matches;
+    }
+    
+    currentOperator = operator;
+    
+    // بهینه‌سازی: اگر نتیجه قطعی شد، حلقه را زودتر تمام می‌کنیم
+    if (result === false && operator === 'AND') return false;
+    if (result === true && operator === 'OR') return true;
+  }
+  
+  return result;
+}
+
+/**
+ * هوک برای دریافت لیست زنده مخاطبان با قابلیت جستجوی پیشرفته
+ * @param search عبارت جستجو (می‌تواند شامل عملگرهای منطقی و فیلدهای خاص باشد)
+ * @returns لیست فیلتر شده مخاطبان
+ */
 export function useLiveContacts(search: string) {
-  const normalized = useMemo(() => (search || "").trim().toLowerCase(), [search]);
+  // تجزیه عبارت جستجو به شرایط مختلف
+  const searchConditions = useMemo(() => parseSearchQuery(search), [search]);
+  
   const data = useDexieLive(async () => {
+    // دریافت تمام مخاطبان از دیتابیس
     const all = await db.contacts.orderBy("updated_at").toArray();
-    // map to UI
+    
+    // تبدیل به فرمت رابط کاربری
     const toUI = (row: any): ContactUI => ({
       id: row.id,
       userId: row.user_id,
@@ -83,23 +242,18 @@ export function useLiveContacts(search: string) {
       deletedAt: row._deleted_at ?? null,
       version: row._version ?? 1,
       conflict: row._conflict ?? false,
-      // relations are optional; keep undefined to avoid heavy joins
     });
+    
     const mapped = all.map(toUI);
-    if (!normalized) return mapped;
-    const hay = (c: ContactUI) =>
-      [
-        c.firstName,
-        c.lastName,
-        c.company ?? "",
-        c.address ?? "",
-        c.notes ?? "",
-        c.position ?? "",
-      ]
-        .join(" ")
-        .toLowerCase();
-    return mapped.filter((c) => hay(c).includes(normalized));
-  }, [normalized]);
+    
+    // اگر عبارت جستجو خالی بود، همه مخاطبان را برگردان
+    if (!search.trim()) return mapped;
+    
+    // فیلتر مخاطبان بر اساس شرایط جستجو
+    return mapped.filter(contact => 
+      contactMatchesAllConditions(contact, searchConditions)
+    );
+  }, [search, searchConditions]);
 
   // خروجی پایدار
   return useStableArray<ContactUI>(data as unknown as ContactUI[]);

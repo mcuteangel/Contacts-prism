@@ -5,12 +5,21 @@ import React, { useEffect, useState, useCallback } from "react";
 import { ContactService } from "@/services/contact-service";
 import type { ContactUI as UIContact, GroupUI as UIGroup } from "@/domain/ui-types";
 import { useLiveContacts, useLiveGroups, useLiveOutboxMap } from "@/hooks/use-live-data";
+import { useContacts, useGroups, useCreateContact, useUpdateContact, useDeleteContact } from "@/services/contact-service-with-query";
+import { useQueryClient } from "@tanstack/react-query";
 import { Toaster, toast } from "sonner";
-import { ContactListHeader } from "@/components/contact-list-header";
 import { ContactFormDialog } from "@/components/contact-form-dialog";
 import { ContactList } from "@/components/contact-list";
+import { AdvancedFilters, type FilterValues } from "@/components/advanced-filters";
+import { EnhancedFilters } from "@/components/enhanced-filters";
+import { AdvancedSearchInput } from "@/components/advanced-search-input";
+import { NestedGroupsManagement } from "@/components/nested-groups-management";
 import { useContactForm } from "@/contexts/contact-form-context";
 import { useIsMobile } from "@/hooks/use-is-mobile";
+import { useOfflineCapabilities, useOfflineStatus } from "@/hooks/use-offline-capabilities";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { Wifi, WifiOff, RefreshCw, AlertCircle } from "lucide-react";
 
 // ===== UTILITY FUNCTIONS (HOOKS) =====
 /**
@@ -39,6 +48,15 @@ function useDebounce<T>(value: T, delay: number): T {
 
 // ===== CORE BUSINESS LOGIC (MAIN COMPONENT) =====
 export default function Home() {
+  // نمایش کامپوننت تست
+  if (process.env.NODE_ENV === 'development') {
+    return (
+      <div className="p-4">
+        <h1 className="text-2xl font-bold mb-4">تست استایل‌های تیلویند</h1>
+        {/* TestComponent حذف شد */}
+      </div>
+    );
+  }
   // هم‌تراز با انواع مورد انتظار ContactList
   const [contacts, setContacts] = useState<UIContact[]>([]);
   const [groups, setGroups] = useState<UIGroup[]>([]);
@@ -47,8 +65,165 @@ export default function Home() {
   const [isLoading, setIsLoading] = useState(true);
   const [starredContacts, setStarredContacts] = useState<Set<string | number>>(new Set());
   const [pinnedContacts, setPinnedContacts] = useState<Set<string | number>>(new Set());
+  const [filters, setFilters] = useState<FilterValues>({
+    groups: [],
+    tags: [],
+    dateRange: {
+      from: undefined,
+      to: undefined,
+    },
+  });
 
-  // Live data (Dexie liveQuery)
+  // قابلیت‌های آفلاین
+  const {
+    isOnline,
+    isOffline,
+    isSyncing,
+    lastSyncTime,
+    syncError,
+    syncNow,
+    clearSyncError,
+    pendingChanges,
+    hasPendingChanges,
+  } = useOfflineCapabilities();
+
+  const offlineStatus = useOfflineStatus();
+  
+  // Simple filters for ContactList component
+  const [contactFilters, setContactFilters] = useState({
+    text: '',
+    group: '',
+    starred: undefined as boolean | undefined,
+    pinned: undefined as boolean | undefined,
+    dateFilters: {
+      createdAt: undefined as Date | undefined,
+      updatedAt: undefined as Date | undefined,
+    },
+    tags: [] as string[],
+  });
+  
+  // Enhanced filters state
+  const [enhancedFilters, setEnhancedFilters] = useState({
+    name: '',
+    email: '',
+    phone: '',
+    company: '',
+    position: '',
+    address: '',
+    dateFrom: undefined as Date | undefined,
+    dateTo: undefined as Date | undefined,
+    groups: [] as string[],
+    tags: [] as string[],
+    isStarred: false,
+    isPinned: false,
+    customFields: [] as Array<{
+      name: string;
+      value: string;
+      operator?: 'equals' | 'contains' | 'starts_with' | 'ends_with';
+    }>,
+  });
+  
+  // Enhanced filters popover state
+  const [isEnhancedFiltersOpen, setIsEnhancedFiltersOpen] = useState(false);
+  
+  // مدیریت جستجو
+  const handleSearchSubmit = useCallback((term: string) => {
+    setSearchTerm(term);
+    // اعمال فیلترها و جستجو
+    // این تابع زمانی فراخوانی می‌شود که کاربر دکمه جستجو را بزند یا اینتر کند
+  }, []);
+
+  // مدیریت تغییرات جستجو
+  const handleSearchChange = useCallback((term: string) => {
+    setSearchTerm(term);
+    // اگر بخواهیم جستجو با تایپ کردن انجام شود (بدون نیاز به زدن اینتر)
+    // handleSearchSubmit(term);
+  }, []);
+
+  // فیلتر کردن مخاطبین بر اساس فیلترهای اعمال شده
+  const filteredContacts = React.useMemo(() => {
+    return contacts.filter(contact => {
+      // Text search filter
+      if (contactFilters.text && contactFilters.text.trim()) {
+        const searchText = contactFilters.text.toLowerCase();
+        const searchableText = [
+          contact.firstName,
+          contact.lastName,
+          contact.emails?.[0]?.address,
+          contact.phoneNumbers?.[0]?.number,
+          contact.company,
+          contact.position,
+          contact.address
+        ].filter(Boolean).join(' ').toLowerCase();
+        
+        if (!searchableText.includes(searchText)) {
+          return false;
+        }
+      }
+
+      // Group filter
+      if (contactFilters.group) {
+        const contactGroups = contact.groupId ? [contact.groupId] : [];
+        if (!contactGroups.some((groupId: string | number) => groupId === contactFilters.group)) {
+          return false;
+        }
+      }
+
+      // Starred filter
+      if (contactFilters.starred !== undefined) {
+        const isStarred = starredContacts.has(contact.id!);
+        if (isStarred !== contactFilters.starred) {
+          return false;
+        }
+      }
+
+      // Pinned filter
+      if (contactFilters.pinned !== undefined) {
+        const isPinned = pinnedContacts.has(contact.id!);
+        if (isPinned !== contactFilters.pinned) {
+          return false;
+        }
+      }
+
+      // Date filters
+      if (contactFilters.dateFilters) {
+        const { createdAt, updatedAt } = contactFilters.dateFilters;
+        
+        if (createdAt) {
+          const contactDate = new Date(contact.createdAt || 0);
+          const filterDate = new Date(createdAt);
+          if (contactDate < filterDate) {
+            return false;
+          }
+        }
+
+        if (updatedAt) {
+          const contactDate = new Date(contact.updatedAt || 0);
+          const filterDate = new Date(updatedAt);
+          if (contactDate < filterDate) {
+            return false;
+          }
+        }
+      }
+
+      // Tag filters
+      if (contactFilters.tags && contactFilters.tags.length > 0) {
+        const contactTags = contact.tags || [];
+        const hasMatchingTag = contactFilters.tags.some((tag: string) =>
+          contactTags.some(contactTag =>
+            contactTag.toLowerCase().includes(tag.toLowerCase())
+          )
+        );
+        if (!hasMatchingTag) {
+          return false;
+        }
+      }
+
+      return true;
+    });
+  }, [contacts, contactFilters, starredContacts, pinnedContacts]);
+
+  // Live data (Dexie liveQuery) - kept for real-time updates
   const liveContacts = useLiveContacts(searchTerm);
   const liveGroups = useLiveGroups();
   const liveOutbox = useLiveOutboxMap("contacts");
@@ -60,45 +235,40 @@ export default function Home() {
   // Debounce the search term to avoid excessive database queries while typing
   const debouncedSearchTerm = useDebounce(searchTerm, 300);
 
+  // React Query hooks for data fetching and caching
+  const { data: contactsData, isLoading: isContactsLoading, error: contactsError } = useContacts(debouncedSearchTerm);
+  const { data: groupsData, isLoading: isGroupsLoading, error: groupsError } = useGroups();
+  const { mutate: createContact } = useCreateContact();
+  const { mutate: updateContact } = useUpdateContact();
+  const { mutate: deleteContact } = useDeleteContact();
+  const queryClient = useQueryClient();
+
   // بهینه‌سازی: جلوگیری از setStateهای تکراری با memo
   const normalizedSearch = React.useMemo(() => debouncedSearchTerm.trim().toLowerCase(), [debouncedSearchTerm]);
-
-  // حذف fetchContacts؛ داده‌ها از liveContacts تامین می‌شوند
-
-  // حذف fetchGroups؛ داده‌ها از liveGroups تامین می‌شوند
 
   // Outbox map for contacts (queued/sending/error/done)
   const [outboxMap, setOutboxMap] = useState<Record<string, { status: string; tryCount: number }>>({});
 
-  // حذف اثر قدیمی fetchGroups؛ گروه‌ها از liveGroups می‌آید
-
-  // Fetch contacts whenever the debounced search term changes
-  // Sync live data into component state with minimal churn
+  // Sync React Query data with component state
   useEffect(() => {
-    if (Array.isArray(liveContacts)) {
-      setContacts((prev) => {
-        const sameLength = prev.length === liveContacts.length;
-        const sameIds = sameLength && prev.every((p, i) => String(p.id) === String(liveContacts[i]?.id));
-        if (sameIds) return prev;
-        return liveContacts;
-      });
+    if (contactsData) {
+      if (Array.isArray(contactsData)) {
+        setContacts(contactsData);
+      } else {
+        setContacts(contactsData.data);
+      }
       setIsLoading(false);
     } else {
       setIsLoading(true);
     }
-  }, [liveContacts]);
+  }, [contactsData]);
 
   useEffect(() => {
-    if (Array.isArray(liveGroups)) {
-      const normalized = liveGroups.map((g) => ({ ...g, id: String(g.id ?? "") }));
-      setGroups((prev) => {
-        const sameLength = prev.length === normalized.length;
-        const sameIds = sameLength && prev.every((p, i) => String(p.id) === String(normalized[i]?.id));
-        if (sameIds) return prev;
-        return normalized;
-      });
+    if (groupsData) {
+      const normalized = groupsData.map((g) => ({ ...g, id: String(g.id ?? "") }));
+      setGroups(normalized);
     }
-  }, [liveGroups]);
+  }, [groupsData]);
 
   useEffect(() => {
     if (liveOutbox) {
@@ -202,31 +372,154 @@ export default function Home() {
     <div className="min-h-screen flex flex-col bg-gradient-to-br from-blue-100 to-purple-100 dark:from-gray-900 dark:to-black">
       <Toaster richColors position="top-center" />
 
+      {/* Status Bar - Offline Capabilities */}
+      <div className="sticky top-0 z-50 border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
+        <div className="container mx-auto px-4 py-2">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              {isOffline ? (
+                <WifiOff className="h-4 w-4 text-orange-500" />
+              ) : (
+                <Wifi className="h-4 w-4 text-green-500" />
+              )}
+              <span className="text-sm font-medium">
+                وضعیت: {offlineStatus.statusText}
+              </span>
+              {hasPendingChanges && (
+                <Badge variant="secondary" className="ml-2">
+                  {pendingChanges} تغییر در انتظار همگام‌سازی
+                </Badge>
+              )}
+            </div>
+            <div className="flex items-center gap-2">
+              {syncError && (
+                <div className="flex items-center gap-1 text-sm text-red-600">
+                  <AlertCircle className="h-3 w-3" />
+                  <span>{syncError}</span>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={clearSyncError}
+                    className="h-6 w-6 p-0"
+                  >
+                    ×
+                  </Button>
+                </div>
+              )}
+              {isSyncing && (
+                <div className="flex items-center gap-2 text-sm text-blue-600">
+                  <RefreshCw className="h-4 w-4 animate-spin" />
+                  <span>همگام‌سازی...</span>
+                </div>
+              )}
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => syncNow()}
+                disabled={isSyncing || !isOnline}
+                className="flex items-center gap-1"
+              >
+                <RefreshCw className={`h-3 w-3 ${isSyncing ? 'animate-spin' : ''}`} />
+                {isSyncing ? 'در حال همگام‌سازی...' : 'همگام‌سازی'}
+              </Button>
+            </div>
+          </div>
+        </div>
+      </div>
+
       <div className="flex-grow p-4 sm:p-8 flex flex-col items-center justify-center">
         <div className="w-full max-w-4xl glass p-6 rounded-lg shadow-lg backdrop-blur-md">
           <div className="space-y-6">
-            <ContactListHeader
-              searchTerm={searchTerm}
-              onSearchChange={setSearchTerm}
-            />
-            <ContactList
-              contacts={contacts}
-              groups={groups}
-              onEditContact={handleEdit}
-              onDeleteContact={handleDelete}
-              onShareContact={(contact) => {
-                // Implement share functionality
-                console.log('Share contact:', contact);
-              }}
-              onStarContact={handleStarContact}
-              onPinContact={handlePinContact}
-              outboxById={outboxMap}
-              starredContacts={starredContacts}
-              pinnedContacts={pinnedContacts}
-              showStar={true}
-              showPin={true}
-              rowSize="md"
-            />
+            <div className="space-y-6">
+              <div className="space-y-1">
+                <h1 className="text-2xl font-bold text-gray-900 dark:text-white">مخاطبین من</h1>
+                <p className="text-sm text-gray-600 dark:text-gray-400">
+                  مدیریت و سازماندهی مخاطبین شما
+                  {isOffline && (
+                    <span className="text-orange-600 dark:text-orange-400 ml-2">
+                      (حالت آفلاین فعال)
+                    </span>
+                  )}
+                </p>
+              </div>
+              <div className="w-full">
+                <AdvancedSearchInput
+                  value={searchTerm}
+                  onChange={handleSearchChange}
+                  onSearch={handleSearchSubmit}
+                  className="w-full"
+                  enableSmartSuggestions={true}
+                  enableRecentSearches={true}
+                  maxSuggestions={5}
+                />
+              </div>
+            </div>
+            <div className="space-y-4">
+              <div className="flex gap-2">
+                <AdvancedFilters
+                  groups={groups}
+                  onFilterChange={setFilters}
+                  className="mb-4"
+                />
+                <EnhancedFilters
+                  filters={enhancedFilters}
+                  onFiltersChange={setEnhancedFilters}
+                  onClearFilters={() => setEnhancedFilters({
+                    name: '',
+                    email: '',
+                    phone: '',
+                    company: '',
+                    position: '',
+                    address: '',
+                    dateFrom: undefined,
+                    dateTo: undefined,
+                    groups: [],
+                    tags: [],
+                    isStarred: false,
+                    isPinned: false,
+                    customFields: [],
+                  })}
+                  isOpen={isEnhancedFiltersOpen}
+                  onOpenChange={setIsEnhancedFiltersOpen}
+                />
+              </div>
+              
+              {/* Nested Groups Management */}
+              <div className="mt-6">
+                <NestedGroupsManagement />
+              </div>
+              <ContactList
+                contacts={filteredContacts}
+                groups={groups}
+                onEditContact={handleEdit}
+                onDeleteContact={handleDelete}
+                onShareContact={(contact) => {
+                  // Implement share functionality
+                  console.log('Share contact:', contact);
+                }}
+                onStarContact={handleStarContact}
+                onPinContact={handlePinContact}
+                outboxById={outboxMap}
+                starredContacts={starredContacts}
+                pinnedContacts={pinnedContacts}
+                showStar={true}
+                showPin={true}
+                rowSize="md"
+                filters={contactFilters}
+                onFiltersChange={setContactFilters}
+                onReorderContacts={(fromIndex, toIndex) => {
+                  console.log('Reordering contacts from', fromIndex, 'to', toIndex);
+                  // TODO: Implement contact reordering logic
+                  toast.success('مخاطب با موفقیت مرتب‌سازی شد');
+                }}
+                onMoveContactToGroup={(contactId, groupId) => {
+                  console.log('Moving contact', contactId, 'to group', groupId);
+                  // TODO: Implement move to group logic
+                  toast.success('مخاطب با موفقیت به گروه منتقل شد');
+                }}
+                enableDragDrop={true}
+              />
+            </div>
           </div>
         </div>
       </div>

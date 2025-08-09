@@ -227,7 +227,7 @@ export function ContactFormDialog({
                         </Label>
                         <Select
                           value={methods.watch('gender') || ''}
-                          onValueChange={(value) => methods.setValue('gender', value || null)}
+                          onValueChange={(value) => methods.setValue('gender', value as 'male' | 'female' | 'other' || undefined)}
                         >
                           <SelectTrigger id="gender">
                             <SelectValue placeholder="انتخاب نشده" />
