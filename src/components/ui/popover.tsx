@@ -22,8 +22,18 @@ const PopoverContent = React.forwardRef<
       sideOffset={sideOffset}
       className={cn(
         "glass z-50 w-72 rounded-xl border border-white/10 bg-background/80 p-4 text-popover-foreground shadow-[0_8px_30px_rgba(0,0,0,0.2)] outline-none backdrop-blur-lg transition-all duration-200 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 data-[side=bottom]:slide-in-from-top-2 data-[side=left]:slide-in-from-right-2 data-[side=right]:slide-in-from-left-2 data-[side=top]:slide-in-from-bottom-2 origin-[--radix-popover-content-transform-origin] hover:shadow-[0_10px_40px_rgba(0,0,0,0.25)]",
+        // استایل‌های ریسپانسیو برای کنترل اندازه
+        "w-full sm:w-80 max-w-[320px] max-h-[80vh] overflow-y-auto",
         className
       )}
+      // Prevent closing when clicking inside the popover
+      onPointerDownOutside={(event) => {
+        event.preventDefault();
+      }}
+      // Prevent escape key from closing the popover
+      onInteractOutside={(event) => {
+        event.preventDefault();
+      }}
       {...props}
     />
   </PopoverPrimitive.Portal>

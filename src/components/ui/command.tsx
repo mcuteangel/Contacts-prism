@@ -90,6 +90,8 @@ const CommandList = React.forwardRef<
     ref={ref}
     className={cn(
       "max-h-[300px] overflow-y-auto overflow-x-hidden transition-all duration-300",
+      // استایل‌های ریسپانسیو برای موبایل
+      "max-h-[60vh] sm:max-h-[300px]",
       variant === 'glass' ? "p-2 space-y-1" : "",
       className
     )}

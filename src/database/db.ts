@@ -384,7 +384,7 @@ class PrismContactsDB extends Dexie {
       custom_fields: 'id, user_id, contact_id',
       
       // ایندکس‌های جدول رابطه مخاطبین و گروه‌ها
-      contact_groups: '[contact_id+group_id], user_id',
+      contact_groups: '[contact_id+group_id], user_id, group_id',
       
       // ایندکس‌های جدول متادیتاهای سنکرون
       sync_meta: 'key',
@@ -437,6 +437,11 @@ class PrismContactsDB extends Dexie {
     // نسخه 5: اضافه کردن جدول قالب‌های فیلدهای سفارشی
     this.version(5).stores({
       custom_field_templates: '++id, name, type, is_default, [deleted_at]',
+    });
+
+    // نسخه 6: اضافه کردن ایندکس group_id به جدول contact_groups
+    this.version(6).stores({
+      contact_groups: '[contact_id+group_id], user_id, group_id',
     });
 
     // ===== Initialize Table Mappings =====

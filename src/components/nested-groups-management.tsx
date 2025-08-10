@@ -80,11 +80,14 @@ export function NestedGroupsManagement() {
     flatGroups.forEach(group => {
       const currentGroup = groupMap.get(group.id!)!;
       
-      if (group.groupId) {
+      if (group.groupId && group.groupId !== null && group.groupId !== undefined) {
         // This group has a parent
         const parentGroup = groupMap.get(group.groupId);
         if (parentGroup) {
-          parentGroup.children!.push(currentGroup);
+          if (!parentGroup.children) {
+            parentGroup.children = [];
+          }
+          parentGroup.children.push(currentGroup);
           currentGroup.parentId = group.groupId;
           currentGroup.level = (parentGroup.level || 0) + 1;
           currentGroup.path = [...(parentGroup.path || []), parentGroup.id!];
@@ -175,12 +178,8 @@ export function NestedGroupsManagement() {
       // نمایش پیام موفقیت
       ErrorManager.notifyUser("گروه با موفقیت اضافه شد!", "success");
       
-      // گزارش موفقیت‌آمیز بودن عملیات
-      ErrorManager.logError(new Error(`Group added: ${name}`), {
-        component: 'NestedGroupsManagement',
-        action: 'addGroup',
-        metadata: { groupName: name, parentId }
-      });
+      // گزارش موفقیت‌آمیز بودن عملیات (بدون ایجاد Error)
+      console.log(`Group added successfully: ${name}`, { groupName: name, parentId });
     }, {
       component: "NestedGroupsManagement",
       action: "addGroup",
@@ -213,11 +212,10 @@ export function NestedGroupsManagement() {
       // نمایش پیام موفقیت
       ErrorManager.notifyUser(`گروه "${groupToDelete.name}" با موفقیت حذف شد!`, "success");
       
-      // گزارش موفقیت‌آمیز بودن عملیات
-      ErrorManager.logError(new Error(`Group deleted: ${groupToDelete.name} (${id})`), {
-        component: 'NestedGroupsManagement',
-        action: 'deleteGroup',
-        metadata: { groupId: id, groupName: groupToDelete.name }
+      // گزارش موفقیت‌آمیز بودن عملیات (بدون ایجاد Error)
+      console.log(`Group deleted successfully: ${groupToDelete.name} (${id})`, {
+        groupId: id,
+        groupName: groupToDelete.name
       });
     }, {
       component: "NestedGroupsManagement",
@@ -326,9 +324,9 @@ export function NestedGroupsManagement() {
             onChange={(e) => setFilter(e.target.value)}
             className="h-8 w-[200px]"
           />
-          <AddGroupDialog 
-            onAddGroup={async (n, p) => handleAddGroup({ name: n, parentId: p })} 
-            onGroupAdded={fetchGroups} 
+          <AddGroupDialog
+            onAddGroup={async (name: string, parentId?: string | number) => handleAddGroup({ name, parentId: parentId ? Number(parentId) : undefined })}
+            onGroupAdded={fetchGroups}
           />
         </div>
       </CardHeader>

@@ -392,10 +392,30 @@ export const AuthService = {
 
   // Background helper to determine if lock is required
   async shouldLock(lastUserActionAt: number): Promise<boolean> {
-    const sec = await loadSecret();
-    if (!sec) return true; // no secret = locked
-    const lim = sec.inactivityMs ?? DEFAULT_INACTIVITY_MS;
-    return Date.now() - lastUserActionAt >= lim;
+    try {
+      const sec = await loadSecret();
+      // If no secret or no wrap method, no need to lock (first time user)
+      if (!sec || !sec.wrapMethod) {
+        console.log('[AuthService] No auth data found, no lock needed');
+        return false;
+      }
+      
+      // If offline access has expired, lock
+      if (sec.offlineAllowedUntil && new Date(sec.offlineAllowedUntil) < new Date()) {
+        console.log('[AuthService] Offline access expired, locking');
+        return true;
+      }
+      
+      // Check inactivity timeout
+      const lim = sec.inactivityMs ?? DEFAULT_INACTIVITY_MS;
+      const isInactive = Date.now() - lastUserActionAt >= lim;
+      console.log(`[AuthService] Inactivity check: ${isInactive ? 'lock' : 'no lock'} (${Date.now() - lastUserActionAt}ms / ${lim}ms)`);
+      
+      return isInactive;
+    } catch (error) {
+      console.error('[AuthService] Error in shouldLock:', error);
+      return false; // Don't lock on error
+    }
   },
 
   // Force require online re-auth if over 7 days or explicit

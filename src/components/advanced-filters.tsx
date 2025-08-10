@@ -7,18 +7,17 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem } from '@/components/ui/command';
 import { cn } from '@/lib/utils';
 import { Badge } from '@/components/ui/badge';
-import { format } from 'date-fns';
 import { Calendar as CalendarComponent } from '@/components/ui/calendar';
+import { JalaliCalendar } from '@/components/ui/jalali-calendar';
 import { GroupUI } from '@/domain/ui-types';
-
-// تابع ساده برای فرمت تاریخ
-const formatDate = (date: Date | undefined) => {
-  if (!date) return '';
-  return format(date, 'yyyy/MM/dd');
-};
+import { useIsMobile } from '@/hooks/use-is-mobile';
+import { useJalaliCalendar, CalendarType } from '@/hooks/use-jalali-calendar';
+import { useDateRange } from '@/hooks/use-date-range';
+import { enUS } from 'date-fns/locale';
 
 interface AdvancedFiltersProps {
   groups: GroupUI[];
+  filters: FilterValues;
   onFilterChange: (filters: FilterValues) => void;
   className?: string;
 }
@@ -44,258 +43,244 @@ const DEFAULT_TAGS = [
   'تامین کننده',
 ];
 
-export function AdvancedFilters({ groups, onFilterChange, className = '' }: AdvancedFiltersProps) {
+export function AdvancedFilters({ groups, filters, onFilterChange, className = '' }: AdvancedFiltersProps) {
   const [openGroups, setOpenGroups] = useState(false);
   const [openTags, setOpenTags] = useState(false);
   const [openDate, setOpenDate] = useState(false);
-  
-  const [filters, setFilters] = useState<FilterValues>({
-    groups: [],
-    tags: [],
-    dateRange: {
-      from: undefined,
-      to: undefined,
-    },
-  });
-
-  // اعمال فیلترها به لیست مخاطبین
-  useEffect(() => {
-    onFilterChange(filters);
-  }, [filters, onFilterChange]);
+  const [calendarType, setCalendarType] = useState<CalendarType>('jalali');
+  const isMobile = useIsMobile();
+  const { formatDate, toggleCalendarType, getCalendarLabel } = useJalaliCalendar({ type: calendarType });
+  const { dateRange, setDateRange, clearDateRange } = useDateRange();
 
   // مدیریت تغییرات گروه‌ها
   const handleGroupToggle = (groupId: string) => {
-    setFilters(prev => {
-      const newGroups = prev.groups.includes(groupId)
-        ? prev.groups.filter(id => id !== groupId)
-        : [...prev.groups, groupId];
-      
-      return { ...prev, groups: newGroups };
-    });
+    const newGroups = filters.groups.includes(groupId)
+      ? filters.groups.filter(id => id !== groupId)
+      : [...filters.groups, groupId];
+    onFilterChange({ ...filters, groups: newGroups });
+  };
+
+  // حذف یک گروه خاص از فیلتر
+  const handleGroupRemove = (groupId: string) => {
+    onFilterChange({ ...filters, groups: filters.groups.filter(id => id !== groupId) });
   };
 
   // مدیریت تغییرات تگ‌ها
   const handleTagToggle = (tag: string) => {
-    setFilters(prev => {
-      const newTags = prev.tags.includes(tag)
-        ? prev.tags.filter(t => t !== tag)
-        : [...prev.tags, tag];
-      
-      return { ...prev, tags: newTags };
-    });
+    const newTags = filters.tags.includes(tag)
+      ? filters.tags.filter(t => t !== tag)
+      : [...filters.tags, tag];
+    onFilterChange({ ...filters, tags: newTags });
+  };
+
+  // حذف یک تگ خاص از فیلتر
+  const handleTagRemove = (tag: string) => {
+    onFilterChange({ ...filters, tags: filters.tags.filter(t => t !== tag) });
   };
 
   // مدیریت تغییرات محدوده تاریخ
-  const handleDateSelect = (date: Date | undefined) => {
-    setFilters(prev => {
-      // اگر هیچ تاریخی انتخاب نشده یا محدوده کامل است، تاریخ جدید را شروع کنید
-      if (!prev.dateRange?.from || (prev.dateRange.from && prev.dateRange.to)) {
-        return {
-          ...prev,
-          dateRange: {
-            from: date,
-            to: undefined,
-          },
-        };
-      } else {
-        // محدوده را کامل کنید
-        if (date && prev.dateRange.from && date < prev.dateRange.from) {
-          // اگر تاریخ انتخاب شده قبل از تاریخ شروع است، آنها را عوض کنید
-          return {
-            ...prev,
-            dateRange: {
-              from: date,
-              to: prev.dateRange.from,
-            },
-          };
-        } else {
-          return {
-            ...prev,
-            dateRange: {
-              from: prev.dateRange.from,
-              to: date,
-            },
-          };
-        }
-      }
-    });
+  const handleDateSelect = (range: { from: Date | undefined; to: Date | undefined }) => {
+    onFilterChange({ ...filters, dateRange: range });
+    
+    // Close popover after selecting a range
+    if (range.from && range.to) {
+      setOpenDate(false);
+    }
   };
 
   // پاک کردن همه فیلترها
   const clearAllFilters = () => {
-    setFilters({
+    onFilterChange({
       groups: [],
       tags: [],
-      dateRange: {
-        from: undefined,
-        to: undefined,
-      },
+      dateRange: { from: undefined, to: undefined },
     });
   };
 
-  // بررسی فعال بودن فیلترها
-  const hasActiveFilters = 
-    filters.groups.length > 0 || 
-    filters.tags.length > 0 || 
-    filters.dateRange?.from || 
-    filters.dateRange?.to;
+  const hasActiveFilters =
+    filters.groups.length > 0 ||
+    filters.tags.length > 0 ||
+    !!filters.dateRange?.from;
+
+  const selectedGroupNames = filters.groups
+    .map(groupId => groups.find(g => String(g.id) === groupId)?.name)
+    .filter((name): name is string => !!name);
 
   return (
-    <div className={cn("flex items-center space-x-2 rtl:space-x-reverse", className)}>
-      <Popover open={openGroups} onOpenChange={setOpenGroups}>
-        <PopoverTrigger asChild>
-          <Button
-            variant="outline"
-            size="sm"
-            role="combobox"
-            aria-expanded={openGroups}
-            className="justify-between text-xs h-8"
+    <div className={cn("space-y-3", className)}>
+      <div className="flex flex-wrap items-center gap-2 rtl:gap-reverse">
+        {/* گروه‌ها */}
+        <Popover open={openGroups} onOpenChange={setOpenGroups}>
+          <PopoverTrigger asChild>
+            <Button variant="outline" size="sm" role="combobox" aria-expanded={openGroups} className="justify-between text-xs h-8">
+              <Users className="h-3.5 w-3.5 ml-1" />
+              گروه‌ها
+              {filters.groups.length > 0 && (
+                <Badge variant="secondary" className="rounded-full h-4 px-1.5 ml-1.5">
+                  {filters.groups.length}
+                </Badge>
+              )}
+              <ChevronDown className="h-3.5 w-3.5 mr-1 opacity-50" />
+            </Button>
+          </PopoverTrigger>
+          <PopoverContent
+            className={cn("w-[220px] sm:w-[240px] lg:w-[260px] max-w-[90vw] p-0", isMobile ? "max-h-[70vh] overflow-y-auto" : "max-h-[320px]")}
+            align="start"
           >
-            <Users className="h-3.5 w-3.5 ml-1" />
-            گروه‌ها
-            <ChevronDown className="h-3.5 w-3.5 mr-1 opacity-50" />
-          </Button>
-        </PopoverTrigger>
-        <PopoverContent className="w-[200px] p-0" align="start">
-          <Command>
-            <CommandInput placeholder="جستجوی گروه..." />
-            <CommandEmpty>هیچ گروهی یافت نشد</CommandEmpty>
-            <CommandGroup className="max-h-[300px] overflow-y-auto">
-              {groups.map((group) => (
-                <CommandItem
-                  key={group.id}
-                  value={group.name}
-                  onSelect={() => group.id && handleGroupToggle(String(group.id))}
-                  className="text-xs cursor-pointer"
-                >
-                  <div className={cn(
-                    "mr-2 flex h-3.5 w-3.5 items-center justify-center rounded-sm border border-primary",
-                    filters.groups.includes(String(group.id))
-                      ? "bg-primary text-primary-foreground"
-                      : "opacity-50 [&_svg]:invisible"
-                  )}>
-                    <Check className={cn("h-3 w-3")} />
-                  </div>
-                  <span className="truncate">{group.name}</span>
-                  {group.color && (
-                    <span 
-                      className="h-2.5 w-2.5 rounded-full ml-2"
-                      style={{ backgroundColor: group.color }}
-                    />
-                  )}
-                </CommandItem>
-              ))}
-            </CommandGroup>
-          </Command>
-        </PopoverContent>
-      </Popover>
+            <div className="p-2 sm:p-3">
+              <h3 className="text-xs font-semibold mb-2 sm:mb-3">گروه‌ها</h3>
+              <Command>
+                <CommandInput placeholder="جستجو..." className="text-xs h-7" />
+                <CommandEmpty>یافت نشد</CommandEmpty>
+                <CommandGroup className="max-h-[45vh] overflow-y-auto">
+                  {groups.map((group) => (
+                    <CommandItem
+                      key={group.id}
+                      value={group.name}
+                      onSelect={() => group.id && handleGroupToggle(String(group.id))}
+                      className="text-xs cursor-pointer py-1"
+                    >
+                      <div
+                        className={cn(
+                          "mr-1.5 flex h-2.5 w-2.5 items-center justify-center rounded-sm border border-primary",
+                          filters.groups.includes(String(group.id)) ? "bg-primary text-primary-foreground" : "opacity-50 [&_svg]:invisible"
+                        )}
+                      >
+                        <Check className={cn("h-2 w-2")} />
+                      </div>
+                      <span className="truncate text-xs">{group.name}</span>
+                    </CommandItem>
+                  ))}
+                </CommandGroup>
+              </Command>
+            </div>
+          </PopoverContent>
+        </Popover>
 
-      <Popover open={openTags} onOpenChange={setOpenTags}>
-        <PopoverTrigger asChild>
-          <Button
-            variant="outline"
-            size="sm"
-            role="combobox"
-            aria-expanded={openTags}
-            className="justify-between text-xs h-8"
+        {/* تگ‌ها */}
+        <Popover open={openTags} onOpenChange={setOpenTags}>
+          <PopoverTrigger asChild>
+            <Button variant="outline" size="sm" role="combobox" aria-expanded={openTags} className="justify-between text-xs h-8">
+              <Tag className="h-3.5 w-3.5 ml-1" />
+              تگ‌ها
+              {filters.tags.length > 0 && (
+                <Badge variant="secondary" className="rounded-full h-4 px-1.5 ml-1.5">
+                  {filters.tags.length}
+                </Badge>
+              )}
+              <ChevronDown className="h-3.5 w-3.5 mr-1 opacity-50" />
+            </Button>
+          </PopoverTrigger>
+          <PopoverContent
+            className={cn("w-[220px] sm:w-[240px] lg:w-[260px] max-w-[90vw] p-0", isMobile ? "max-h-[70vh] overflow-y-auto" : "max-h-[320px]")}
+            align="start"
           >
-            <Tag className="h-3.5 w-3.5 ml-1" />
-            تگ‌ها
-            <ChevronDown className="h-3.5 w-3.5 mr-1 opacity-50" />
-          </Button>
-        </PopoverTrigger>
-        <PopoverContent className="w-[200px] p-0" align="start">
-          <Command>
-            <CommandInput placeholder="جستجوی تگ..." />
-            <CommandEmpty>تگی یافت نشد</CommandEmpty>
-            <CommandGroup className="max-h-[300px] overflow-y-auto">
-              {DEFAULT_TAGS.map((tag) => (
-                <CommandItem
-                  key={tag}
-                  value={tag}
-                  onSelect={() => handleTagToggle(tag)}
-                  className="text-xs cursor-pointer"
-                >
-                  <div className={cn(
-                    "mr-2 flex h-3.5 w-3.5 items-center justify-center rounded-sm border border-primary",
-                    filters.tags.includes(tag)
-                      ? "bg-primary text-primary-foreground"
-                      : "opacity-50 [&_svg]:invisible"
-                  )}>
-                    <Check className={cn("h-3 w-3")} />
-                  </div>
-                  <span>{tag}</span>
-                </CommandItem>
-              ))}
-            </CommandGroup>
-          </Command>
-        </PopoverContent>
-      </Popover>
+            <div className="p-2 sm:p-3">
+              <h3 className="text-xs font-semibold mb-2 sm:mb-3">تگ‌ها</h3>
+              <Command>
+                <CommandInput placeholder="جستجو..." className="text-xs h-7" />
+                <CommandEmpty>یافت نشد</CommandEmpty>
+                <CommandGroup className="max-h-[45vh] overflow-y-auto">
+                  {DEFAULT_TAGS.map((tag) => (
+                    <CommandItem key={tag} value={tag} onSelect={() => handleTagToggle(tag)} className="text-xs cursor-pointer py-1">
+                      <div
+                        className={cn(
+                          "mr-1.5 flex h-2.5 w-2.5 items-center justify-center rounded-sm border border-primary",
+                          filters.tags.includes(tag) ? "bg-primary text-primary-foreground" : "opacity-50 [&_svg]:invisible"
+                        )}
+                      >
+                        <Check className={cn("h-2 w-2")} />
+                      </div>
+                      <span className="text-xs">{tag}</span>
+                    </CommandItem>
+                  ))}
+                </CommandGroup>
+              </Command>
+            </div>
+          </PopoverContent>
+        </Popover>
 
-      <Popover open={openDate} onOpenChange={setOpenDate}>
-        <PopoverTrigger asChild>
-          <Button
-            variant="outline"
-            size="sm"
-            className="justify-between text-xs h-8"
-          >
-            <Calendar className="h-3.5 w-3.5 ml-1" />
-            {filters.dateRange?.from ? (
-              filters.dateRange.to ? (
-                <>
-                  {format(filters.dateRange.from, 'yyyy/MM/dd')} -{' '}
-                  {format(filters.dateRange.to, 'yyyy/MM/dd')}
-                </>
+        {/* تاریخ */}
+        <Popover open={openDate} onOpenChange={setOpenDate}>
+          <PopoverTrigger asChild>
+            <Button variant="outline" size="sm" className="justify-between text-xs h-8">
+              <Calendar className="h-3.5 w-3.5 ml-1" />
+              {dateRange.from || dateRange.to ? (
+                dateRange.from && dateRange.to ? (
+                  <>
+                    {formatDate(dateRange.from)} - {formatDate(dateRange.to)}
+                  </>
+                ) : (
+                  dateRange.from ? formatDate(dateRange.from) : formatDate(dateRange.to)
+                )
               ) : (
-                format(filters.dateRange.from, 'yyyy/MM/dd')
-              )
+                'تاریخ'
+              )}
+              <ChevronDown className="h-3.5 w-3.5 mr-1 opacity-50" />
+            </Button>
+          </PopoverTrigger>
+          <PopoverContent
+            className={cn("w-auto p-0", isMobile ? "max-h-[70vh] overflow-y-auto" : "")}
+            align="start"
+          >
+            {calendarType === 'jalali' ? (
+              <JalaliCalendar
+                selected={dateRange?.from || undefined}
+                onSelect={(date) => handleDateSelect({ from: date, to: dateRange?.to })}
+                className="rounded-md border text-xs p-2"
+              />
             ) : (
-              'تاریخ'
+              <CalendarComponent
+                initialFocus
+                mode="range"
+                defaultMonth={dateRange?.from}
+                selected={{ from: dateRange?.from, to: dateRange?.to }}
+                onSelect={(range) => handleDateSelect({ from: range?.from, to: range?.to })}
+                numberOfMonths={isMobile ? 1 : 2}
+                className="rounded-md border text-xs p-2"
+                locale={enUS}
+                classNames={{
+                  day_selected: 'bg-primary text-primary-foreground hover:bg-primary/90',
+                  day_today: 'bg-accent text-accent-foreground',
+                  day_disabled: 'text-muted-foreground opacity-50',
+                  day_range_middle: 'bg-accent/50 text-accent-foreground',
+                  day_hidden: 'invisible',
+                }}
+              />
             )}
-            <ChevronDown className="h-3.5 w-3.5 mr-1 opacity-50" />
-          </Button>
-        </PopoverTrigger>
-        <PopoverContent className="w-auto p-0" align="start">
-          <CalendarComponent
-            initialFocus
-            mode="range"
-            defaultMonth={filters.dateRange?.from}
-            selected={{
-              from: filters.dateRange?.from,
-              to: filters.dateRange?.to,
-            }}
-            onSelect={(range) => {
-              if (range?.from) {
-                handleDateSelect(range.from);
-              }
-              if (range?.to) {
-                handleDateSelect(range.to);
-              }
-            }}
-            numberOfMonths={2}
-            // استفاده از تقویم پیش‌فرض با استایل‌های سفارشی
-            className="rounded-md border"
-            classNames={{
-              day_selected: 'bg-primary text-primary-foreground hover:bg-primary/90',
-              day_today: 'bg-accent text-accent-foreground',
-              day_disabled: 'text-muted-foreground opacity-50',
-              day_range_middle: 'bg-accent/50 text-accent-foreground',
-              day_hidden: 'invisible',
-            }}
-          />
-        </PopoverContent>
-      </Popover>
+          </PopoverContent>
+        </Popover>
+      </div>
 
       {hasActiveFilters && (
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={clearAllFilters}
-          className="h-8 px-2 text-xs text-muted-foreground hover:text-foreground"
-        >
-          <X className="h-3.5 w-3.5 ml-1" />
-          حذف فیلترها
-        </Button>
+        <div className="flex flex-wrap items-center gap-2 rtl:gap-reverse pt-2">
+          <span className="text-xs font-medium text-muted-foreground ml-1">فیلترهای فعال:</span>
+          {selectedGroupNames.map(name => (
+            <Badge key={name} variant="outline" className="text-xs py-0.5">
+              {name}
+              <button onClick={() => handleGroupRemove(filters.groups.find(id => groups.find(g => String(g.id) === id)?.name === name)!)} className="mr-1.5 hover:text-destructive">
+                <X className="h-3 w-3" />
+              </button>
+            </Badge>
+          ))}
+          {filters.tags.map(tag => (
+            <Badge key={tag} variant="outline" className="text-xs py-0.5">
+              {tag}
+              <button onClick={() => handleTagRemove(tag)} className="mr-1.5 hover:text-destructive">
+                <X className="h-3 w-3" />
+              </button>
+            </Badge>
+          ))}
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={clearAllFilters}
+            className="h-8 px-2 text-xs text-muted-foreground hover:text-destructive"
+          >
+            <X className="h-3.5 w-3.5 ml-1" />
+            پاک کردن همه
+          </Button>
+        </div>
       )}
     </div>
   );

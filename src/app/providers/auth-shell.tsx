@@ -173,7 +173,7 @@ function AuthGateWithSync({ children }: { children: React.ReactNode }) {
         }}
       />
       {/* نمایش children فقط وقتی session و user آماده‌اند؛ بدون تغییر ترتیب Hook */}
-      {session && user ? children : null}
+      {session && user ? children : <LoginPage />}
     </>
   );
 }

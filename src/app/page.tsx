@@ -48,15 +48,15 @@ function useDebounce<T>(value: T, delay: number): T {
 
 // ===== CORE BUSINESS LOGIC (MAIN COMPONENT) =====
 export default function Home() {
-  // نمایش کامپوننت تست
-  if (process.env.NODE_ENV === 'development') {
-    return (
-      <div className="p-4">
-        <h1 className="text-2xl font-bold mb-4">تست استایل‌های تیلویند</h1>
-        {/* TestComponent حذف شد */}
-      </div>
-    );
-  }
+  // کد تست قبلی غیرفعال شد
+  // if (process.env.NODE_ENV === 'development') {
+  //   return (
+  //     <div className="p-4">
+  //       <h1 className="text-2xl font-bold mb-4">تست استایل‌های تیلویند</h1>
+  //       {/* TestComponent حذف شد */}
+  //     </div>
+  //   );
+  // }
   // هم‌تراز با انواع مورد انتظار ContactList
   const [contacts, setContacts] = useState<UIContact[]>([]);
   const [groups, setGroups] = useState<UIGroup[]>([]);
@@ -458,6 +458,7 @@ export default function Home() {
               <div className="flex gap-2">
                 <AdvancedFilters
                   groups={groups}
+                  filters={filters}
                   onFilterChange={setFilters}
                   className="mb-4"
                 />
@@ -484,10 +485,6 @@ export default function Home() {
                 />
               </div>
               
-              {/* Nested Groups Management */}
-              <div className="mt-6">
-                <NestedGroupsManagement />
-              </div>
               <ContactList
                 contacts={filteredContacts}
                 groups={groups}

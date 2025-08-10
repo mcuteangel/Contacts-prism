@@ -45,12 +45,6 @@ export function GroupsManagement() {
     }
   });
 
-  // RHF setup for adding a group via inline form (kept for keyboard UX)
-  const form = useForm<CreateGroupInput>({
-    resolver: zodResolver(createGroupSchema),
-    defaultValues: { name: "" },
-    mode: "onChange",
-  });
 
   const filtered = useMemo(() => {
     const f = filter.trim().toLowerCase();
@@ -81,25 +75,12 @@ export function GroupsManagement() {
     fetchGroups();
   }, []);
 
-  const handleAddGroup = async (values: CreateGroupInput) => {
-    const parsed = createGroupSchema.safeParse(values);
-    if (!parsed.success) {
-      const first = parsed.error.issues[0]?.message ?? "نام گروه نامعتبر است.";
-      setError(new Error(first), { 
-        component: "GroupsManagement", 
-        action: "validateAddGroup",
-        metadata: { groupName: values.name }
-      });
-      return;
-    }
-    const name = parsed.data.name.trim();
-    
+  const handleAddGroup = async (name: string) => {
     await executeAsync(async () => {
-      const res = await ContactService.addGroup(name);
+      const res = await ContactService.addGroup(name.trim());
       if (!res.ok) {
         throw new Error(res.error || "خطا در افزودن گروه");
       }
-      form.reset({ name: "" });
       await fetchGroups();
       
       // نمایش پیام موفقیت
@@ -188,28 +169,10 @@ export function GroupsManagement() {
             onChange={(e) => setFilter(e.target.value)}
             className="h-8 w-[200px]"
           />
-          <AddGroupDialog onAddGroup={async (n) => handleAddGroup({ name: n })} onGroupAdded={fetchGroups} />
+          <AddGroupDialog onAddGroup={async (name: string) => handleAddGroup(name)} onGroupAdded={fetchGroups} />
         </div>
       </CardHeader>
       <CardContent>
-        <form className="flex gap-2 mb-4" onSubmit={form.handleSubmit(handleAddGroup)}>
-          <Input
-            placeholder="نام گروه جدید"
-            {...form.register("name")}
-            onKeyDown={(e) => {
-              if (e.key === "Enter") {
-                // allow form submit
-              }
-            }}
-          />
-          <Button type="submit" aria-label="افزودن گروه">
-            <Plus size={18} className="ml-2" /> افزودن
-          </Button>
-        </form>
-
-        {form.formState.errors.name ? (
-          <p className="text-sm text-red-500 mb-4">{form.formState.errors.name.message}</p>
-        ) : null}
 
         {loading ? (
           <div className="text-sm opacity-70">در حال بارگذاری...</div>

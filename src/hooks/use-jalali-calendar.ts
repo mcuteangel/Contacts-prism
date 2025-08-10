@@ -1,0 +1,72 @@
+"use client";
+
+import { useState, useCallback } from 'react';
+import moment from 'moment-jalaali';
+import { enUS } from 'date-fns/locale';
+
+export type CalendarType = 'gregorian' | 'jalali';
+
+export interface CalendarOptions {
+  type?: CalendarType;
+  defaultDate?: Date;
+  format?: string;
+}
+
+export interface CalendarHookReturn {
+  calendarType: CalendarType;
+  currentLocale: any;
+  toggleCalendarType: () => void;
+  formatDate: (date: Date | undefined, formatString?: string) => string;
+  getCalendarLabel: () => string;
+  convertToJalali: (date: Date) => moment.Moment;
+  convertToGregorian: (date: moment.Moment) => Date;
+}
+
+export function useJalaliCalendar(options: CalendarOptions = {}): CalendarHookReturn {
+  const { 
+    type = 'jalali', 
+    defaultDate, 
+    format: formatString = 'jYYYY/jMM/jDD' 
+  } = options;
+
+  const [calendarType, setCalendarType] = useState<CalendarType>(type);
+
+  const toggleCalendarType = useCallback(() => {
+    setCalendarType(prev => prev === 'jalali' ? 'gregorian' : 'jalali');
+  }, []);
+
+  const formatDate = useCallback((date: Date | undefined, customFormat?: string) => {
+    if (!date) return '';
+    
+    if (calendarType === 'jalali') {
+      const momentDate = moment(date);
+      return momentDate.format(customFormat || formatString);
+    } else {
+      // For Gregorian, use date-fns with English locale
+      const { format } = require('date-fns');
+      return format(date, customFormat || 'yyyy/MM/dd', { locale: enUS });
+    }
+  }, [calendarType, formatString]);
+
+  const getCalendarLabel = useCallback(() => {
+    return calendarType === 'jalali' ? 'میلادی' : 'شمسی';
+  }, [calendarType]);
+
+  const convertToJalali = useCallback((date: Date) => {
+    return moment(date);
+  }, []);
+
+  const convertToGregorian = useCallback((date: moment.Moment) => {
+    return date.toDate();
+  }, []);
+
+  return {
+    calendarType,
+    currentLocale: calendarType === 'jalali' ? 'fa' : 'en',
+    toggleCalendarType,
+    formatDate,
+    getCalendarLabel,
+    convertToJalali,
+    convertToGregorian,
+  };
+}

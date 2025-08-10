@@ -5,8 +5,9 @@ export interface NestedGroupUI extends GroupUI {
   children?: NestedGroupUI[];
   parentId?: string | number;
   level?: number;
-  path?: string[];
+  path?: (string | number)[];
   expanded?: boolean;
+  groupId?: string | number; // Add this for parent-child relationship
 }
 
 export interface GroupHierarchyItem {

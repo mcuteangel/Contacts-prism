@@ -11,6 +11,7 @@ type AuthState = {
   user: import("@supabase/supabase-js").User | null;
   role: Role;
   error?: string | null;
+  lastActivityAt?: number; // Add lastActivityAt to the state type
 };
 
 type AuthContextType = AuthState & {
@@ -76,6 +77,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       user,
       role,
       error: null,
+      lastActivityAt: Date.now(),
     });
   }, []);
 
@@ -105,96 +107,190 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     };
   }, [loadInitial]);
 
-  const signInWithPassword = useCallback(async (email: string, password: string, opts?: { pinFallback?: string | null }) => {
-    const { data, error } = await supabaseClient.auth.signInWithPassword({ email, password });
-    if (error) {
-      return { error: error.message };
-    }
-    const user = data.user ?? null;
-    let role: Role = null;
-    if (user?.id) {
-      role = await fetchRoleForUser(user.id);
-    }
-    setState({
-      loading: false,
-      session: data.session ?? null,
-      user,
-      role,
-      error: null,
-    });
 
-    // پس از ورود آنلاین، مقداردهی احراز هویت آفلاین
-    try {
-      const accessToken = data.session?.access_token ?? "";
-      const refreshToken = data.session?.refresh_token ?? null;
-      // استخراج endpoint از env (در صورت نیاز برای ذخیره)
-      const endpointBaseUrl =
-        (process.env.NEXT_PUBLIC_API_BASE_URL as string | undefined) ||
-        (process.env.VITE_API_BASE_URL as string | undefined) ||
-        null;
 
-      // به‌صورت پیش‌فرض WebAuthn ترجیح دارد؛ اگر موجود نبود از PIN ورودی استفاده می‌کنیم
-      const { AuthService } = await import("@/services/auth-service");
-      const init = await AuthService.initializeAfterOnlineLogin({
-        userId: user?.id ?? "unknown",
-        accessToken,
-        refreshToken,
-        endpointBaseUrl,
-        preferWebAuthn: true,
-        pinForFallback: opts?.pinFallback ?? null,
-      });
-      if (!init.ok) {
-        // Error will be handled by the outer catch block
+
+
+
+
+  // Track auth state changes
+  useEffect(() => {
+    console.log('[AuthProvider] Setting up auth state listener');
+    let mounted = true;
+    
+    const { data: { subscription } } = supabaseClient.auth.onAuthStateChange(
+      async (event, newSession) => {
+        console.log('[AuthProvider] Auth state changed:', event);
+        if (!mounted) return;
+        
+        const user = newSession?.user ?? null;
+        let role: Role = null;
+        
+        if (user?.id) {
+          try {
+            role = await fetchRoleForUser(user.id);
+            console.log('[AuthProvider] Fetched user role:', role);
+          } catch (error) {
+            console.error('[AuthProvider] Error fetching user role:', error);
+          }
+        }
+        
+        console.log('[AuthProvider] Updating auth state with new session');
+        setState({
+          loading: false,
+          session: newSession ?? null,
+          user,
+          role,
+          error: null,
+        });
+        
+        // If this is a sign in event, dispatch unlock event
+        if (event === 'SIGNED_IN') {
+          console.log('[AuthProvider] User signed in, dispatching app-unlock event');
+          window.dispatchEvent(new Event('app-unlock'));
+        }
       }
-    } catch (e) {
-      // Error will be handled by the outer catch block
-    }
+    );
 
-    return {};
+    // Initial load
+    const initialize = async () => {
+      try {
+        console.log('[AuthProvider] Starting initial auth state load');
+        await loadInitial();
+        console.log('[AuthProvider] Initial auth state loaded successfully');
+      } catch (error) {
+        console.error('[AuthProvider] Error during initial auth load:', error);
+      }
+    };
+    
+    initialize();
+
+    return () => {
+      console.log('[AuthProvider] Cleaning up auth state listener');
+      mounted = false;
+      subscription?.unsubscribe();
+    };
   }, []);
 
+  const signInWithPassword = useCallback(
+    async (email: string, password: string, opts?: { pinFallback?: string | null }) => {
+      console.log('[AuthProvider] signInWithPassword called for email:', email);
+      setState(prev => ({ ...prev, loading: true, error: null }));
+      
+      try {
+        const { data, error } = await supabaseClient.auth.signInWithPassword({ 
+          email, 
+          password 
+        });
+        
+        if (error) {
+          console.error('[AuthProvider] Sign in error:', error);
+          setState(prev => ({ ...prev, loading: false, error: error.message }));
+          return { error: error.message };
+        }
+        
+        const user = data.user ?? null;
+        let role: Role = null;
+        
+        if (user?.id) {
+          try {
+            role = await fetchRoleForUser(user.id);
+            console.log('[AuthProvider] Fetched user role after sign in:', role);
+          } catch (roleError) {
+            console.error('[AuthProvider] Error fetching user role after sign in:', roleError);
+          }
+        }
+        
+        console.log('[AuthProvider] User signed in successfully, updating state');
+        setState({
+          loading: false,
+          session: data.session ?? null,
+          user,
+          role,
+          error: null,
+        });
+        
+        // Dispatch unlock event after successful sign in
+        window.dispatchEvent(new Event('app-unlock'));
+        console.log('[AuthProvider] Dispatched app-unlock event after sign in');
+        
+        return { error: undefined };
+        
+      } catch (error) {
+        console.error('[AuthProvider] Unexpected error in signInWithPassword:', error);
+        const errorMessage = error instanceof Error ? error.message : 'An unknown error occurred';
+        setState(prev => ({ ...prev, loading: false, error: errorMessage }));
+        return { error: errorMessage };
+      }
+    },
+    []
+  );
+
   const signOut = useCallback(async () => {
-    await supabaseClient.auth.signOut();
+    console.log('[AuthProvider] Signing out user');
+    setState(prev => ({ ...prev, loading: true }));
+    
     try {
-      const { AuthService } = await import("@/services/auth-service");
-      await AuthService.clearAll();
-    } catch {}
-    setState({
-      loading: false,
-      session: null,
-      user: null,
-      role: null,
-      error: null,
-    });
+      const { error } = await supabaseClient.auth.signOut();
+      if (error) throw error;
+      
+      setState({
+        loading: false,
+        session: null,
+        user: null,
+        role: null,
+        error: null,
+      });
+      
+    } catch (error) {
+      console.error('[AuthProvider] Error signing out:', error);
+      const errorMessage = error instanceof Error ? error.message : 'Failed to sign out';
+      setState(prev => ({ ...prev, loading: false, error: errorMessage }));
+    }
   }, []);
 
   const refreshRole = useCallback(async () => {
-    const userId = state.user?.id;
-    if (!userId) return;
-    const role = await fetchRoleForUser(userId);
-    setState((s) => ({ ...s, role }));
+    if (!state.user?.id) return;
+    
+    try {
+      const role = await fetchRoleForUser(state.user.id);
+      setState(prev => ({
+        ...prev,
+        role,
+      }));
+    } catch (error) {
+      console.error('[AuthProvider] Error refreshing role:', error);
+    }
   }, [state.user?.id]);
 
-  const unlockOffline = useCallback(async (method?: "webauthn" | "pin", pinIfNeeded?: string) => {
-    const { AuthService } = await import("@/services/auth-service");
-    const res = await AuthService.unlock(method, pinIfNeeded);
-    if (res.ok) setLastActivityAt(Date.now());
-    return res;
+  const unlockOffline = useCallback(async (method?: 'webauthn' | 'pin', pinIfNeeded?: string) => {
+    console.log('[AuthProvider] unlockOffline called with method:', method);
+    try {
+      const { AuthService } = await import('@/services/auth-service');
+      const result = await AuthService.unlock(method, pinIfNeeded);
+      
+      if (result.ok) {
+        console.log('[AuthProvider] Offline unlock successful');
+        window.dispatchEvent(new Event('app-unlock'));
+      } else {
+        console.error('[AuthProvider] Offline unlock failed:', result.error);
+      }
+      
+      return result;
+    } catch (error) {
+      console.error('[AuthProvider] Error in unlockOffline:', error);
+      return { ok: false, error: 'An error occurred during offline unlock' };
+    }
   }, []);
 
   const isOnlineReauthRequired = useCallback(async () => {
-    const { AuthService } = await import("@/services/auth-service");
-    return AuthService.isOnlineReauthRequired();
-  }, []);
-
-  // ردیاب فعالیت کاربر برای قفل خودکار
-  useEffect(() => {
-    const mark = () => setLastActivityAt(Date.now());
-    const evts: ("mousemove" | "mousedown" | "keydown" | "touchstart" | "visibilitychange")[] = ["mousemove", "mousedown", "keydown", "touchstart", "visibilitychange"];
-    evts.forEach((e) => window.addEventListener(e, mark as EventListener, { passive: true } as AddEventListenerOptions));
-    return () => {
-      evts.forEach((e) => window.removeEventListener(e, mark as EventListener));
-    };
+    try {
+      const { AuthService } = await import('@/services/auth-service');
+      return await AuthService.isOnlineReauthRequired();
+    } catch (error) {
+      console.error('[AuthProvider] Error checking if online reauth is required:', error);
+      return true; // Default to requiring reauth if we can't determine
+    }
   }, []);
 
   const value = useMemo<AuthContextType>(
