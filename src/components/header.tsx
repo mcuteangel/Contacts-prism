@@ -4,8 +4,9 @@ import React, { useEffect, useState } from "react";
 import { SettingsDialog } from "@/components/settings-dialog";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { Button } from "@/components/ui/button";
-import { Settings, Lock, Palette, Layout, Circle } from "lucide-react";
+import { Settings, Lock, Palette, Layout, Circle, RefreshCw, CheckCircle, AlertCircle } from "lucide-react";
 import { useAuth } from "@/context/auth-provider";
+import { cn } from "@/lib/utils";
 
 interface HeaderProps {
   onContactsRefreshed: () => void;
@@ -32,10 +33,39 @@ function HeaderAuthStatus() {
     };
   }, []);
 
+  // وضعیت همگام‌سازی
+  const [syncState, setSyncState] = useState<'idle' | 'syncing' | 'synced' | 'error'>('idle');
+  const [lastSynced, setLastSynced] = useState<string | null>(null);
+
+  // شبیه‌سازی سنک
+  const handleSync = () => {
+    setSyncState('syncing');
+    // شبیه‌سازی تاخیر سنک
+    setTimeout(() => {
+      setSyncState('synced');
+      setLastSynced(new Date().toLocaleTimeString('fa-IR'));
+      setTimeout(() => setSyncState('idle'), 3000);
+    }, 2000);
+  };
+
+  // استایل‌های وضعیت سنک
+  const getSyncStatusStyles = () => {
+    switch (syncState) {
+      case 'syncing':
+        return 'text-blue-500';
+      case 'synced':
+        return 'text-green-500';
+      case 'error':
+        return 'text-red-500';
+      default:
+        return 'text-foreground/60';
+    }
+  };
+
   return (
     <div className="w-full bg-muted/80 backdrop-blur border-b border-border">
       <div className="flex items-center justify-between px-4 py-1.5 text-xs">
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-4">
           <span className="flex items-center gap-1">
             <Circle 
               size={8} 
@@ -46,6 +76,40 @@ function HeaderAuthStatus() {
               {network === "online" ? "آنلاین" : "آفلاین"}
             </span>
           </span>
+          
+          <button 
+            onClick={handleSync}
+            disabled={syncState === 'syncing'}
+            className={cn(
+              "flex items-center gap-1.5 px-2 py-0.5 rounded-full text-xs transition-colors",
+              "hover:bg-accent/50",
+              getSyncStatusStyles(),
+              syncState === 'syncing' && 'animate-pulse cursor-wait'
+            )}
+            title={lastSynced ? `آخرین همگام‌سازی: ${lastSynced}` : 'هنوز همگام‌سازی نشده'}
+          >
+            {syncState === 'syncing' ? (
+              <>
+                <RefreshCw size={12} className="animate-spin" />
+                <span>در حال همگام‌سازی...</span>
+              </>
+            ) : syncState === 'synced' ? (
+              <>
+                <CheckCircle size={12} />
+                <span>همگام‌سازی شد</span>
+              </>
+            ) : syncState === 'error' ? (
+              <>
+                <AlertCircle size={12} />
+                <span>خطا در همگام‌سازی</span>
+              </>
+            ) : (
+              <>
+                <RefreshCw size={12} />
+                <span>همگام‌سازی</span>
+              </>
+            )}
+          </button>
         </div>
         <div className="flex items-center gap-3">
           {loading ? (

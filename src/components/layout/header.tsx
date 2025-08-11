@@ -3,9 +3,10 @@
 import React, { useState, useCallback, useEffect } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { SettingsDialog } from "@/components/settings-dialog";
+import { cn } from "@/lib/utils";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { Button } from "@/components/ui/button";
-import { Settings, Lock, Palette, Layout, User, LogIn, LogOut } from "lucide-react";
+import { Settings, Lock, Palette, Layout, User, LogIn, LogOut, RefreshCw, CheckCircle, AlertCircle } from "lucide-react";
 import { mapPathnameToTab } from "@/lib/navigation";
 import { useIsMobile } from "@/hooks/use-is-mobile";
 import { useAuth } from "@/context/auth-provider";
@@ -50,6 +51,35 @@ export function HeaderAuthStatus({
   const activeTitle = faTitles[activeKey] ?? "مخاطبین منشور";
   const isMobile = useIsMobile();
   const { loading, user, session, role, signOut } = useAuth() as any;
+  
+  // وضعیت همگام‌سازی
+  const [syncState, setSyncState] = useState<'idle' | 'syncing' | 'synced' | 'error'>('idle');
+  const [lastSynced, setLastSynced] = useState<string | null>(null);
+
+  // شبیه‌سازی سنک
+  const handleSync = useCallback(() => {
+    setSyncState('syncing');
+    // شبیه‌سازی تاخیر سنک
+    setTimeout(() => {
+      setSyncState('synced');
+      setLastSynced(new Date().toLocaleTimeString('fa-IR'));
+      setTimeout(() => setSyncState('idle'), 3000);
+    }, 2000);
+  }, []);
+
+  // استایل‌های وضعیت سنک
+  const getSyncStatusStyles = useCallback(() => {
+    switch (syncState) {
+      case 'syncing':
+        return 'text-blue-500';
+      case 'synced':
+        return 'text-green-500';
+      case 'error':
+        return 'text-red-500';
+      default:
+        return 'text-foreground/60';
+    }
+  }, [syncState]);
 
   // Update network status on mount and add event listeners
   useEffect(() => {
@@ -110,10 +140,52 @@ export function HeaderAuthStatus({
         </div>
       </div>
 
-      <div className="flex-1 px-4 flex justify-center">
+      <div className="flex-1 px-4 flex flex-col items-center justify-center">
         <h2 className="text-lg font-medium text-foreground">
           {faTitles[activeKey] || 'مخاطبین منشور'}
         </h2>
+        <div className="flex items-center gap-2 mt-1">
+          <span className="flex items-center gap-1 text-xs text-muted-foreground">
+            <span className={`inline-block w-2 h-2 rounded-full ${
+              network === "online" ? "bg-green-500" : "bg-red-500"
+            }`}></span>
+            {network === "online" ? "آنلاین" : "آفلاین"}
+          </span>
+          
+          <button 
+            onClick={handleSync}
+            disabled={syncState === 'syncing'}
+            className={cn(
+              "flex items-center gap-1 text-xs transition-colors",
+              "hover:text-foreground/80",
+              getSyncStatusStyles(),
+              syncState === 'syncing' && 'animate-pulse cursor-wait'
+            )}
+            title={lastSynced ? `آخرین همگام‌سازی: ${lastSynced}` : 'هنوز همگام‌سازی نشده'}
+          >
+            {syncState === 'syncing' ? (
+              <>
+                <RefreshCw size={12} className="animate-spin" />
+                <span>در حال همگام‌سازی...</span>
+              </>
+            ) : syncState === 'synced' ? (
+              <>
+                <CheckCircle size={12} />
+                <span>همگام‌سازی شد</span>
+              </>
+            ) : syncState === 'error' ? (
+              <>
+                <AlertCircle size={12} />
+                <span>خطا در همگام‌سازی</span>
+              </>
+            ) : (
+              <>
+                <RefreshCw size={12} />
+                <span>همگام‌سازی</span>
+              </>
+            )}
+          </button>
+        </div>
       </div>
 
       <div className="flex items-center gap-2">

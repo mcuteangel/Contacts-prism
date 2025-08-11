@@ -371,61 +371,7 @@ export default function Home() {
   return (
     <div className="min-h-screen flex flex-col bg-gradient-to-br from-blue-100 to-purple-100 dark:from-gray-900 dark:to-black">
       <Toaster richColors position="top-center" />
-
-      {/* Status Bar - Offline Capabilities */}
-      <div className="sticky top-0 z-50 border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
-        <div className="container mx-auto px-4 py-2">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              {isOffline ? (
-                <WifiOff className="h-4 w-4 text-orange-500" />
-              ) : (
-                <Wifi className="h-4 w-4 text-green-500" />
-              )}
-              <span className="text-sm font-medium">
-                وضعیت: {offlineStatus.statusText}
-              </span>
-              {hasPendingChanges && (
-                <Badge variant="secondary" className="ml-2">
-                  {pendingChanges} تغییر در انتظار همگام‌سازی
-                </Badge>
-              )}
-            </div>
-            <div className="flex items-center gap-2">
-              {syncError && (
-                <div className="flex items-center gap-1 text-sm text-red-600">
-                  <AlertCircle className="h-3 w-3" />
-                  <span>{syncError}</span>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={clearSyncError}
-                    className="h-6 w-6 p-0"
-                  >
-                    ×
-                  </Button>
-                </div>
-              )}
-              {isSyncing && (
-                <div className="flex items-center gap-2 text-sm text-blue-600">
-                  <RefreshCw className="h-4 w-4 animate-spin" />
-                  <span>همگام‌سازی...</span>
-                </div>
-              )}
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => syncNow()}
-                disabled={isSyncing || !isOnline}
-                className="flex items-center gap-1"
-              >
-                <RefreshCw className={`h-3 w-3 ${isSyncing ? 'animate-spin' : ''}`} />
-                {isSyncing ? 'در حال همگام‌سازی...' : 'همگام‌سازی'}
-              </Button>
-            </div>
-          </div>
-        </div>
-      </div>
+    
 
       <div className="flex-grow p-4 sm:p-8 flex flex-col items-center justify-center">
         <div className="w-full max-w-4xl glass p-6 rounded-lg shadow-lg backdrop-blur-md">
