@@ -87,7 +87,7 @@ export function CustomFieldsSection({ templates }: CustomFieldsSectionProps) {
             onValueChange={(value) => setValue(`customFields.${index}.value`, value)}
             value={field.value || ''}
           >
-            <SelectTrigger className={fieldError ? 'border-red-500' : ''}>
+            <SelectTrigger className={`${fieldError ? 'border-red-500' : ''} w-fit`}>
               <SelectValue placeholder="انتخاب کنید" />
             </SelectTrigger>
             <SelectContent>
@@ -118,7 +118,7 @@ export function CustomFieldsSection({ templates }: CustomFieldsSectionProps) {
             value={selectedTemplate}
             onValueChange={setSelectedTemplate}
           >
-            <SelectTrigger className="w-[180px]">
+            <SelectTrigger className="w-fit">
               <SelectValue placeholder="انتخاب فیلد" />
             </SelectTrigger>
             <SelectContent>
@@ -154,9 +154,10 @@ export function CustomFieldsSection({ templates }: CustomFieldsSectionProps) {
           </div>
         ) : (
           fields.map((field, index) => (
-            <div key={field.id} className="space-y-2">
-              <div className="flex items-center justify-between">
-                <Label>{customFields[index]?.name}</Label>
+            <div key={field.id} className="grid grid-cols-2 gap-4 items-center">
+              <Label>{customFields[index]?.name}</Label>
+              <div className="flex items-center gap-2">
+                {renderFieldInput(customFields[index], index)}
                 <Button
                   type="button"
                   variant="ghost"
@@ -167,11 +168,10 @@ export function CustomFieldsSection({ templates }: CustomFieldsSectionProps) {
                   <Trash2 className="h-4 w-4" />
                 </Button>
               </div>
-              {renderFieldInput(customFields[index], index)}
               {fieldErrors[index]?.value && (
-                <p className="text-sm text-red-500">
+                <div className="col-span-2 text-sm text-red-500">
                   {fieldErrors[index]?.value?.message || ''}
-                </p>
+                </div>
               )}
             </div>
           ))

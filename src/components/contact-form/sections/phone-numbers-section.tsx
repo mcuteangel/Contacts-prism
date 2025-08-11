@@ -55,7 +55,7 @@ export function PhoneNumbersSection() {
         <div className="space-y-3">
           {fields.map((field, index) => (
             <div key={field.id} className="flex items-start gap-2">
-              <div className="flex-1 grid grid-cols-1 md:grid-cols-2 gap-2">
+              <div className="flex-1 grid grid-cols-2 gap-2">
                 <div className="space-y-1">
                   <Label htmlFor={`phone-type-${index}`}>نوع</Label>
                   <Select
@@ -65,7 +65,7 @@ export function PhoneNumbersSection() {
                       setValue(`phoneNumbers.${index}.type`, value);
                     }}
                   >
-                    <SelectTrigger id={`phone-type-${index}`}>
+                    <SelectTrigger id={`phone-type-${index}`} className="w-fit">
                       <SelectValue placeholder="انتخاب نوع" />
                     </SelectTrigger>
                     <SelectContent>

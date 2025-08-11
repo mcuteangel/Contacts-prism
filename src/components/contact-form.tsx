@@ -15,7 +15,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { ContactService } from '@/services/contact-service';
-import { BasicInfoSection } from './contact-form/sections/basic-info-section';
+
 import { PhoneNumbersSection } from './contact-form/sections/phone-numbers-section';
 import { GroupsSection } from './contact-form/sections/groups-section';
 import { AdditionalInfoSection } from './contact-form/sections/additional-info-section';
@@ -202,13 +202,34 @@ export function ContactForm({
           <CardContent className="pt-4 space-y-3">
             {/* Always Visible Sections */}
             <div className="space-y-3">
-              <BasicInfoSection />
-              <PhoneNumbersSection />
-              
-              {/* Gender and Position Section */}
-              <div className="space-y-3 pt-2">
-                <h3 className="text-lg font-medium">اطلاعات تکمیلی</h3>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="space-y-3">
+                <h3 className="text-lg font-medium">اطلاعات پایه و تکمیلی</h3>
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                  <div className="space-y-1">
+                    <Label htmlFor="firstName">نام</Label>
+                    <Input
+                      id="firstName"
+                      {...methods.register('firstName')}
+                      placeholder="نام مخاطب"
+                      className={methods.formState.errors.firstName ? 'border-red-500' : ''}
+                    />
+                    {methods.formState.errors.firstName && (
+                      <p className="text-sm text-red-500">{methods.formState.errors.firstName.message as string}</p>
+                    )}
+                  </div>
+
+                  <div className="space-y-1">
+                    <Label htmlFor="lastName">نام خانوادگی</Label>
+                    <Input
+                      id="lastName"
+                      {...methods.register('lastName')}
+                      placeholder="نام خانوادگی مخاطب"
+                      className={methods.formState.errors.lastName ? 'border-red-500' : ''}
+                    />
+                    {methods.formState.errors.lastName && (
+                      <p className="text-sm text-red-500">{methods.formState.errors.lastName.message as string}</p>
+                    )}
+                  </div>
                   <div className="space-y-2">
                     <Label className="block text-sm font-medium" htmlFor="gender">
                       جنسیت
@@ -217,7 +238,7 @@ export function ContactForm({
                       value={methods.watch('gender') || ''}
                       onValueChange={(value) => methods.setValue('gender', value as 'male' | 'female' | 'other' || undefined)}
                     >
-                      <SelectTrigger id="gender">
+                      <SelectTrigger id="gender" className="w-fit">
                         <SelectValue placeholder="انتخاب نشده" />
                       </SelectTrigger>
                       <SelectContent>
@@ -240,6 +261,8 @@ export function ContactForm({
                   </div>
                 </div>
               </div>
+
+              <PhoneNumbersSection />
               
               {/* Groups Section */}
               <GroupsSection 

@@ -64,7 +64,7 @@ export function GroupsSection({ groups, onAddGroup, onGroupsRefreshed }: GroupsS
             value={selectedGroupId || ''}
             onValueChange={(value) => setValue('groupId', value || null)}
           >
-            <SelectTrigger id="group" className="flex-1">
+            <SelectTrigger id="group" className="w-fit">
               <SelectValue placeholder="بدون گروه" />
             </SelectTrigger>
             <SelectContent>
