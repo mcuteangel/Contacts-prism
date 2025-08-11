@@ -1,7 +1,12 @@
 "use client";
 
 import React, { useState, useEffect } from 'react';
-import { ChevronLeft, ChevronRight } from 'lucide-react';
+import { ChevronLeft, ChevronRight, ChevronDown } from 'lucide-react';
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from '@/components/ui/popover';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import moment from 'moment-jalaali';
@@ -32,6 +37,10 @@ export function JalaliCalendar({
   const [selectedDate, setSelectedDate] = useState(() => {
     return selected ? moment(selected).valueOf() : moment().startOf('day').valueOf();
   });
+  
+  const [showMonthPicker, setShowMonthPicker] = useState(false);
+  const [showYearPicker, setShowYearPicker] = useState(false);
+  const [yearPage, setYearPage] = useState(0); // For decade pagination
   
   // Create moment objects from timestamps
   const currentMoment = moment(currentDate);
@@ -180,24 +189,85 @@ export function JalaliCalendar({
     : ['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa'];
 
   // Get localized month and year
-  const getMonthName = () => {
+  const getMonthYear = () => {
     if (isJalali) {
-      // Persian month names
-      const persianMonths = [
-        'فروردین', 'اردیبهشت', 'خرداد', 'تیر', 'مرداد', 'شهریور',
-        'مهر', 'آبان', 'آذر', 'دی', 'بهمن', 'اسفند'
-      ];
-      const monthIndex = currentMoment.jMonth();
-      return `${persianMonths[monthIndex]} ${currentMoment.jYear()}`;
+      return {
+        month: currentMoment.jMonth(),
+        year: currentMoment.jYear(),
+        monthName: [
+          'فروردین', 'اردیبهشت', 'خرداد', 'تیر', 'مرداد', 'شهریور',
+          'مهر', 'آبان', 'آذر', 'دی', 'بهمن', 'اسفند'
+        ][currentMoment.jMonth()],
+        yearNumber: currentMoment.jYear()
+      };
     } else {
-      // English month names
-      const englishMonths = [
-        'January', 'February', 'March', 'April', 'May', 'June',
-        'July', 'August', 'September', 'October', 'November', 'December'
-      ];
-      const monthIndex = currentMoment.month();
-      return `${englishMonths[monthIndex]} ${currentMoment.year()}`;
+      return {
+        month: currentMoment.month(),
+        year: currentMoment.year(),
+        monthName: [
+          'January', 'February', 'March', 'April', 'May', 'June',
+          'July', 'August', 'September', 'October', 'November', 'December'
+        ][currentMoment.month()],
+        yearNumber: currentMoment.year()
+      };
     }
+  };
+
+  const { month, year, monthName, yearNumber } = getMonthYear();
+
+  const changeMonth = (monthIndex: number) => {
+    setCurrentDate(prev => {
+      const newDate = moment(prev);
+      if (isJalali) {
+        newDate.jMonth(monthIndex);
+      } else {
+        newDate.month(monthIndex);
+      }
+      return newDate.valueOf();
+    });
+    setShowMonthPicker(false);
+  };
+
+  const changeYear = (year: number) => {
+    setCurrentDate(prev => {
+      const newDate = moment(prev);
+      if (isJalali) {
+        newDate.jYear(year);
+      } else {
+        newDate.year(year);
+      }
+      return newDate.valueOf();
+    });
+    setShowYearPicker(false);
+  };
+
+  const getCurrentDecade = () => {
+    const currentYear = isJalali ? currentMoment.jYear() : currentMoment.year();
+    const startDecade = Math.floor((currentYear + yearPage * 15) / 15) * 15;
+    return {
+      start: startDecade - 1, // Show one year before the range
+      end: startDecade + 16,  // Show 15 years in total (14 + 1 extra)
+      current: currentYear
+    };
+  };
+
+  const getYearsInDecade = () => {
+    const { start, end, current } = getCurrentDecade();
+    const years = [];
+    
+    for (let i = start; i <= end; i++) {
+      years.push({
+        year: i,
+        isCurrent: i === current,
+        isInDecade: i >= start + 1 && i <= end - 2
+      });
+    }
+    
+    return years;
+  };
+
+  const navigateYearPage = (direction: 'prev' | 'next') => {
+    setYearPage(prev => direction === 'prev' ? prev - 1 : prev + 1);
   };
 
   // Get day number based on calendar type
@@ -246,9 +316,112 @@ export function JalaliCalendar({
         </Button>
         
         <div className="flex items-center gap-2">
-          <h3 className="text-sm font-medium text-center min-w-[140px]">
-            {getMonthName()}
-          </h3>
+          <div className="flex items-center gap-1">
+            <Popover open={showMonthPicker} onOpenChange={setShowMonthPicker}>
+              <PopoverTrigger asChild>
+                <Button 
+                  variant="ghost" 
+                  size="sm" 
+                  className="h-7 px-2 text-sm"
+                  onClick={() => {
+                    setShowMonthPicker(!showMonthPicker);
+                    setShowYearPicker(false); // Close year picker if open
+                  }}
+                >
+                  {monthName}
+                  <ChevronDown className="mr-1 h-3 w-3 opacity-50" />
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-48 p-2" align={isJalali ? 'end' : 'start'}>
+                <div className="grid grid-cols-3 gap-1">
+                  {(isJalali 
+                    ? ['فروردین', 'اردیبهشت', 'خرداد', 'تیر', 'مرداد', 'شهریور', 'مهر', 'آبان', 'آذر', 'دی', 'بهمن', 'اسفند']
+                    : ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
+                  ).map((m, i) => (
+                    <Button
+                      key={i}
+                      variant={i === month ? 'default' : 'ghost'}
+                      size="sm"
+                      className="h-7 text-xs"
+                      onClick={() => changeMonth(i)}
+                    >
+                      {m}
+                    </Button>
+                  ))}
+                </div>
+              </PopoverContent>
+            </Popover>
+            
+            <Popover open={showYearPicker} onOpenChange={open => {
+              setShowYearPicker(open);
+              if (open) setYearPage(0); // Reset to current decade when opening
+            }}>
+              <PopoverTrigger asChild>
+                <Button 
+                  variant="ghost" 
+                  size="sm" 
+                  className="h-7 px-2 text-sm"
+                  onClick={() => {
+                    setShowYearPicker(!showYearPicker);
+                    setShowMonthPicker(false); // Close month picker if open
+                  }}
+                >
+                  {yearNumber}
+                  <ChevronDown className="mr-1 h-3 w-3 opacity-50" />
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-64 p-3" align={isJalali ? 'end' : 'start'}>
+                <div className="flex justify-between items-center mb-2">
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-7 w-7"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      navigateYearPage('prev');
+                    }}
+                  >
+                    <ChevronLeft className="h-4 w-4" />
+                  </Button>
+                  <span className="text-sm font-medium">
+                    {getCurrentDecade().start + 2} - {getCurrentDecade().end - 2} ({getCurrentDecade().end - getCurrentDecade().start - 3} سال)
+                  </span>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-7 w-7"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      navigateYearPage('next');
+                    }}
+                  >
+                    <ChevronRight className="h-4 w-4" />
+                  </Button>
+                </div>
+                <div className="grid grid-cols-5 gap-1">
+                  {getYearsInDecade().map(({ year, isCurrent, isInDecade }) => (
+                    <Button
+                      key={year}
+                      variant={year === yearNumber ? 'default' : 'ghost'}
+                      size="sm"
+                      className={cn(
+                        'h-8 text-xs',
+                        !isInDecade && 'text-muted-foreground/50',
+                        isCurrent && 'font-bold',
+                        !isInDecade && 'opacity-60'
+                      )}
+                      onClick={() => {
+                        changeYear(year);
+                        setShowYearPicker(false);
+                      }}
+                    >
+                      {year}
+                    </Button>
+                  ))}
+                </div>
+              </PopoverContent>
+            </Popover>
+          </div>
           <Button
             variant="outline"
             size="sm"
