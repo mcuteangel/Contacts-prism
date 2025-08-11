@@ -46,12 +46,13 @@ export function JalaliCalendar({
   }, [initialLocale]);
 
   const monthDays = React.useMemo(() => {
-    const days: Array<{ 
-      date: moment.Moment; 
-      isCurrentMonth: boolean; 
-      isToday: boolean; 
+    const days: Array<{
+      date: moment.Moment;
+      isCurrentMonth: boolean;
+      isToday: boolean;
       isSelected: boolean;
       isWeekend: boolean;
+      dayIndex?: number;
     }> = [];
 
     const startOfMonth = isJalali 
@@ -62,21 +63,60 @@ export function JalaliCalendar({
       ? currentMoment.clone().endOf('jMonth')
       : currentMoment.clone().endOf('month');
     
-    const startOfWeek = startOfMonth.clone().startOf('week');
-    const endOfWeek = endOfMonth.clone().endOf('week');
+    // تنظیم اول هفته برای محاسبات بعدی
+    if (isJalali) {
+      // برای تقویم شمسی: شنبه اولین روز هفته
+      moment.updateLocale('fa', {
+        week: {
+          dow: 6, // شنبه اولین روز هفته (6)
+          doy: 6  // هفته‌ای که شامل 1 فروردین باشد هفته اول سال است
+        }
+      });
+      moment.locale('fa');
+    } else {
+      // برای تقویم میلادی: یکشنبه اولین روز هفته
+      moment.updateLocale('en', {
+        week: {
+          dow: 0, // یکشنبه اولین روز هفته (0)
+          doy: 6  // تعریف استاندارد برای هفته اول سال
+        }
+      });
+      moment.locale('en');
+    }
+
+    // محاسبه شروع و پایان هفته با توجه به تقویم انتخاب شده
+    const startOfWeek = isJalali
+      ? startOfMonth.clone().startOf('week') // استفاده از week برای تقویم شمسی
+      : startOfMonth.clone().startOf('week'); // استفاده از week برای تقویم میلادی
+      
+    const endOfWeek = isJalali
+      ? endOfMonth.clone().endOf('week') // استفاده از week برای تقویم شمسی
+      : endOfMonth.clone().endOf('week'); // استفاده از week برای تقویم میلادی
 
     let day = startOfWeek.clone();
+    let dayIndex = 0;
     while (day.isSameOrBefore(endOfWeek, 'day')) {
-      const isCurrentMonth = isJalali 
+      const isCurrentMonth = isJalali
         ? day.jMonth() === currentMoment.jMonth()
         : day.isSame(currentMoment, 'month');
         
       const today = moment().startOf('day');
       const isToday = day.isSame(today, 'day');
       const isSelected = day.isSame(selectedMoment, 'day');
-      const isWeekend = isJalali 
-        ? day.day() === 5 // Friday in Jalali
-        : day.day() === 0 || day.day() === 6; // Weekend in Gregorian
+      
+      // محاسبه روز هفته
+      let dayOfWeek;
+      if (isJalali) {
+        // برای تقویم شمسی: شنبه=0، یکشنبه=1، ...، جمعه=6
+        dayOfWeek = (day.day() + 1) % 7;
+      } else {
+        // برای تقویم میلادی: یکشنبه=0، دوشنبه=1، ...، شنبه=6
+        dayOfWeek = day.day();
+      }
+      
+      const isWeekend = isJalali
+        ? dayOfWeek === 6 // جمعه در تقویم شمسی
+        : dayOfWeek === 0 || dayOfWeek === 6; // آخر هفته در تقویم میلادی
 
       days.push({
         date: day.clone(),
@@ -84,9 +124,11 @@ export function JalaliCalendar({
         isToday,
         isSelected,
         isWeekend,
+        dayIndex // برای دیباگ کردن
       });
 
       day.add(1, 'day');
+      dayIndex++;
     }
 
     return days;
@@ -132,8 +174,9 @@ export function JalaliCalendar({
   };
 
   // Weekday names based on locale
+  // ترتیب روزهای هفته به صورت: شنبه تا جمعه
   const daysOfWeek = isJalali 
-    ? ['ش', 'ی', 'د', 'س', 'چ', 'پ', 'ج']
+    ? ['ش', 'ی', 'د', 'س', 'چ', 'پ', 'ج'] // شنبه (0) تا جمعه (6)
     : ['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa'];
 
   // Get localized month and year
