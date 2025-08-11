@@ -15,7 +15,7 @@ type FormValues = {
   phoneNumbers: PhoneNumber[];
 };
 
-export function PhoneNumbersSection() {
+export function PhoneNumbersSection({ dir }: { dir?: 'ltr' | 'rtl' }) {
   const { control, register, formState: { errors }, setValue } = useFormContext<FormValues>();
   const { fields, append, remove } = useFieldArray({
     control,
@@ -59,6 +59,7 @@ export function PhoneNumbersSection() {
                 <div className="space-y-1">
                   <Label htmlFor={`phone-type-${index}`}>نوع</Label>
                   <Select
+                    dir={dir}
                     defaultValue={field.type}
                     onValueChange={(value: 'mobile' | 'home' | 'work' | 'other') => {
                       // Update the field value using setValue

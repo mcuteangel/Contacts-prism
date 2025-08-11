@@ -61,7 +61,7 @@ const CommandInput = React.forwardRef<
     cmdk-input-wrapper=""
   >
     <Search className={cn(
-      "mr-2 h-4 w-4 shrink-0 transition-opacity duration-300",
+      "ltr:mr-2 rtl:ml-2 h-4 w-4 shrink-0 transition-opacity duration-300",
       variant === 'glass' ? "opacity-70" : "opacity-50"
     )} />
     <CommandPrimitive.Input
@@ -187,7 +187,7 @@ const CommandShortcut = ({
   return (
     <span
       className={cn(
-        "ml-auto text-xs tracking-widest text-muted-foreground",
+        "ltr:ml-auto rtl:mr-auto text-xs tracking-widest text-muted-foreground",
         className
       )}
       {...props}

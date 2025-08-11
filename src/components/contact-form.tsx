@@ -16,6 +16,7 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { ContactService } from '@/services/contact-service';
 
+import { useTranslation } from 'react-i18next';
 import { PhoneNumbersSection } from './contact-form/sections/phone-numbers-section';
 import { GroupsSection } from './contact-form/sections/groups-section';
 import { AdditionalInfoSection } from './contact-form/sections/additional-info-section';
@@ -60,6 +61,7 @@ export function ContactForm({
   onGroupsRefreshed,
 }: ContactFormProps) {
   const router = useRouter();
+  const { t, i18n } = useTranslation();
   const [showAdvancedFields, setShowAdvancedFields] = React.useState(false);
   const { isLoading, executeAsync } = useErrorHandler(null, {
     maxRetries: 3,
@@ -235,6 +237,7 @@ export function ContactForm({
                       جنسیت
                     </Label>
                     <Select
+                      dir={i18n.dir()}
                       value={methods.watch('gender') || ''}
                       onValueChange={(value) => methods.setValue('gender', value as 'male' | 'female' | 'other' || undefined)}
                     >
@@ -262,10 +265,11 @@ export function ContactForm({
                 </div>
               </div>
 
-              <PhoneNumbersSection />
+              <PhoneNumbersSection dir={i18n.dir()} />
               
               {/* Groups Section */}
               <GroupsSection 
+                dir={i18n.dir()}
                 groups={groups} 
                 onAddGroup={onAddGroup} 
                 onGroupsRefreshed={onGroupsRefreshed} 
@@ -310,7 +314,7 @@ export function ContactForm({
             {showAdvancedFields && (
               <div className="space-y-4 pt-3 border-t border-border">
                 <AdditionalInfoSection />
-                <CustomFieldsSection templates={templates} />
+                <CustomFieldsSection templates={templates} dir={i18n.dir()} />
               </div>
             )}
           </CardContent>

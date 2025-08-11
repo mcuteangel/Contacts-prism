@@ -9,6 +9,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { useTranslation } from "react-i18next";
 import { Plus, Trash2, Edit, Save, X } from "lucide-react";
 import { ContactService } from "@/services/contact-service";
 import { useErrorHandler } from "@/hooks/use-error-handler";
@@ -31,6 +32,7 @@ interface TemplateViewModel {
 }
 
 export function GlobalCustomFieldsManagement() {
+  const { t, i18n } = useTranslation();
   const [customFields, setCustomFields] = useState<TemplateViewModel[]>([]);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingField, setEditingField] = useState<TemplateViewModel | null>(null);
@@ -292,6 +294,7 @@ export function GlobalCustomFieldsManagement() {
         <div className="flex flex-col gap-2">
           <Label htmlFor="field-type">نوع فیلد</Label>
           <Select
+            dir={i18n.dir()}
             value={values.type || "text"}
             onValueChange={(value) => {
               // اگر از list به نوع دیگر رفتیم، options را undefined کن

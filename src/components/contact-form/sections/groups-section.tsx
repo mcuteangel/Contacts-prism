@@ -16,9 +16,10 @@ type GroupsSectionProps = {
   groups: UIGroup[];
   onAddGroup: (groupName: string) => Promise<void>;
   onGroupsRefreshed: () => void;
+  dir?: 'ltr' | 'rtl';
 };
 
-export function GroupsSection({ groups, onAddGroup, onGroupsRefreshed }: GroupsSectionProps) {
+export function GroupsSection({ groups, onAddGroup, onGroupsRefreshed, dir }: GroupsSectionProps) {
   const { setValue, watch } = useFormContext();
   const [isAddGroupDialogOpen, setIsAddGroupDialogOpen] = useState(false);
   const [newGroupName, setNewGroupName] = useState('');
@@ -61,6 +62,7 @@ export function GroupsSection({ groups, onAddGroup, onGroupsRefreshed }: GroupsS
         <Label htmlFor="group">انتخاب گروه</Label>
         <div className="flex gap-2">
           <Select
+            dir={dir}
             value={selectedGroupId || ''}
             onValueChange={(value) => setValue('groupId', value || null)}
           >

@@ -108,19 +108,19 @@ export function AdvancedFilters({ groups, filters, onFilterChange, className = '
 
   return (
     <div className={cn("space-y-3", className)}>
-      <div className="flex flex-wrap items-center gap-2 rtl:gap-reverse">
+      <div className="flex flex-wrap items-center gap-2">
         {/* گروه‌ها */}
         <Popover open={openGroups} onOpenChange={setOpenGroups}>
           <PopoverTrigger asChild>
             <Button variant="outline" size="sm" role="combobox" aria-expanded={openGroups} className="justify-between text-xs h-8">
-              <Users className="h-3.5 w-3.5 ml-1" />
+              <Users className="h-3.5 w-3.5 ltr:mr-1 rtl:ml-1" />
               گروه‌ها
               {filters.groups.length > 0 && (
-                <Badge variant="secondary" className="rounded-full h-4 px-1.5 ml-1.5">
+                <Badge variant="secondary" className="rounded-full h-4 px-1.5 ltr:mr-1.5 rtl:ml-1.5">
                   {filters.groups.length}
                 </Badge>
               )}
-              <ChevronDown className="h-3.5 w-3.5 mr-1 opacity-50" />
+              <ChevronDown className="h-3.5 w-3.5 ltr:ml-1 rtl:mr-1 opacity-50" />
             </Button>
           </PopoverTrigger>
           <PopoverContent
@@ -142,7 +142,7 @@ export function AdvancedFilters({ groups, filters, onFilterChange, className = '
                     >
                       <div
                         className={cn(
-                          "mr-1.5 flex h-2.5 w-2.5 items-center justify-center rounded-sm border border-primary",
+                          "ltr:mr-1.5 rtl:ml-1.5 flex h-2.5 w-2.5 items-center justify-center rounded-sm border border-primary",
                           filters.groups.includes(String(group.id)) ? "bg-primary text-primary-foreground" : "opacity-50 [&_svg]:invisible"
                         )}
                       >
@@ -161,14 +161,14 @@ export function AdvancedFilters({ groups, filters, onFilterChange, className = '
         <Popover open={openTags} onOpenChange={setOpenTags}>
           <PopoverTrigger asChild>
             <Button variant="outline" size="sm" role="combobox" aria-expanded={openTags} className="justify-between text-xs h-8">
-              <Tag className="h-3.5 w-3.5 ml-1" />
+              <Tag className="h-3.5 w-3.5 ltr:mr-1 rtl:ml-1" />
               تگ‌ها
               {filters.tags.length > 0 && (
-                <Badge variant="secondary" className="rounded-full h-4 px-1.5 ml-1.5">
+                <Badge variant="secondary" className="rounded-full h-4 px-1.5 ltr:mr-1.5 rtl:ml-1.5">
                   {filters.tags.length}
                 </Badge>
               )}
-              <ChevronDown className="h-3.5 w-3.5 mr-1 opacity-50" />
+              <ChevronDown className="h-3.5 w-3.5 ltr:ml-1 rtl:mr-1 opacity-50" />
             </Button>
           </PopoverTrigger>
           <PopoverContent
@@ -185,7 +185,7 @@ export function AdvancedFilters({ groups, filters, onFilterChange, className = '
                     <CommandItem key={tag} value={tag} onSelect={() => handleTagToggle(tag)} className="text-xs cursor-pointer py-1">
                       <div
                         className={cn(
-                          "mr-1.5 flex h-2.5 w-2.5 items-center justify-center rounded-sm border border-primary",
+                          "ltr:mr-1.5 rtl:ml-1.5 flex h-2.5 w-2.5 items-center justify-center rounded-sm border border-primary",
                           filters.tags.includes(tag) ? "bg-primary text-primary-foreground" : "opacity-50 [&_svg]:invisible"
                         )}
                       >
@@ -204,7 +204,7 @@ export function AdvancedFilters({ groups, filters, onFilterChange, className = '
         <Popover open={openDate} onOpenChange={setOpenDate}>
           <PopoverTrigger asChild>
             <Button variant="outline" size="sm" className="justify-between text-xs h-8">
-              <Calendar className="h-3.5 w-3.5 ml-1" />
+              <Calendar className="h-3.5 w-3.5 ltr:mr-1 rtl:ml-1" />
               {dateRange.from || dateRange.to ? (
                 dateRange.from && dateRange.to ? (
                   <>
@@ -216,7 +216,7 @@ export function AdvancedFilters({ groups, filters, onFilterChange, className = '
               ) : (
                 'تاریخ'
               )}
-              <ChevronDown className="h-3.5 w-3.5 mr-1 opacity-50" />
+              <ChevronDown className="h-3.5 w-3.5 ltr:ml-1 rtl:mr-1 opacity-50" />
             </Button>
           </PopoverTrigger>
           <PopoverContent
@@ -253,12 +253,12 @@ export function AdvancedFilters({ groups, filters, onFilterChange, className = '
       </div>
 
       {hasActiveFilters && (
-        <div className="flex flex-wrap items-center gap-2 rtl:gap-reverse pt-2">
-          <span className="text-xs font-medium text-muted-foreground ml-1">فیلترهای فعال:</span>
+        <div className="flex flex-wrap items-center gap-2 pt-2">
+          <span className="text-xs font-medium text-muted-foreground ltr:mr-1 rtl:ml-1">فیلترهای فعال:</span>
           {selectedGroupNames.map(name => (
             <Badge key={name} variant="outline" className="text-xs py-0.5">
               {name}
-              <button onClick={() => handleGroupRemove(filters.groups.find(id => groups.find(g => String(g.id) === id)?.name === name)!)} className="mr-1.5 hover:text-destructive">
+              <button onClick={() => handleGroupRemove(filters.groups.find(id => groups.find(g => String(g.id) === id)?.name === name)!)} className="ltr:mr-1.5 rtl:ml-1.5 hover:text-destructive">
                 <X className="h-3 w-3" />
               </button>
             </Badge>
@@ -266,7 +266,7 @@ export function AdvancedFilters({ groups, filters, onFilterChange, className = '
           {filters.tags.map(tag => (
             <Badge key={tag} variant="outline" className="text-xs py-0.5">
               {tag}
-              <button onClick={() => handleTagRemove(tag)} className="mr-1.5 hover:text-destructive">
+              <button onClick={() => handleTagRemove(tag)} className="ltr:mr-1.5 rtl:ml-1.5 hover:text-destructive">
                 <X className="h-3 w-3" />
               </button>
             </Badge>
@@ -277,7 +277,7 @@ export function AdvancedFilters({ groups, filters, onFilterChange, className = '
             onClick={clearAllFilters}
             className="h-8 px-2 text-xs text-muted-foreground hover:text-destructive"
           >
-            <X className="h-3.5 w-3.5 ml-1" />
+            <X className="h-3.5 w-3.5 ltr:mr-1 rtl:ml-1" />
             پاک کردن همه
           </Button>
         </div>

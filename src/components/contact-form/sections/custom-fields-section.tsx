@@ -29,9 +29,10 @@ type CustomFieldsSectionProps = {
     options?: string[];
     required: boolean;
   }>;
+  dir?: 'ltr' | 'rtl';
 };
 
-export function CustomFieldsSection({ templates }: CustomFieldsSectionProps) {
+export function CustomFieldsSection({ templates, dir }: CustomFieldsSectionProps) {
   const { control, register, watch, setValue, formState: { errors } } = useFormContext<{ customFields?: CustomField[] }>();
   const { fields, append, remove } = useFieldArray({
     control,
@@ -84,6 +85,7 @@ export function CustomFieldsSection({ templates }: CustomFieldsSectionProps) {
       case 'list':
         return (
           <Select
+            dir={dir}
             onValueChange={(value) => setValue(`customFields.${index}.value`, value)}
             value={field.value || ''}
           >
@@ -115,6 +117,7 @@ export function CustomFieldsSection({ templates }: CustomFieldsSectionProps) {
         <h3 className="text-lg font-medium">فیلدهای سفارشی</h3>
         <div className="flex gap-2">
           <Select
+            dir={dir}
             value={selectedTemplate}
             onValueChange={setSelectedTemplate}
           >
