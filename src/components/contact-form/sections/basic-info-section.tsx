@@ -7,11 +7,11 @@ export function BasicInfoSection() {
   const { register, formState: { errors } } = useFormContext();
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-3">
       <h3 className="text-lg font-medium">اطلاعات پایه</h3>
       
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <div className="space-y-2">
+        <div className="space-y-1">
           <Label htmlFor="firstName">نام</Label>
           <Input
             id="firstName"
@@ -24,7 +24,7 @@ export function BasicInfoSection() {
           )}
         </div>
 
-        <div className="space-y-2">
+        <div className="space-y-1">
           <Label htmlFor="lastName">نام خانوادگی</Label>
           <Input
             id="lastName"

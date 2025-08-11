@@ -3,7 +3,7 @@ import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import { ThemeProvider } from "@/components/theme-provider";
 import { MainLayout } from "@/components/layout/main-layout";
-import { ContactFormProvider } from "@/contexts/contact-form-context";
+
 import { AuthShell } from "./providers/auth-shell";
 import { getDirFromLang } from "@/lib/direction";
 import { I18nProvider } from "@/i18n/I18nProvider";
@@ -66,11 +66,9 @@ export default function RootLayout({
           {/* احراز هویت و الزام ورود در شل کلاینتی */}
           <I18nProvider>
             <AuthShell>
-              <ContactFormProvider>
-                <ReactQueryProvider>
+              <ReactQueryProvider>
                   <MainLayout>{children}</MainLayout>
                 </ReactQueryProvider>
-              </ContactFormProvider>
             </AuthShell>
           </I18nProvider>
         </ThemeProvider>

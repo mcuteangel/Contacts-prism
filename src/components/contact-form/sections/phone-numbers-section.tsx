@@ -33,7 +33,7 @@ export function PhoneNumbersSection() {
   ];
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-3">
       <div className="flex items-center justify-between">
         <h3 className="text-lg font-medium">شماره‌های تماس</h3>
         <Button
@@ -52,7 +52,7 @@ export function PhoneNumbersSection() {
           هنوز شماره‌ای اضافه نشده است
         </div>
       ) : (
-        <div className="space-y-4">
+        <div className="space-y-3">
           {fields.map((field, index) => (
             <div key={field.id} className="flex items-start gap-2">
               <div className="flex-1 grid grid-cols-1 md:grid-cols-2 gap-2">

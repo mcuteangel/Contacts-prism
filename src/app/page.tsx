@@ -2,24 +2,24 @@
 
 // ===== IMPORTS & DEPENDENCIES =====
 import React, { useEffect, useState, useCallback } from "react";
+import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { ContactService } from "@/services/contact-service";
 import type { ContactUI as UIContact, GroupUI as UIGroup } from "@/domain/ui-types";
 import { useLiveContacts, useLiveGroups, useLiveOutboxMap } from "@/hooks/use-live-data";
 import { useContacts, useGroups, useCreateContact, useUpdateContact, useDeleteContact } from "@/services/contact-service-with-query";
 import { useQueryClient } from "@tanstack/react-query";
 import { Toaster, toast } from "sonner";
-import { ContactFormDialog } from "@/components/contact-form-dialog";
 import { ContactList } from "@/components/contact-list";
 import { AdvancedFilters, type FilterValues } from "@/components/advanced-filters";
 import { EnhancedFilters } from "@/components/enhanced-filters";
 import { AdvancedSearchInput } from "@/components/advanced-search-input";
 import { NestedGroupsManagement } from "@/components/nested-groups-management";
-import { useContactForm } from "@/contexts/contact-form-context";
 import { useIsMobile } from "@/hooks/use-is-mobile";
 import { useOfflineCapabilities, useOfflineStatus } from "@/hooks/use-offline-capabilities";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Wifi, WifiOff, RefreshCw, AlertCircle } from "lucide-react";
+import { Wifi, WifiOff, RefreshCw, AlertCircle, UserPlus } from "lucide-react";
 
 // ===== UTILITY FUNCTIONS (HOOKS) =====
 /**
@@ -48,16 +48,7 @@ function useDebounce<T>(value: T, delay: number): T {
 
 // ===== CORE BUSINESS LOGIC (MAIN COMPONENT) =====
 export default function Home() {
-  // کد تست قبلی غیرفعال شد
-  // if (process.env.NODE_ENV === 'development') {
-  //   return (
-  //     <div className="p-4">
-  //       <h1 className="text-2xl font-bold mb-4">تست استایل‌های تیلویند</h1>
-  //       {/* TestComponent حذف شد */}
-  //     </div>
-  //   );
-  // }
-  // هم‌تراز با انواع مورد انتظار ContactList
+  const router = useRouter();
   const [contacts, setContacts] = useState<UIContact[]>([]);
   const [groups, setGroups] = useState<UIGroup[]>([]);
   const [searchTerm, setSearchTerm] = useState("");
@@ -129,15 +120,11 @@ export default function Home() {
   // مدیریت جستجو
   const handleSearchSubmit = useCallback((term: string) => {
     setSearchTerm(term);
-    // اعمال فیلترها و جستجو
-    // این تابع زمانی فراخوانی می‌شود که کاربر دکمه جستجو را بزند یا اینتر کند
   }, []);
 
   // مدیریت تغییرات جستجو
   const handleSearchChange = useCallback((term: string) => {
     setSearchTerm(term);
-    // اگر بخواهیم جستجو با تایپ کردن انجام شود (بدون نیاز به زدن اینتر)
-    // handleSearchSubmit(term);
   }, []);
 
   // فیلتر کردن مخاطبین بر اساس فیلترهای اعمال شده
@@ -228,8 +215,6 @@ export default function Home() {
   const liveGroups = useLiveGroups();
   const liveOutbox = useLiveOutboxMap("contacts");
   
-  // Use the global state from context for the form dialog
-  const { isContactFormOpen, editingContact, setEditingContact, closeContactForm } = useContactForm();
   const isMobile = useIsMobile();
 
   // Debounce the search term to avoid excessive database queries while typing
@@ -238,8 +223,6 @@ export default function Home() {
   // React Query hooks for data fetching and caching
   const { data: contactsData, isLoading: isContactsLoading, error: contactsError } = useContacts(debouncedSearchTerm);
   const { data: groupsData, isLoading: isGroupsLoading, error: groupsError } = useGroups();
-  const { mutate: createContact } = useCreateContact();
-  const { mutate: updateContact } = useUpdateContact();
   const { mutate: deleteContact } = useDeleteContact();
   const queryClient = useQueryClient();
 
@@ -275,17 +258,9 @@ export default function Home() {
       setOutboxMap(liveOutbox);
     }
   }, [liveOutbox]);
-
-  // با live hooks دیگر نیازی به refreshData نیست
-  const refreshData = () => {};
-
-  const handleContactSaved = () => {
-    refreshData();
-    closeContactForm();
-  };
   
   const handleEdit = (contact: UIContact) => {
-    setEditingContact(contact as any);
+    router.push(`/contacts/${contact.id}/edit`);
   };
 
   const handleDelete = async (id: string | number) => {
@@ -299,7 +274,6 @@ export default function Home() {
           return;
         }
         toast.success("مخاطب با موفقیت حذف شد!");
-        // نیازی به refreshData نیست؛ liveContacts خودکار آپدیت می‌شود
       } catch (error) {
         toast.error("حذف مخاطب با شکست مواجه شد.");
         console.error("Error deleting contact:", error);
@@ -343,7 +317,6 @@ export default function Home() {
     try {
       await ContactService.addGroup(groupName);
       toast.success("گروه با موفقیت اضافه شد!");
-      // نیازی به fetchGroups نیست؛ liveGroups خودکار به‌روزرسانی می‌شود
     } catch (error) {
       toast.error("افزودن گروه با شکست مواجه شد.");
       console.error("Error adding group:", error);
@@ -372,21 +345,23 @@ export default function Home() {
     <div className="min-h-screen flex flex-col bg-gradient-to-br from-blue-100 to-purple-100 dark:from-gray-900 dark:to-black">
       <Toaster richColors position="top-center" />
     
-
       <div className="flex-grow p-4 sm:p-8 flex flex-col items-center justify-center">
         <div className="w-full max-w-4xl glass p-6 rounded-lg shadow-lg backdrop-blur-md">
           <div className="space-y-6">
             <div className="space-y-6">
-              <div className="space-y-1">
-                <h1 className="text-2xl font-bold text-gray-900 dark:text-white">مخاطبین من</h1>
-                <p className="text-sm text-gray-600 dark:text-gray-400">
-                  مدیریت و سازماندهی مخاطبین شما
-                  {isOffline && (
-                    <span className="text-orange-600 dark:text-orange-400 ml-2">
-                      (حالت آفلاین فعال)
-                    </span>
-                  )}
-                </p>
+              <div className="flex justify-between items-center">
+                <div className="space-y-1">
+                  <h1 className="text-2xl font-bold text-gray-900 dark:text-white">مخاطبین من</h1>
+                  <p className="text-sm text-gray-600 dark:text-gray-400">
+                    مدیریت و سازماندهی مخاطبین شما
+                    {isOffline && (
+                      <span className="text-orange-600 dark:text-orange-400 ml-2">
+                        (حالت آفلاین فعال)
+                      </span>
+                    )}
+                  </p>
+                </div>
+                
               </div>
               <div className="w-full">
                 <AdvancedSearchInput
@@ -466,17 +441,6 @@ export default function Home() {
           </div>
         </div>
       </div>
-
-      <ContactFormDialog
-        isOpen={isContactFormOpen}
-        onOpenChange={(isOpen) => !isOpen && closeContactForm()}
-        editingContact={editingContact}
-        onContactSaved={handleContactSaved}
-        groups={groups}
-        onAddGroup={handleAddGroup}
-        onGroupsRefreshed={() => {}}
-      />
-
     </div>
   );
 }

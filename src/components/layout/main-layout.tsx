@@ -7,7 +7,7 @@ import { HeaderAuthStatus } from "./header";
 import { MobileNav } from "@/components/mobile-nav";
 import { DesktopSidebar } from "@/components/desktop-sidebar";
 import { Toaster } from "sonner";
-import { useContactForm } from "@/contexts/contact-form-context";
+import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Plus } from "lucide-react";
 import { AppLock } from "@/components/app-lock";
@@ -27,7 +27,6 @@ export function MainLayout({ children }: MainLayoutProps) {
   const [isUnlocked, setIsUnlocked] = useState(false);
   const [isThemeSelectorOpen, setIsThemeSelectorOpen] = useState(false);
   const [isColumnSelectorOpen, setIsColumnSelectorOpen] = useState(false);
-  const { openContactForm } = useContactForm();
 
   // Memoize the main page check to prevent recalculations
   const isMainPage = React.useMemo(() =>
@@ -66,16 +65,6 @@ export function MainLayout({ children }: MainLayoutProps) {
   const handleOpenSettings = () => {
     router.push('/settings');
   };
-
-  // گوش دادن به رویداد برای باز کردن فرم مخاطب
-  useEffect(() => {
-    const handleOpenContactForm = () => {
-      openContactForm();
-    };
-
-    window.addEventListener('open-contact-form', handleOpenContactForm);
-    return () => window.removeEventListener('open-contact-form', handleOpenContactForm);
-  }, [openContactForm]);
 
   // با useIsMobile دیگر حالت undefined نداریم؛ اسپلش لودر حذف شد
 
@@ -152,15 +141,14 @@ export function MainLayout({ children }: MainLayoutProps) {
       )}
       
       {isMainPage && (
-        <Button
-          className="fixed bottom-24 left-6 md:left-8 rounded-full h-14 w-14 shadow-lg flex items-center justify-center z-40"
-          onClick={() => {
-            window.dispatchEvent(new CustomEvent('open-contact-form'));
-          }}
-          aria-label="ایجاد مخاطب جدید"
-        >
-          <Plus size={24} />
-        </Button>
+        <Link href="/contacts/new" passHref>
+          <Button
+            className="fixed bottom-24 left-6 md:left-8 rounded-full h-14 w-14 shadow-lg flex items-center justify-center z-40"
+            aria-label="ایجاد مخاطب جدید"
+          >
+            <Plus size={24} />
+          </Button>
+        </Link>
       )}
       
       <Toaster richColors position="top-center" />
