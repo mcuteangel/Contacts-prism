@@ -49,7 +49,7 @@ export function AdvancedFilters({ groups, filters, onFilterChange, className = '
   const [openDate, setOpenDate] = useState(false);
   const [calendarType, setCalendarType] = useState<CalendarType>('jalali');
   const isMobile = useIsMobile();
-  const { formatDate, toggleCalendarType, getCalendarLabel } = useJalaliCalendar({ type: calendarType });
+  const { formatDate, formatDateWithDay, toggleCalendarType, getCalendarLabel } = useJalaliCalendar({ type: calendarType });
   const { dateRange, setDateRange, clearDateRange } = useDateRange();
 
   // مدیریت تغییرات گروه‌ها
@@ -211,7 +211,7 @@ export function AdvancedFilters({ groups, filters, onFilterChange, className = '
                     {formatDate(dateRange.from)} - {formatDate(dateRange.to)}
                   </>
                 ) : (
-                  dateRange.from ? formatDate(dateRange.from) : formatDate(dateRange.to)
+                  dateRange.from ? formatDateWithDay(dateRange.from) : formatDateWithDay(dateRange.to)
                 )
               ) : (
                 'تاریخ'
