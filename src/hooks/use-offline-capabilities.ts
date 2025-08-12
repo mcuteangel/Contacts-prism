@@ -13,7 +13,8 @@ import { useState, useEffect, useCallback } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { db, nowIso } from '@/database/db';
 import { ContactService } from '@/services/contact-service';
-import SyncService, { type SyncStats, type SyncOptions } from '@/services/sync-service';
+import { runSync, type SyncStats, type SyncOptions } from '@/services/sync-service-wrapper';
+import { ErrorManager } from '@/lib/error-manager';
 
 interface OfflineCapabilities {
   // وضعیت شبکه
@@ -89,7 +90,10 @@ export function useOfflineCapabilities(): OfflineCapabilities {
         
         setPendingChanges(outboxItems.length);
       } catch (error) {
-        console.error('Error checking pending changes:', error);
+        ErrorManager.logError(error as Error, {
+          component: 'useOfflineCapabilities',
+          action: 'checkPendingChanges'
+        });
       }
     };
 
@@ -133,7 +137,7 @@ export function useOfflineCapabilities(): OfflineCapabilities {
       setSyncError(null);
 
       const syncOptions = { ...DEFAULT_SYNC_OPTIONS, ...options };
-      const result = await SyncService.runSync(syncOptions);
+      const result = await runSync(syncOptions);
 
       if (result.ok) {
         setSyncStats(result.data);
@@ -149,12 +153,18 @@ export function useOfflineCapabilities(): OfflineCapabilities {
         console.log('Sync completed successfully:', result.data);
       } else {
         setSyncError(result.error);
-        console.error('Sync failed:', result.error);
+        ErrorManager.logError(new Error(result.error), {
+          component: 'useOfflineCapabilities',
+          action: 'performSync'
+        });
       }
     } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : 'Unknown sync error';
-      setSyncError(errorMessage);
-      console.error('Sync exception:', error);
+      const errorInstance = error instanceof Error ? error : new Error('Unknown sync error');
+      ErrorManager.logError(errorInstance, {
+        component: 'useOfflineCapabilities',
+        action: 'performSync'
+      });
+      setSyncError(errorInstance.message);
     } finally {
       setIsSyncing(false);
     }
@@ -221,7 +231,10 @@ export function useOfflineData() {
       
       console.log('Data saved offline successfully');
     } catch (error) {
-      console.error('Error saving offline data:', error);
+      ErrorManager.logError(error as Error, {
+        component: 'useOfflineCapabilities',
+        action: 'saveOfflineData'
+      });
       throw error;
     }
   }, []);
