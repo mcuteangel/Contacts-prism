@@ -23,6 +23,7 @@
  */
 
 import { db, type AuthSecretRow, nowIso } from "@/database/db";
+import { ErrorManager } from "@/lib/error-manager";
 
 // Small utilities
 const TEXT = new TextEncoder();
@@ -413,7 +414,11 @@ export const AuthService = {
       
       return isInactive;
     } catch (error) {
-      console.error('[AuthService] Error in shouldLock:', error);
+      const errorInstance = error instanceof Error ? error : new Error('Unknown error in shouldLock');
+      ErrorManager.logError(errorInstance, {
+        component: 'AuthService',
+        action: 'shouldLock'
+      });
       return false; // Don't lock on error
     }
   },

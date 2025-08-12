@@ -16,6 +16,7 @@ import {
 } from "@/components/ui/dialog";
 import { Plus } from "lucide-react";
 import { toast } from "sonner";
+import { ErrorManager } from "@/lib/error-manager";
 
 interface AddGroupDialogProps {
   onAddGroup: (groupName: string) => Promise<void>;
@@ -45,8 +46,12 @@ export function AddGroupDialog({ onAddGroup, onGroupAdded }: AddGroupDialogProps
       setIsOpen(false); // Close dialog
       onGroupAdded(); // Notify parent to refresh groups
     } catch (error) {
+      const errorInstance = error instanceof Error ? error : new Error('Error adding group');
+      ErrorManager.logError(errorInstance, {
+        component: 'AddGroupDialog',
+        action: 'handleSubmit'
+      });
       toast.error("افزودن گروه با شکست مواجه شد.");
-      console.error("Error adding group:", error);
     }
   };
 

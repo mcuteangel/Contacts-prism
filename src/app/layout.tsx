@@ -3,6 +3,7 @@ import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import { ThemeProvider } from "@/components/theme-provider";
 import { MainLayout } from "@/components/layout/main-layout";
+import { ErrorBoundary } from "@/components/error-boundary";
 
 import { AuthShell } from "./providers/auth-shell";
 import { getDirFromLang } from "@/lib/direction";
@@ -57,21 +58,23 @@ export default function RootLayout({
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >
-        <ThemeProvider
-          attribute="class"
-          defaultTheme="system"
-          enableSystem
-          disableTransitionOnChange
-        >
-          {/* احراز هویت و الزام ورود در شل کلاینتی */}
-          <I18nProvider>
-            <AuthShell>
-              <ReactQueryProvider>
-                  <MainLayout>{children}</MainLayout>
-                </ReactQueryProvider>
-            </AuthShell>
-          </I18nProvider>
-        </ThemeProvider>
+        <ErrorBoundary>
+          <ThemeProvider
+            attribute="class"
+            defaultTheme="system"
+            enableSystem
+            disableTransitionOnChange
+          >
+            {/* احراز هویت و الزام ورود در شل کلاینتی */}
+            <I18nProvider>
+              <AuthShell>
+                <ReactQueryProvider>
+                    <MainLayout>{children}</MainLayout>
+                  </ReactQueryProvider>
+              </AuthShell>
+            </I18nProvider>
+          </ThemeProvider>
+        </ErrorBoundary>
       </body>
     </html>
   );

@@ -4,6 +4,7 @@ import type { Contact } from "@/database/db";
 import QRCode from 'qrcode';
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
 import { saveAs } from 'file-saver';
+import { ErrorManager } from '@/lib/error-manager';
 
 /**
  * Interface for phone number information
@@ -215,8 +216,12 @@ export class DeviceIntegration {
       this.downloadQRCode(blob, fileName);
       
     } catch (error) {
-      console.error('Error in shareAsQR:', error);
-      const errorMessage = error instanceof Error ? error.message : 'خطای ناشناخته';
+      const errorInstance = error instanceof Error ? error : new Error('خطای ناشناخته');
+      ErrorManager.logError(errorInstance, {
+        component: 'DeviceIntegration',
+        action: 'shareAsQR'
+      });
+      const errorMessage = errorInstance.message;
       toast.error(`خطا در اشتراک‌گذاری کد QR: ${errorMessage}`);
       throw error;
     }
@@ -243,7 +248,11 @@ export class DeviceIntegration {
       
       toast.success('کد QR با موفقیت دانلود شد');
     } catch (error) {
-      console.error('Error downloading QR code:', error);
+      const errorInstance = error instanceof Error ? error : new Error('خطا در ذخیره‌سازی کد QR');
+      ErrorManager.logError(errorInstance, {
+        component: 'DeviceIntegration',
+        action: 'downloadQRCode'
+      });
       throw new Error('خطا در ذخیره‌سازی کد QR');
     }
   }

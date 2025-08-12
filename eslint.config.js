@@ -26,7 +26,24 @@ export default tseslint.config(
       ...nextPlugin.configs.recommended.rules,
       "react-refresh/only-export-components": "off",
       "no-unused-vars": ["warn", { "argsIgnorePattern": "_", "varsIgnorePattern": "_" }],
-      "no-console": ["warn", { "allow": ["warn", "error"] }]
+      "no-console": ["warn", { "allow": ["warn", "error"] }],
+      // Enhanced TypeScript rules
+      "@typescript-eslint/no-explicit-any": "error",
+      "@typescript-eslint/no-unused-vars": ["error", { "argsIgnorePattern": "^_" }],
+      "@typescript-eslint/prefer-nullish-coalescing": "error",
+      "@typescript-eslint/prefer-optional-chain": "error",
+      "@typescript-eslint/no-non-null-assertion": "error",
+      "@typescript-eslint/no-unnecessary-type-assertion": "error",
+      // React specific rules
+      "react-hooks/exhaustive-deps": "error",
+      "react/jsx-key": "error",
+      "react/no-array-index-key": "warn",
+      // Performance rules
+      "react/jsx-no-bind": ["warn", { "allowArrowFunctions": true }],
+      // Accessibility rules
+      "jsx-a11y/alt-text": "error",
+      "jsx-a11y/aria-role": "error",
+      "jsx-a11y/no-autofocus": "warn"
     }
   }
 );

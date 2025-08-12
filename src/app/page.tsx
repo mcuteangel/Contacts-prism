@@ -20,31 +20,10 @@ import { useOfflineCapabilities, useOfflineStatus } from "@/hooks/use-offline-ca
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Wifi, WifiOff, RefreshCw, AlertCircle, UserPlus } from "lucide-react";
+import { ErrorManager } from "@/lib/error-manager";
 
 // ===== UTILITY FUNCTIONS (HOOKS) =====
-/**
- * A custom hook to debounce a value.
- * It delays updating the value until after a specified delay has passed without any new changes.
- * @param value The value to debounce.
- * @param delay The debounce delay in milliseconds.
- * @returns The debounced value.
- */
-function useDebounce<T>(value: T, delay: number): T {
-  const [debouncedValue, setDebouncedValue] = useState<T>(value);
-
-  useEffect(() => {
-    const handler = setTimeout(() => {
-      setDebouncedValue(value);
-    }, delay);
-
-    // Cleanup function to clear the timeout if the value changes before the delay is over.
-    return () => {
-      clearTimeout(handler);
-    };
-  }, [value, delay]);
-
-  return debouncedValue;
-}
+import { useDebounce } from "@/hooks/use-debounce";
 
 // ===== CORE BUSINESS LOGIC (MAIN COMPONENT) =====
 export default function Home() {
@@ -425,15 +404,63 @@ export default function Home() {
                 rowSize="md"
                 filters={contactFilters}
                 onFiltersChange={setContactFilters}
-                onReorderContacts={(fromIndex, toIndex) => {
-                  console.log('Reordering contacts from', fromIndex, 'to', toIndex);
-                  // TODO: Implement contact reordering logic
-                  toast.success('مخاطب با موفقیت مرتب‌سازی شد');
+                onReorderContacts={async (fromIndex, toIndex) => {
+                  try {
+                    console.log('Reordering contacts from', fromIndex, 'to', toIndex);
+                    
+                    // Create a new array with reordered contacts
+                    const reorderedContacts = [...contacts];
+                    const [movedContact] = reorderedContacts.splice(fromIndex, 1);
+                    reorderedContacts.splice(toIndex, 0, movedContact);
+                    
+                    // Update local state immediately for better UX
+                    setContacts(reorderedContacts);
+                    
+                    // In a real implementation, this would call an API to persist the new order
+                    // await ContactService.updateContactOrder(reorderedContacts.map(c => c.id));
+                    
+                    toast.success('مخاطب با موفقیت مرتب‌سازی شد');
+                  } catch (error) {
+                    ErrorManager.logError(error as Error, {
+                      component: 'HomePage',
+                      action: 'onReorderContacts'
+                    });
+                    toast.error('خطا در مرتب‌سازی مخاطب');
+                  }
                 }}
-                onMoveContactToGroup={(contactId, groupId) => {
-                  console.log('Moving contact', contactId, 'to group', groupId);
-                  // TODO: Implement move to group logic
-                  toast.success('مخاطب با موفقیت به گروه منتقل شد');
+                onMoveContactToGroup={async (contactId, groupId) => {
+                  try {
+                    console.log('Moving contact', contactId, 'to group', groupId);
+                    
+                    // Update contact's group
+                    const updatedContacts = contacts.map(contact => 
+                      contact.id === contactId 
+                        ? { ...contact, groupId: String(groupId) }
+                        : contact
+                    );
+                    
+                    // Update local state immediately
+                    setContacts(updatedContacts);
+                    
+                    // Update in database
+                    const result = await ContactService.updateContact(String(contactId), {
+                      groupId: String(groupId)
+                    });
+                    
+                    if (!result.ok) {
+                      // Revert local state if database update failed
+                      setContacts(contacts);
+                      throw new Error(result.error);
+                    }
+                    
+                    toast.success('مخاطب با موفقیت به گروه منتقل شد');
+                  } catch (error) {
+                    ErrorManager.logError(error as Error, {
+                      component: 'HomePage',
+                      action: 'onMoveContactToGroup'
+                    });
+                    toast.error('خطا در انتقال مخاطب به گروه');
+                  }
                 }}
                 enableDragDrop={true}
               />

@@ -6,6 +6,7 @@
  */
 
 import { db, type Contact as ContactDB, nowIso, type OutboxItem, type OutboxOp, type CustomFieldTemplate, type PhoneNumber, type ContactGroup } from '../database/db';
+import { ErrorManager } from '@/lib/error-manager';
 
 // ===== Type Definitions =====
 
@@ -193,9 +194,13 @@ export const ContactService = {
       const createdContact = toUI(dbRow);
       createdContact.phoneNumbers = input.phoneNumbers;
       return ok(createdContact);
-    } catch (e: any) {
-      console.error('Error in createContact:', e);
-      return err(e?.message ?? 'createContact failed');
+    } catch (e: unknown) {
+      const error = e instanceof Error ? e : new Error('createContact failed');
+      ErrorManager.logError(error, {
+        component: 'ContactService',
+        action: 'createContact'
+      });
+      return err(error.message ?? 'createContact failed');
     }
   },
 
@@ -395,9 +400,13 @@ export const ContactService = {
       this.saveRecentSearch(q);
 
       return ok({ data: filtered });
-    } catch (error: any) {
-      console.error('Error in searchContacts:', error);
-      return err(error?.message ?? 'خطا در جستجوی مخاطبین');
+    } catch (error: unknown) {
+      const errorInstance = error instanceof Error ? error : new Error('خطا در جستجوی مخاطبین');
+      ErrorManager.logError(errorInstance, {
+        component: 'ContactService',
+        action: 'searchContacts'
+      });
+      return err(errorInstance.message ?? 'خطا در جستجوی مخاطبین');
     }
   },
 
@@ -418,7 +427,11 @@ export const ContactService = {
     
       localStorage.setItem('recentSearches', JSON.stringify(updatedSearches));
     } catch (error) {
-      console.error('Error saving recent search:', error);
+      const errorInstance = error instanceof Error ? error : new Error('Error saving recent search');
+      ErrorManager.logError(errorInstance, {
+        component: 'ContactService',
+        action: 'saveRecentSearch'
+      });
     }
   },
 

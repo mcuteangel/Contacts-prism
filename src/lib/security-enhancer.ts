@@ -557,7 +557,7 @@ class SecurityEnhancer {
       },
       sessions: {
         activeSessions: this.activeSessions.size,
-        averageSessionTime: 0 // TODO: Calculate average session time
+        averageSessionTime: this.calculateAverageSessionTime()
       },
       protections: {
         csp: this.config.enableCSP,
@@ -579,6 +579,20 @@ class SecurityEnhancer {
 
   private warn(component: string, message: string, data?: any): void {
     logger.warn(component, message, data);
+  }
+
+  private calculateAverageSessionTime(): number {
+    if (this.activeSessions.size === 0) return 0;
+    
+    const now = Date.now();
+    let totalTime = 0;
+    
+    for (const session of this.activeSessions.values()) {
+      const sessionTime = now - session.createdAt;
+      totalTime += sessionTime;
+    }
+    
+    return Math.round(totalTime / this.activeSessions.size / 1000); // Return in seconds
   }
 
   public async cleanup(): Promise<void> {

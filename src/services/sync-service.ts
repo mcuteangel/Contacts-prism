@@ -6,6 +6,15 @@
  */
 
 import { db, type OutboxItem, type OutboxOp, type OutboxStatus, nowIso } from "@/database/db";
+import type { 
+  ApiResponse, 
+  SyncPayload, 
+  SyncResponse, 
+  ServerPullResponse,
+  ContactSyncData,
+  GroupSyncData,
+  OutboxItemPayload
+} from "@/types/api";
 
 // نتایج API مانند
 type ApiOk<T> = { ok: true; data: T };
@@ -95,7 +104,7 @@ async function pushOutboxToServer(
         entity: it.entity,
         entityId: it.entityId,
         op: it.op,
-        version: (it as any).version ?? 1,
+        version: (it.payload as any)?.version ?? 1,
         payload: it.payload ?? {},
       })),
     };
@@ -142,8 +151,9 @@ async function pushOutboxToServer(
     }
 
     return ok({ appliedIds, conflicts, errors });
-  } catch (e: any) {
-    return err(e?.message ?? "pushOutboxToServer exception");
+  } catch (e: unknown) {
+    const error = e instanceof Error ? e : new Error('Unknown error');
+    return err(error.message ?? "pushOutboxToServer exception");
   }
 }
 
@@ -219,8 +229,9 @@ async function fetchServerPull(
     };
 
     return ok(payload);
-  } catch (e: any) {
-    return err(e?.message ?? "fetchServerPull exception");
+  } catch (e: unknown) {
+    const error = e instanceof Error ? e : new Error('Unknown error');
+    return err(error.message ?? "fetchServerPull exception");
   }
 }
 
@@ -335,9 +346,9 @@ async function pushOutbox(
             await db.outbox_queue.update(it.id!, {
               status: "error" as OutboxStatus,
               // فیلدهای اختیاری - اگر در schema وجود دارند:
-              // @ts-ignore
-              conflictMeta: { at: nowIso(), note: "server conflict/error" },
-            } as any);
+              // Adding conflict metadata for debugging
+              ...(conflicts > 0 && { conflictMeta: { at: nowIso(), note: "server conflict/error" } })
+            });
           }
         }
       });
@@ -395,20 +406,20 @@ async function pullDelta(
           user_id: c.user_id,
           first_name: c.first_name,
           last_name: c.last_name,
-          gender: (c as any).gender ?? "not_specified",
+          gender: (c.gender as 'male' | 'female' | 'other' | 'not_specified') ?? "not_specified",
           role: null, // role فقط برای نوع کاربر استفاده می‌شود
-          company: (c as any).company ?? null,
-          address: (c as any).address ?? null,
-          notes: (c as any).notes ?? null,
+          company: c.company ?? null,
+          address: c.address ?? null,
+          notes: c.notes ?? null,
           created_at: c.created_at ?? c.updated_at,
           updated_at: c.updated_at,
           _deleted_at: null,
           _version: 1,
           _conflict: false,
           // فیلدهای مفقود
-          phoneNumbers: (c as any).phoneNumbers ?? [],
-          position: (c as any).position ?? (c as any).role ?? null,
-          groupId: (c as any).groupId ?? null,
+          phoneNumbers: (c as ContactSyncData).phoneNumbers ?? [],
+          position: (c as ContactSyncData).position ?? c.role ?? null,
+          groupId: (c as ContactSyncData).groupId ?? null,
         });
         inserted++;
         contactsUpserts++;
@@ -418,11 +429,11 @@ async function pullDelta(
             ...local,
             first_name: c.first_name,
             last_name: c.last_name,
-            gender: (c as any).gender ?? local.gender,
-            role: (c as any).role ?? local.role,
-            company: (c as any).company ?? local.company,
-            address: (c as any).address ?? local.address,
-            notes: (c as any).notes ?? local.notes,
+            gender: (c.gender as 'male' | 'female' | 'other' | 'not_specified') ?? local.gender,
+            role: c.role ?? local.role,
+            company: c.company ?? local.company,
+            address: c.address ?? local.address,
+            notes: c.notes ?? local.notes,
             updated_at: c.updated_at,
             _deleted_at: null,
             _conflict: false,
@@ -438,12 +449,13 @@ async function pullDelta(
     for (const g of groups) {
       const local = await db.groups.get(g.id);
 
-      if ((g as any)._deleted_at || (g as any).deleted_at) {
+      const groupData = g as GroupSyncData;
+      if (groupData.deleted_at) {
         if (local) {
           // اگر سرور حذف نرم را گزارش می‌کند، در کلاینت هم soft کنیم
-          const deletedAt = (g as any)._deleted_at ?? (g as any).deleted_at ?? nowIso();
-          const next = { ...local, deleted_at: deletedAt, updated_at: (g as any).updated_at ?? deletedAt };
-          await db.groups.put(next as any);
+          const deletedAt = groupData.deleted_at ?? nowIso();
+          const next = { ...local, deleted_at: deletedAt, updated_at: groupData.updated_at ?? deletedAt };
+          await db.groups.put(next);
           deleted++;
           groupsDeletes++;
         }
@@ -459,22 +471,22 @@ async function pullDelta(
           created_at: g.created_at ?? g.updated_at,
           updated_at: g.updated_at,
           deleted_at: null,
-          version: (g as any).version ?? 1,
-        } as any);
+          version: groupData.version ?? 1,
+        });
         inserted++;
         groupsUpserts++;
       } else {
         // LWW برای گروه‌ها
-        if (isNewer((local as any).updated_at, (g as any).updated_at)) {
+        if (isNewer(local.updated_at, groupData.updated_at)) {
           const next = {
             ...local,
             name: g.name,
             color: g.color ?? null,
-            updated_at: (g as any).updated_at,
+            updated_at: groupData.updated_at,
             deleted_at: null,
-            version: (g as any).version ?? (local as any).version ?? 1,
+            version: groupData.version ?? local.version ?? 1,
           };
-          await db.groups.put(next as any);
+          await db.groups.put(next);
           updated++;
           groupsUpserts++;
         }
@@ -589,12 +601,13 @@ export const SyncService = {
         durationMs: log.durationMs,
         // فیلدهای تلمتری تکمیلی
         pushAttemptBatches: log.pushAttemptBatches,
-      } as any);
+      });
 
       return ok(stats);
-    } catch (e: any) {
+    } catch (e: unknown) {
+      const error = e instanceof Error ? e : new Error('Unknown error');
       log.ok = false;
-      log.error = e?.message ?? "runSync failed";
+      log.error = error.message ?? "runSync failed";
       log.endedAt = nowIso();
       // محاسبه مدت‌زمان در خطا هم
       try {
@@ -619,12 +632,12 @@ export const SyncService = {
           lastSyncBefore: log.lastSyncBefore ?? null,
           lastSyncAfter: log.lastSyncAfter ?? null,
           durationMs: log.durationMs,
-        } as any);
+        });
       } catch {
         // ignore logging failure
       }
 
-      return err(e?.message ?? "runSync failed");
+      return err(error.message ?? "runSync failed");
     }
   },
 };

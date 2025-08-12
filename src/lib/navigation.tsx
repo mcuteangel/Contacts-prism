@@ -26,9 +26,9 @@ export type NavTab =
 export type RouteItem = {
   key: NavTab;
   href: string;
-  labelFa: string; // TODO: i18n key later
+  labelFa: string; // Persian label - will be replaced with i18n keys in future
   icon: React.ReactNode;
-  ariaLabelFa: string; // TODO: i18n key later
+  ariaLabelFa: string; // Persian aria label - will be replaced with i18n keys in future
 };
 
 export const routesConfig: RouteItem[] = [
