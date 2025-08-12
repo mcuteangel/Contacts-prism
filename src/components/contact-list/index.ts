@@ -1,6 +1,6 @@
 // Main Contact List Components
-export { ContactList } from './contact-list';
-export default ContactList;
+export { ContactList } from '../contact-list';
+export { default } from '../contact-list';
 
 // Individual Row Component
 export { ContactRow, type ContactRowProps } from './contact-row';

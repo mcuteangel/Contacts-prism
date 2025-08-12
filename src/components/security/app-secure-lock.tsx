@@ -414,6 +414,11 @@ export function useAppSecureLock() {
   const redirectToLogin = React.useCallback(() => {
     window.dispatchEvent(new Event("app-lock:login"));
   }, []);
+
+  const enable = React.useCallback((enabled: boolean) => {
+    localStorage.setItem("app_lock_enabled", enabled.toString());
+    window.dispatchEvent(new CustomEvent("app-lock:toggle", { detail: { enabled } }));
+  }, []);
   
-  return { lockNow, redirectToLogin };
+  return { lockNow, redirectToLogin, enable };
 }

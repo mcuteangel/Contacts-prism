@@ -22,13 +22,14 @@ import { GroupsSection } from './contact-form/sections/groups-section';
 import { AdditionalInfoSection } from './contact-form/sections/additional-info-section';
 import { CustomFieldsSection } from './contact-form/sections/custom-fields-section';
 import { useRouter } from 'next/navigation';
+import { useAuth } from '@/context/auth-provider';
 
 type UIContact = {
   id?: number | string;
   firstName: string;
   lastName: string;
   phoneNumbers: { type: "mobile" | "home" | "work" | "other"; number: string }[];
-  gender?: "male" | "female" | "other";
+  gender?: "male" | "female" | "other" | "not_specified";
   notes?: string;
   position?: string;
   address?: string;
@@ -60,6 +61,7 @@ export function ContactForm({
   onAddGroup,
   onGroupsRefreshed,
 }: ContactFormProps) {
+  const { user } = useAuth();
   const router = useRouter();
   const { t, i18n } = useTranslation();
   const [showAdvancedFields, setShowAdvancedFields] = React.useState(false);
@@ -147,53 +149,102 @@ export function ContactForm({
   }, []);
 
   const onSubmit = async (values: BaseContactInput) => {
-    const invalid = (values.customFields || []).some(cf => {
-      const tpl = templates.find(t => t.name === cf.name && t.type === cf.type);
-      if (!tpl) return false;
-      if (tpl.required && !cf.value.trim()) {
-        ErrorManager.notifyUser("این فیلد الزامی است", "error");
-        return true;
-      }
-      if (tpl.type === 'list' && tpl.options && tpl.options.length > 0) {
-        if (!tpl.options.includes(cf.value)) {
-          ErrorManager.notifyUser("مقدار انتخاب شده معتبر نیست", "error");
+    console.log("Form submitted with values:", values);
+    
+    try {
+      // Validate custom fields
+      const invalid = (values.customFields || []).some(cf => {
+        const tpl = templates.find(t => t.name === cf.name && t.type === cf.type);
+        if (!tpl) return false;
+        if (tpl.required && !cf.value.trim()) {
+          ErrorManager.notifyUser("این فیلد الزامی است", "error");
           return true;
         }
+        if (tpl.type === 'list' && tpl.options && tpl.options.length > 0) {
+          if (!tpl.options.includes(cf.value)) {
+            ErrorManager.notifyUser("مقدار انتخاب شده معتبر نیست", "error");
+            return true;
+          }
+        }
+        return false;
+      });
+      
+      if (invalid) {
+        console.log("Custom field validation failed");
+        return;
       }
-      return false;
-    });
-    if (invalid) {
-      return;
-    }
 
-    try {
-      if (editingContact?.id != null) {
-        await executeAsync(async () => {
-          const result = await (ContactService as any).updateContact(String(editingContact.id), values);
-          if (!result?.ok) {
-            throw new Error(result?.error || "به‌روزرسانی مخاطب با شکست مواجه شد");
-          }
-          return result;
-        });
-        toast.success("مخاطب با موفقیت به‌روزرسانی شد!");
-      } else {
-        await executeAsync(async () => {
-          const result = await (ContactService as any).createContact(values);
-          if (!result?.ok) {
-            throw new Error(result?.error || "افزودن مخاطب با شکست مواجه شد");
-          }
-          return result;
-        });
-        toast.success("مخاطب با موفقیت اضافه شد!");
+      // Validate required fields
+      if (!values.firstName?.trim()) {
+        toast.error("نام مخاطب الزامی است");
+        return;
       }
-      router.push('/'); // Redirect to home page after saving
+
+      if (!values.phoneNumbers || values.phoneNumbers.length === 0 || !values.phoneNumbers[0]?.number?.trim()) {
+        toast.error("حداقل یک شماره تماس الزامی است");
+        return;
+      }
+
+      if (!user) {
+        toast.error("برای ذخیره مخاطب، لطفا ابتدا وارد شوید.");
+        console.error("Submit failed: User is not authenticated.");
+        return;
+      }
+
+      // Prepare contact data for service
+      const contactData = {
+        firstName: values.firstName.trim(),
+        lastName: values.lastName?.trim() || "",
+        phoneNumbers: values.phoneNumbers.filter(pn => pn.number?.trim()),
+        gender: values.gender,
+        notes: values.notes?.trim() || "",
+        position: values.position?.trim() || "",
+        address: values.address?.trim() || "",
+        groupId: values.groupId,
+        customFields: values.customFields || [],
+        userId: user.id,
+      };
+
+      console.log("Prepared contact data:", contactData);
+
+      // Execute the appropriate service call based on whether we're editing or creating
+      const result = await executeAsync(async () => {
+        if (editingContact?.id != null) {
+          console.log("Updating existing contact:", editingContact.id);
+          const updateResult = await ContactService.updateContact(String(editingContact.id), contactData);
+          console.log("Update result:", updateResult);
+          if (!updateResult?.ok) {
+            throw new Error(updateResult?.error || "به‌روزرسانی مخاطب با شکست مواجه شد");
+          }
+          return updateResult;
+        } else {
+          console.log("Creating new contact");
+          const createResult = await ContactService.createContact(contactData);
+          console.log("Create result:", createResult);
+          if (!createResult?.ok) {
+            throw new Error(createResult?.error || "افزودن مخاطب با شکست مواجه شد");
+          }
+          return createResult;
+        }
+      });
+
+      // If we get here, the operation was successful
+      if (result?.ok) {
+        toast.success(
+          editingContact?.id 
+            ? "مخاطب با موفقیت به‌روزرسانی شد!"
+            : "مخاطب با موفقیت اضافه شد!"
+        );
+        
+        // Redirect to home page after a short delay to show the success message
+        setTimeout(() => {
+          router.push('/');
+        }, 1000);
+      }
+      
     } catch (error) {
       console.error("خطا در ارسال فرم:", error);
-      ErrorManager.logError(error as Error, {
-        component: "ContactForm",
-        action: editingContact ? "update" : "create"
-      });
-      toast.error("خطایی در ارسال فرم رخ داد. لطفاً دوباره تلاش کنید.");
+      // Don't show the error toast here as useErrorHandler already handles it
     }
   };
 
@@ -239,7 +290,7 @@ export function ContactForm({
                     <Select
                       dir={i18n.dir()}
                       value={methods.watch('gender') || ''}
-                      onValueChange={(value) => methods.setValue('gender', value as 'male' | 'female' | 'other' || undefined)}
+                      onValueChange={(value) => methods.setValue('gender', value as 'male' | 'female' | 'other' | 'not_specified' || undefined)}
                     >
                       <SelectTrigger id="gender" className="w-fit">
                         <SelectValue placeholder="انتخاب نشده" />
@@ -283,11 +334,11 @@ export function ContactForm({
                   {...methods.register('address')}
                   placeholder="آدرس کامل"
                   rows={2}
-                  className={methods.formState.errors.address ? 'border-red-500' : ''}
+                  className={methods.formState.errors.address?.message ? 'border-red-500' : ''}
                 />
                 {methods.formState.errors.address && (
                   <p className="text-sm text-red-500">
-                    {String(methods.formState.errors.address.message || '')}
+                    {String(methods.formState.errors.address?.message || '')}
                   </p>
                 )}
               </div>
@@ -348,6 +399,19 @@ export function ContactForm({
           >
             انصراف
           </Button>
+          {process.env.NODE_ENV === 'development' && (
+            <Button 
+              type="button" 
+              variant="ghost" 
+              size="sm"
+              onClick={() => {
+                console.log("Current form values:", methods.getValues());
+                console.log("Form errors:", methods.formState.errors);
+              }}
+            >
+              Debug
+            </Button>
+          )}
         </div>
       </form>
     </FormProvider>

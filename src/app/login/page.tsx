@@ -29,13 +29,43 @@ export default function LoginPage() {
     }
   }, [user, router]);
 
+  // تابع تبدیل خطاهای انگلیسی به فارسی
+  const translateError = (error: string): string => {
+    const errorMap: Record<string, string> = {
+      'Invalid login credentials': 'اطلاعات ورود نامعتبر است',
+      'Email not confirmed': 'ایمیل تأیید نشده است',
+      'Too many requests': 'تعداد درخواست‌ها زیاد است، لطفاً کمی صبر کنید',
+      'User not found': 'کاربر یافت نشد',
+      'Invalid email': 'فرمت ایمیل نامعتبر است',
+      'Password should be at least 6 characters': 'رمز عبور باید حداقل ۶ کاراکتر باشد',
+      'Network error': 'خطای شبکه، لطفاً اتصال اینترنت خود را بررسی کنید',
+      'Server error': 'خطای سرور، لطفاً بعداً تلاش کنید'
+    };
+
+    // جستجوی دقیق
+    if (errorMap[error]) {
+      return errorMap[error];
+    }
+
+    // جستجوی جزئی
+    for (const [englishError, persianError] of Object.entries(errorMap)) {
+      if (error.toLowerCase().includes(englishError.toLowerCase())) {
+        return persianError;
+      }
+    }
+
+    // اگر ترجمه‌ای پیدا نشد، خطای اصلی را برگردان
+    return error;
+  };
+
   const onSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setSubmitting(true);
     setError(null);
+    
     const { error } = await signInWithPassword(email.trim(), password);
     if (error) {
-      setError(error);
+      setError(translateError(error));
       setSubmitting(false);
       return;
     }
@@ -95,7 +125,11 @@ export default function LoginPage() {
               </div>
               {error && (
                 <div className="rounded-md bg-destructive/15 text-destructive text-sm px-3 py-2 border border-destructive/30 backdrop-blur-sm">
-                  {error}
+                  <div className="font-medium">خطا در ورود:</div>
+                  <div className="mt-1">{error}</div>
+                  <div className="mt-2 text-xs text-muted-foreground">
+                    اگر حساب کاربری ندارید، ابتدا در Supabase Dashboard یک کاربر ایجاد کنید.
+                  </div>
                 </div>
               )}
               <Button

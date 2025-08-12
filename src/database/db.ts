@@ -47,15 +47,15 @@ export type OutboxEntity =
  */
 export type Contact = {
   phoneNumbers: any;
-  position: unknown;
-  groupId: string;
+  position: string | null;
+  groupId: string | null;
   id: UUID;
   user_id: UUID;
   first_name: string;
   last_name: string;
   /** جنسیت */
   gender: Gender;
-  role: string | null;
+  role: string | null; // این فیلد فقط برای سازگاری با Supabase، در عمل null خواهد بود
   company: string | null;
   address: string | null;
   notes: string | null;
@@ -369,10 +369,10 @@ class PrismContactsDB extends Dexie {
       // سینتکس Dexie: 'کلید_اصلی, ایندکس1, ایندکس2, [ایندکس_ترکیبی1+ایندکس_ترکیبی2]'
       
       // ایندکس‌های جدول مخاطبین
-      contacts: 'id, user_id, updated_at, [_deleted_at], [_conflict]',
+      contacts: 'id, user_id, updated_at, [_deleted_at], [_conflict], phoneNumbers',
       
       // ایندکس‌های جدول شماره تلفن‌ها
-      phone_numbers: 'id, user_id, contact_id',
+      phone_numbers: 'id, user_id, contact_id, phone_number',
       
       // ایندکس‌های جدول آدرس‌های ایمیل
       email_addresses: 'id, user_id, contact_id',
@@ -442,6 +442,20 @@ class PrismContactsDB extends Dexie {
     // نسخه 6: اضافه کردن ایندکس group_id به جدول contact_groups
     this.version(6).stores({
       contact_groups: '[contact_id+group_id], user_id, group_id',
+    });
+
+    // نسخه 7: اضافه کردن ایندکس‌های جدید برای بهبود عملیات‌های مخاطبین و شماره تلفن‌ها
+    this.version(7).stores({
+      contacts: 'id, user_id, updated_at, [_deleted_at], [_conflict], phoneNumbers',
+      phone_numbers: 'id, user_id, contact_id, phone_number',
+    }).upgrade(async (tx) => {
+      // برای رکوردهای موجود در مخاطبین، فیلد phoneNumbers رو مقداردهی اولیه کن
+      const contacts = await tx.table('contacts').toArray();
+      for (const contact of contacts) {
+        if (!contact.phoneNumbers) {
+          await tx.table('contacts').update(contact.id, { phoneNumbers: [] });
+        }
+      }
     });
 
     // ===== Initialize Table Mappings =====

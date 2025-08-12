@@ -5,7 +5,7 @@
  * - پاسخ‌ها به‌صورت API-like: { ok, data, error }
  */
 
-import { db, type Contact as ContactDB, nowIso, type OutboxItem, type OutboxOp, type CustomFieldTemplate } from '../database/db';
+import { db, type Contact as ContactDB, nowIso, type OutboxItem, type OutboxOp, type CustomFieldTemplate, type PhoneNumber, type ContactGroup } from '../database/db';
 
 // ===== Type Definitions =====
 
@@ -50,8 +50,8 @@ function toDB(ui: ContactUI): ContactDB {
     user_id: ui.userId ?? "anonymous-user",
     first_name: ui.firstName,
     last_name: ui.lastName,
-    gender: 'not_specified',
-    role: ui.position ?? null,
+    gender: (ui.gender === 'male' || ui.gender === 'female' || ui.gender === 'other' || ui.gender === 'not_specified') ? ui.gender : 'not_specified',
+    role: null, // role فقط برای نوع کاربر در profiles استفاده می‌شود، نه برای مخاطبین
     company: ui.company ?? null,
     address: ui.address ?? null,
     notes: ui.notes ?? null,
@@ -60,10 +60,10 @@ function toDB(ui: ContactUI): ContactDB {
     _deleted_at: ui.deletedAt ?? null,
     _version: ui.version ?? 1,
     _conflict: ui.conflict ?? false,
-    // Add the missing required properties with default values
-    phoneNumbers: [], // Will be handled separately in the phoneNumbers table
+    // These fields exist in the database schema but aren't used in the current implementation
+    phoneNumbers: Array.isArray(ui.phoneNumbers) ? ui.phoneNumbers : [],
     position: ui.position ?? null,
-    groupId: '' // Will be set when adding to a group
+    groupId: ui.groupId && ui.groupId !== '' && ui.groupId !== 'null' && ui.groupId !== 'undefined' ? String(ui.groupId) : null
   };
 }
 
@@ -73,11 +73,13 @@ export function toUI(row: ContactDB): ContactUI {
     userId: row.user_id,
     firstName: row.first_name,
     lastName: row.last_name,
-    position: row.role ?? undefined,
+    gender: row.gender as "male" | "female" | "other" | "not_specified" | undefined,
+    position: (row as any).position ?? undefined,
     company: row.company ?? null,
     address: row.address ?? null,
     notes: row.notes ?? null,
-    groupId: (row as any).group_id ?? (row as any).groupId ?? undefined,
+    groupId: (row as any).group_id || (row as any).groupId || undefined,
+    phoneNumbers: (row as any).phoneNumbers ?? [],
     createdAt: row.created_at,
     updatedAt: row.updated_at,
     deletedAt: (row as any)._deleted_at ?? null,
@@ -128,19 +130,71 @@ export const ContactService = {
   // ایجاد مخاطب (لوکال + صف)
   async createContact(input: Omit<ContactUI, 'id' | 'createdAt' | 'updatedAt'>): Promise<ApiResult<ContactUI>> {
     try {
-      const dbRow = toDB(input as ContactUI);
+      const contactId = crypto.randomUUID();
       const now = nowIso();
+      
+      const dbRow = toDB({ ...input, id: contactId } as ContactUI);
       dbRow.created_at = now;
       dbRow.updated_at = now;
       dbRow._version = 1;
 
-      await db.transaction('rw', db.contacts, db.outbox_queue, async () => {
+      await db.transaction('rw', db.contacts, db.phone_numbers, db.contact_groups, db.outbox_queue, async () => {
+        // Add contact
         await db.contacts.add(dbRow);
         await enqueue('contacts', dbRow.id, 'insert', dbRow);
+
+        // Add phone numbers
+        if (input.phoneNumbers && input.phoneNumbers.length > 0) {
+          for (const phone of input.phoneNumbers) {
+            if (phone.number?.trim()) {
+              const phoneNumber = phone.number.trim();
+              
+              // Check if phone number already exists
+              const existingPhone = await db.phone_numbers
+                .where('phone_number')
+                .equals(phoneNumber)
+                .first();
+              
+              if (existingPhone) {
+                // Skip adding duplicate phone number
+                console.warn(`Phone number ${phoneNumber} already exists, skipping...`);
+                continue;
+              }
+              
+              const phoneId = crypto.randomUUID();
+              const phoneRow: PhoneNumber = {
+                id: phoneId,
+                user_id: dbRow.user_id,
+                contact_id: contactId,
+                phone_type: phone.type || 'mobile',
+                phone_number: phoneNumber,
+                created_at: now,
+              };
+              await db.phone_numbers.add(phoneRow);
+              await enqueue('phone_numbers', phoneId, 'insert', phoneRow);
+            }
+          }
+        }
+
+        // Add to group if specified
+        if (input.groupId) {
+          const contactGroupRow: ContactGroup = {
+            contact_id: contactId,
+            group_id: String(input.groupId),
+            user_id: dbRow.user_id,
+            assigned_at: now,
+          };
+          await db.contact_groups.add(contactGroupRow);
+          await enqueue('contact_groups', `${contactId}_${input.groupId}`, 'insert', contactGroupRow);
+        }
       });
 
-      return ok(toUI(dbRow));
+      // Return the created contact with phone numbers
+      const createdContact = toUI(dbRow);
+      createdContact.phoneNumbers = input.phoneNumbers;
+      return ok(createdContact);
     } catch (e: any) {
+      console.error('Error in createContact:', e);
       return err(e?.message ?? 'createContact failed');
     }
   },
@@ -152,7 +206,11 @@ export const ContactService = {
       if (!row) return err('Contact not found');
 
       const currentUI = toUI(row);
-      const nextUI: ContactUI = { ...currentUI, ...patch, id };
+      // فیلتر کردن فیلدهای undefined از patch
+      const cleanPatch = Object.fromEntries(
+        Object.entries(patch).filter(([_, value]) => value !== undefined)
+      );
+      const nextUI: ContactUI = { ...currentUI, ...cleanPatch, id };
       const nextDB = toDB(nextUI);
       nextDB.created_at = row.created_at;
       nextDB.updated_at = nowIso();
@@ -532,7 +590,7 @@ export const ContactService = {
             id: c.id,
             firstName: c.first_name,
             lastName: c.last_name,
-            position: c.role,
+            position: (c as any).position,
             company: c.company,
             address: c.address,
             notes: c.notes,
@@ -649,7 +707,7 @@ export const ContactService = {
               user_id: contact.user_id || 'imported-user',
               first_name: contact.firstName,
               last_name: contact.lastName,
-              role: contact.position || null,
+              role: null, // role فقط برای نوع کاربر استفاده می‌شود
               company: contact.company || null,
               address: contact.address || null,
               notes: contact.notes || null,
@@ -662,7 +720,7 @@ export const ContactService = {
               // اضافه کردن فیلدهای اجباری
               phoneNumbers: contact.phoneNumbers || [],
               position: contact.position || null,
-              groupId: contact.groupId || ''
+              groupId: contact.groupId || null
             });
 
             // اضافه کردن به صف همگام‌سازی
@@ -849,6 +907,67 @@ export const ContactService = {
       return ok(null);
     } catch (e: any) {
       return err(e?.message ?? 'Failed to delete custom field template');
+    }
+  },
+
+  /**
+   * انتقال داده‌های role به position برای مخاطبین موجود
+   * این تابع یک بار اجرا می‌شود تا داده‌های قدیمی را اصلاح کند
+   */
+  async migrateRoleToPosition(): Promise<ApiResult<{ migrated: number }>> {
+    try {
+      const contacts = await db.contacts.toArray();
+      let migratedCount = 0;
+
+      await db.transaction('rw', db.contacts, async () => {
+        for (const contact of contacts) {
+          // اگر role دارد اما position ندارد، role را به position منتقل کن
+          if (contact.role && !(contact as any).position) {
+            const updatedContact = {
+              ...contact,
+              position: contact.role,
+              role: null, // role را پاک کن
+              updated_at: nowIso(),
+              _version: (contact._version ?? 1) + 1
+            };
+            
+            await db.contacts.put(updatedContact);
+            migratedCount++;
+          }
+        }
+      });
+
+      console.log(`Migrated ${migratedCount} contacts from role to position`);
+      return ok({ migrated: migratedCount });
+    } catch (error: any) {
+      console.error('Error in migrateRoleToPosition:', error);
+      return err(error?.message ?? 'Migration failed');
+    }
+  },
+
+  /**
+   * مقداردهی اولیه و migration های لازم
+   */
+  async initialize(): Promise<ApiResult<{ migrations: { roleToPosition: number } }>> {
+    try {
+      // اجرای migration برای انتقال role به position
+      const migrationResult = await this.migrateRoleToPosition();
+      
+      if (!migrationResult.ok) {
+        return err(`Migration failed: ${migrationResult.error}`);
+      }
+
+      // مقداردهی اولیه قالب‌های فیلد سفارشی
+      await this.seedDefaultCustomFieldTemplates();
+
+      return ok({
+        migrations: {
+          roleToPosition: migrationResult.data.migrated
+        }
+      });
+    } catch (error: any) {
+      console.error('Error in ContactService.initialize:', error);
+      return err(error?.message ?? 'Initialization failed');
     }
   },
 };

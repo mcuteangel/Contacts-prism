@@ -396,7 +396,7 @@ async function pullDelta(
           first_name: c.first_name,
           last_name: c.last_name,
           gender: (c as any).gender ?? "not_specified",
-          role: (c as any).role ?? null,
+          role: null, // role فقط برای نوع کاربر استفاده می‌شود
           company: (c as any).company ?? null,
           address: (c as any).address ?? null,
           notes: (c as any).notes ?? null,
@@ -405,6 +405,10 @@ async function pullDelta(
           _deleted_at: null,
           _version: 1,
           _conflict: false,
+          // فیلدهای مفقود
+          phoneNumbers: (c as any).phoneNumbers ?? [],
+          position: (c as any).position ?? (c as any).role ?? null,
+          groupId: (c as any).groupId ?? null,
         });
         inserted++;
         contactsUpserts++;

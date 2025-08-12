@@ -60,7 +60,7 @@ export function PhoneNumbersSection({ dir }: { dir?: 'ltr' | 'rtl' }) {
                   <Label htmlFor={`phone-type-${index}`}>نوع</Label>
                   <Select
                     dir={dir}
-                    defaultValue={field.type}
+                    value={phoneNumbers?.[index]?.type || field.type}
                     onValueChange={(value: 'mobile' | 'home' | 'work' | 'other') => {
                       // Update the field value using setValue
                       setValue(`phoneNumbers.${index}.type`, value);
@@ -86,7 +86,7 @@ export function PhoneNumbersSection({ dir }: { dir?: 'ltr' | 'rtl' }) {
                       id={`phone-number-${index}`}
                       {...register(`phoneNumbers.${index}.number`)}
                       placeholder="مثال: ۰۹۱۲۳۴۵۶۷۸۹"
-                      className={errors.phoneNumbers && Array.isArray(errors.phoneNumbers) && errors.phoneNumbers[index]?.number ? 'border-red-500' : ''}
+                      className={errors.phoneNumbers && Array.isArray(errors.phoneNumbers) && errors.phoneNumbers[index]?.number?.message ? 'border-red-500' : ''}
                     />
                     {fields.length > 1 && (
                       <Button

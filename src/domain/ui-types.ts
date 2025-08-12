@@ -43,6 +43,7 @@ export type ContactUI = {
   lastName: string;
 
   // optional display fields
+  gender?: "male" | "female" | "other" | "not_specified";
   position?: string;
   company?: string | null;
   address?: string | null;

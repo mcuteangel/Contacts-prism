@@ -90,7 +90,7 @@ async function webauthnDeriveWrappingKey(userId: string, forRegistration: boolea
       { type: "public-key", alg: -257 as COSEAlgorithmIdentifier }, // RS256
     ];
     const pubKey: PublicKeyCredentialCreationOptions = {
-      challenge,
+      challenge: challenge as BufferSource,
       rp: { name: "PRISM Contacts" },
       user: {
         id: TEXT.encode(userId),
@@ -110,7 +110,7 @@ async function webauthnDeriveWrappingKey(userId: string, forRegistration: boolea
   // Get assertion to sign a fresh challenge and derive a KEK from signature bytes
   const assertionChallenge = await randomBytes(32);
   const request: PublicKeyCredentialRequestOptions = {
-    challenge: assertionChallenge,
+    challenge: assertionChallenge as BufferSource,
     userVerification: "preferred",
     timeout: 60_000,
   };
@@ -129,7 +129,7 @@ async function webauthnDeriveWrappingKey(userId: string, forRegistration: boolea
   const base = await crypto.subtle.importKey("raw", entropy, "PBKDF2", false, ["deriveBits", "deriveKey"]);
   const salt = await randomBytes(16);
   const kek = await crypto.subtle.deriveKey(
-    { name: "PBKDF2", salt, iterations: 100_000, hash: "SHA-256" },
+    { name: "PBKDF2", salt: salt as BufferSource, iterations: 100_000, hash: "SHA-256" },
     base,
     { name: "AES-GCM", length: 256 },
     true,
@@ -149,7 +149,7 @@ async function deriveKeyFromPin(pin: string, saltB64?: string, iterations?: numb
   const iters = iterations ?? 200_000;
   const base = await crypto.subtle.importKey("raw", TEXT.encode(pin), "PBKDF2", false, ["deriveKey"]);
   const key = await crypto.subtle.deriveKey(
-    { name: "PBKDF2", salt, iterations: iters, hash: "SHA-256" },
+    { name: "PBKDF2", salt: salt as BufferSource, iterations: iters, hash: "SHA-256" },
     base,
     { name: "AES-GCM", length: 256 },
     true,
@@ -162,13 +162,13 @@ async function deriveKeyFromPin(pin: string, saltB64?: string, iterations?: numb
 async function wrapMasterKey(master: CryptoKey, kek: CryptoKey) {
   const raw = await crypto.subtle.exportKey("raw", master);
   const iv = await randomBytes(12);
-  const cipher = await crypto.subtle.encrypt({ name: "AES-GCM", iv }, kek, raw);
+  const cipher = await crypto.subtle.encrypt({ name: "AES-GCM", iv: iv as BufferSource }, kek, raw);
   return { cipherB64: toBase64(cipher), ivB64: toBase64(iv) };
 }
 async function unwrapMasterKey(wrapped: { cipherB64: string; ivB64: string }, kek: CryptoKey): Promise<CryptoKey> {
   const iv = fromBase64(wrapped.ivB64);
   const cipher = fromBase64(wrapped.cipherB64);
-  const raw = await crypto.subtle.decrypt({ name: "AES-GCM", iv }, kek, cipher);
+  const raw = await crypto.subtle.decrypt({ name: "AES-GCM", iv: iv as BufferSource }, kek, cipher as BufferSource);
   return importRawAesKey(raw);
 }
 
@@ -176,13 +176,13 @@ async function unwrapMasterKey(wrapped: { cipherB64: string; ivB64: string }, ke
 async function encryptBlob(master: CryptoKey, plain: AuthBlobPlain): Promise<EncryptedBlob> {
   const iv = await randomBytes(12);
   const data = TEXT.encode(JSON.stringify(plain));
-  const cipher = await crypto.subtle.encrypt({ name: "AES-GCM", iv }, master, data);
+  const cipher = await crypto.subtle.encrypt({ name: "AES-GCM", iv: iv as BufferSource }, master, data);
   return { cipherB64: toBase64(cipher), ivB64: toBase64(iv) };
 }
 async function decryptBlob(master: CryptoKey, blob: EncryptedBlob): Promise<AuthBlobPlain> {
   const iv = fromBase64(blob.ivB64);
   const cipher = fromBase64(blob.cipherB64);
-  const plainBuf = await crypto.subtle.decrypt({ name: "AES-GCM", iv }, master, cipher);
+  const plainBuf = await crypto.subtle.decrypt({ name: "AES-GCM", iv: iv as BufferSource }, master, cipher as BufferSource);
   return JSON.parse(TEXT_DEC.decode(plainBuf));
 }
 

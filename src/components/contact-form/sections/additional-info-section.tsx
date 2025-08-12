@@ -18,11 +18,11 @@ export function AdditionalInfoSection() {
             {...register('notes')}
             placeholder="یادداشت‌های مربوط به مخاطب"
             rows={3}
-            className={errors.notes ? 'border-red-500' : ''}
+            className={errors.notes?.message ? 'border-red-500' : ''}
           />
           {errors.notes && (
             <p className="text-sm text-red-500">
-              {String(errors.notes.message || '')}
+              {String(errors.notes?.message || '')}
             </p>
           )}
         </div>

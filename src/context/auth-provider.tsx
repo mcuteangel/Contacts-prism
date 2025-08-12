@@ -2,6 +2,8 @@
 
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
 import { supabaseClient } from "@/integrations/supabase/client";
+import { db } from "@/database/db";
+import { initializeContactService } from "@/lib/contact-service-init";
 
 type Role = "admin" | "user" | null;
 
@@ -40,6 +42,104 @@ async function fetchRoleForUser(userId: string): Promise<Role> {
   return role;
 }
 
+// توابع مدیریت session محلی
+type LocalSession = {
+  session: import("@supabase/supabase-js").Session;
+  user: import("@supabase/supabase-js").User;
+  role: Role;
+  savedAt: string;
+  expiresAt: string;
+};
+
+const LOCAL_SESSION_KEY = 'auth:local_session';
+const SESSION_DURATION = 7 * 24 * 60 * 60 * 1000; // 7 روز
+
+async function saveLocalSession(data: { session: any; user: any; role: Role }) {
+  try {
+    const now = new Date().toISOString();
+    const expiresAt = new Date(Date.now() + SESSION_DURATION).toISOString();
+    
+    const localSession: LocalSession = {
+      session: data.session,
+      user: data.user,
+      role: data.role,
+      savedAt: now,
+      expiresAt,
+    };
+
+    // ذخیره در IndexedDB
+    await db.sync_meta.put({
+      key: LOCAL_SESSION_KEY,
+      value: localSession,
+    });
+
+    console.log('[AuthProvider] Local session saved, expires at:', expiresAt);
+  } catch (error) {
+    console.error('[AuthProvider] Error saving local session:', error);
+  }
+}
+
+async function getLocalSession(): Promise<LocalSession | null> {
+  try {
+    const record = await db.sync_meta.get(LOCAL_SESSION_KEY);
+    if (!record || !record.value) {
+      return null;
+    }
+    return record.value as LocalSession;
+  } catch (error) {
+    console.error('[AuthProvider] Error getting local session:', error);
+    return null;
+  }
+}
+
+async function clearLocalSession() {
+  try {
+    await db.sync_meta.delete(LOCAL_SESSION_KEY);
+    console.log('[AuthProvider] Local session cleared');
+  } catch (error) {
+    console.error('[AuthProvider] Error clearing local session:', error);
+  }
+}
+
+function isSessionValid(localSession: LocalSession): boolean {
+  const now = new Date();
+  const expiresAt = new Date(localSession.expiresAt);
+  
+  if (now > expiresAt) {
+    console.log('[AuthProvider] Local session expired');
+    return false;
+  }
+
+  // بررسی اعتبار session خود Supabase
+  if (!localSession.session || !localSession.session.access_token) {
+    console.log('[AuthProvider] Invalid session structure');
+    return false;
+  }
+
+  // بررسی expire time توکن
+  if (localSession.session.expires_at) {
+    const tokenExpiresAt = new Date(localSession.session.expires_at * 1000);
+    if (now > tokenExpiresAt) {
+      console.log('[AuthProvider] Session token expired');
+      return false;
+    }
+  }
+
+  return true;
+}
+
+async function cleanupExpiredSessions() {
+  try {
+    const localSession = await getLocalSession();
+    if (localSession && !isSessionValid(localSession)) {
+      console.log('[AuthProvider] Cleaning up expired local session');
+      await clearLocalSession();
+    }
+  } catch (error) {
+    console.error('[AuthProvider] Error cleaning up expired sessions:', error);
+  }
+}
+
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [state, setState] = useState<AuthState>({
     loading: true,
@@ -53,32 +153,84 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const loadInitial = useCallback(async () => {
     setState((s) => ({ ...s, loading: true, error: null }));
-    const { data: sessionData, error: sessionError } = await supabaseClient.auth.getSession();
-    if (sessionError) {
+    
+    try {
+      // ابتدا بررسی کن که آیا session محلی معتبر وجود دارد
+      const localSession = await getLocalSession();
+      if (localSession && isSessionValid(localSession)) {
+        console.log('[AuthProvider] Using valid local session, expires at:', localSession.expiresAt);
+        setState({
+          loading: false,
+          session: localSession.session,
+          user: localSession.user,
+          role: localSession.role,
+          error: null,
+          lastActivityAt: Date.now(),
+        });
+        return;
+      } else if (localSession) {
+        console.log('[AuthProvider] Local session found but invalid, will fetch from server');
+      } else {
+        console.log('[AuthProvider] No local session found, will fetch from server');
+      }
+
+      // اگر session محلی نداریم یا منقضی شده، از سرور بگیر
+      console.log('[AuthProvider] Fetching session from server');
+      const { data: sessionData, error: sessionError } = await supabaseClient.auth.getSession();
+      if (sessionError) {
+        await clearLocalSession();
+        setState({
+          loading: false,
+          session: null,
+          user: null,
+          role: null,
+          error: sessionError.message,
+        });
+        return;
+      }
+      
+      const session = sessionData.session ?? null;
+      const user = session?.user ?? null;
+
+      let role: Role = null;
+      if (user?.id) {
+        role = await fetchRoleForUser(user.id);
+      }
+
+      // ذخیره session در دیتابیس محلی
+      if (session && user) {
+        await saveLocalSession({ session, user, role });
+      }
+
+      setState({
+        loading: false,
+        session,
+        user,
+        role,
+        error: null,
+        lastActivityAt: Date.now(),
+      });
+
+      // مقداردهی اولیه ContactService اگر کاربر وارد شده باشد
+      if (user) {
+        try {
+          await initializeContactService();
+        } catch (error) {
+          console.error('[AuthProvider] ContactService initialization failed:', error);
+          // عدم موفقیت در initialization نباید مانع ورود کاربر شود
+        }
+      }
+    } catch (error: any) {
+      console.error('[AuthProvider] Error in loadInitial:', error);
+      await clearLocalSession();
       setState({
         loading: false,
         session: null,
         user: null,
         role: null,
-        error: sessionError.message,
+        error: error.message || 'خطا در بارگذاری اطلاعات احراز هویت',
       });
-      return;
     }
-    const session = sessionData.session ?? null;
-    const user = session?.user ?? null;
-
-    let role: Role = null;
-    if (user?.id) {
-      role = await fetchRoleForUser(user.id);
-    }
-    setState({
-      loading: false,
-      session,
-      user,
-      role,
-      error: null,
-      lastActivityAt: Date.now(),
-    });
   }, []);
 
   useEffect(() => {
@@ -135,6 +287,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           }
         }
         
+        // مدیریت session محلی بر اساس نوع رویداد
+        if (event === 'SIGNED_IN' && newSession && user) {
+          await saveLocalSession({ session: newSession, user, role });
+        } else if (event === 'SIGNED_OUT') {
+          await clearLocalSession();
+        } else if (event === 'TOKEN_REFRESHED' && newSession && user) {
+          await saveLocalSession({ session: newSession, user, role });
+        }
+        
         console.log('[AuthProvider] Updating auth state with new session');
         setState({
           loading: false,
@@ -156,6 +317,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const initialize = async () => {
       try {
         console.log('[AuthProvider] Starting initial auth state load');
+        
+        // پاک کردن session های منقضی شده
+        await cleanupExpiredSessions();
+        
         await loadInitial();
         console.log('[AuthProvider] Initial auth state loaded successfully');
       } catch (error) {
@@ -201,6 +366,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           }
         }
         
+        // ذخیره session در دیتابیس محلی
+        if (data.session && user) {
+          await saveLocalSession({ session: data.session, user, role });
+        }
+        
         console.log('[AuthProvider] User signed in successfully, updating state');
         setState({
           loading: false,
@@ -231,6 +401,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setState(prev => ({ ...prev, loading: true }));
     
     try {
+      // پاک کردن session محلی
+      await clearLocalSession();
+      
       const { error } = await supabaseClient.auth.signOut();
       if (error) throw error;
       

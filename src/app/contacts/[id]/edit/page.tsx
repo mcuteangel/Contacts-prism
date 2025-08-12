@@ -10,7 +10,11 @@ type UIContact = {
   id?: number | string;
   firstName: string;
   lastName: string;
-  phoneNumbers: { type: "mobile" | "home" | "work" | "other"; number: string }[];
+  phoneNumbers: Array<{
+    type: "mobile" | "home" | "work" | "other";
+    number: string;
+    id?: string | number;
+  }>;
   gender?: "male" | "female" | "other";
   notes?: string;
   position?: string;
@@ -30,7 +34,7 @@ export default function EditContactPage() {
   const { id } = params;
 
   const fetchGroups = useCallback(async () => {
-    const result = await (ContactService as any).getAllGroups();
+    const result = await ContactService.getAllGroups();
     if (result.ok) {
       setGroups(result.data);
     } else {
@@ -39,9 +43,27 @@ export default function EditContactPage() {
   }, []);
 
   const fetchContact = useCallback(async (contactId: string) => {
-    const result = await (ContactService as any).getContactById(contactId);
-    if (result.ok) {
-      setContact(result.data);
+    const result = await ContactService.getById(contactId);
+    if (result.ok && result.data) {
+      setContact({
+        id: result.data.id,
+        firstName: result.data.firstName,
+        lastName: result.data.lastName,
+        phoneNumbers: (result.data.phoneNumbers || []).map(phone => ({
+          type: (phone.type as "mobile" | "home" | "work" | "other") || 'mobile',
+          number: phone.number,
+          id: phone.id
+        })),
+        notes: result.data.notes || '',
+        position: result.data.position,
+        address: result.data.address || '',
+        groupId: result.data.groupId ? String(result.data.groupId) : undefined,
+        customFields: (result.data.customFields || []).map(field => ({
+          name: field.name,
+          value: field.value,
+          type: field.type as 'text' | 'number' | 'date' | 'list' | undefined
+        }))
+      });
     } else {
       toast.error("مخاطب مورد نظر یافت نشد");
     }
@@ -56,7 +78,7 @@ export default function EditContactPage() {
   }, [id, fetchGroups, fetchContact]);
 
   const handleAddGroup = async (groupName: string) => {
-    const result = await (ContactService as any).createGroup({ name: groupName });
+    const result = await ContactService.addGroup(groupName);
     if (result.ok) {
       toast.success("گروه جدید با موفقیت اضافه شد");
       fetchGroups();

@@ -41,15 +41,15 @@ export const customFieldSchema = z.object({
 export const baseContactSchema = z.object({
   firstName: z.string().min(1, "نام الزامی است"),
   lastName: z.string().optional(),
-  gender: z.enum(["male", "female", "other"]).optional(),
+  gender: z.enum(["male", "female", "other", "not_specified"]).optional(),
   position: z.string().optional(),
   address: z.string().optional(),
   notes: z.string().optional(),
-  groupId: z.number().int().positive().optional(),
+  groupId: z.union([z.number().int().positive(), z.string().min(1), z.null()]).optional(),
   avatar: z.any().optional(),
   phoneNumbers: z.array(phoneNumberSchema).min(1, "حداقل یک شماره تماس لازم است"),
   customFields: z.array(customFieldSchema).optional().default([]),
-});
+}).passthrough(); // اجازه فیلدهای اضافی
 
 /**
  * Types

@@ -48,7 +48,7 @@ export default function SettingsAdvancedPage() {
         // اگر فعال شد ولی PIN ندارد، کاربر را به جریان setup هدایت می‌کنیم
         const pin = localStorage.getItem(LS_PIN);
         if (!pin) {
-          enableAppLock(); // Overlay را باز می‌کند
+          enableAppLock(true); // Overlay را باز می‌کند
         }
       } else {
         // غیرفعال: فقط فلگ را برمی‌داریم (حذف کامل PIN از بخش تغییر PIN انجام می‌شود)
@@ -85,7 +85,7 @@ export default function SettingsAdvancedPage() {
         // یا یک رویداد اختصاصی برای حالت change تعریف شود. فعلاً Overlay را باز می‌کنیم.
         window.dispatchEvent(new Event("app-lock:lock"));
       } else {
-        enableAppLock(); // اگر فعال نیست، برد به setup
+        enableAppLock(true); // اگر فعال نیست، برد به setup
       }
     } catch {}
   }, [enableAppLock]);
@@ -115,7 +115,7 @@ export default function SettingsAdvancedPage() {
             <Button variant={enabled ? "default" : "outline"} onClick={toggleEnabled}>
               {enabled ? "غیرفعال‌سازی قفل" : "فعال‌سازی قفل"}
             </Button>
-            <Button variant="secondary" onClick={enableAppLock}>فعال‌سازی و تنظیم PIN</Button>
+            <Button variant="secondary" onClick={() => enableAppLock(true)}>فعال‌سازی و تنظیم PIN</Button>
             <Button variant="outline" onClick={changePin} disabled={!enabled || !hasPin}>تغییر PIN</Button>
             <Button variant="outline" onClick={lockNow}>قفل کردن اکنون</Button>
           </div>
