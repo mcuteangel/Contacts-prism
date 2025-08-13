@@ -73,9 +73,9 @@ async function saveLocalSession(data: { session: any; user: any; role: Role }) {
       value: localSession,
     });
 
-    console.log('[AuthProvider] Local session saved, expires at:', expiresAt);
+    // Logging disabled
   } catch (error) {
-    console.error('[AuthProvider] Error saving local session:', error);
+    // Logging disabled
   }
 }
 
@@ -87,7 +87,7 @@ async function getLocalSession(): Promise<LocalSession | null> {
     }
     return record.value as LocalSession;
   } catch (error) {
-    console.error('[AuthProvider] Error getting local session:', error);
+    // Logging disabled
     return null;
   }
 }
@@ -95,9 +95,9 @@ async function getLocalSession(): Promise<LocalSession | null> {
 async function clearLocalSession() {
   try {
     await db.sync_meta.delete(LOCAL_SESSION_KEY);
-    console.log('[AuthProvider] Local session cleared');
+    // Logging disabled
   } catch (error) {
-    console.error('[AuthProvider] Error clearing local session:', error);
+    // Logging disabled
   }
 }
 
@@ -106,13 +106,13 @@ function isSessionValid(localSession: LocalSession): boolean {
   const expiresAt = new Date(localSession.expiresAt);
   
   if (now > expiresAt) {
-    console.log('[AuthProvider] Local session expired');
+    // Logging disabled
     return false;
   }
 
   // بررسی اعتبار session خود Supabase
   if (!localSession.session || !localSession.session.access_token) {
-    console.log('[AuthProvider] Invalid session structure');
+    // Logging disabled
     return false;
   }
 
@@ -120,7 +120,7 @@ function isSessionValid(localSession: LocalSession): boolean {
   if (localSession.session.expires_at) {
     const tokenExpiresAt = new Date(localSession.session.expires_at * 1000);
     if (now > tokenExpiresAt) {
-      console.log('[AuthProvider] Session token expired');
+      // Logging disabled
       return false;
     }
   }
@@ -132,11 +132,11 @@ async function cleanupExpiredSessions() {
   try {
     const localSession = await getLocalSession();
     if (localSession && !isSessionValid(localSession)) {
-      console.log('[AuthProvider] Cleaning up expired local session');
+      // Logging disabled
       await clearLocalSession();
     }
   } catch (error) {
-    console.error('[AuthProvider] Error cleaning up expired sessions:', error);
+    // Logging disabled
   }
 }
 
@@ -158,7 +158,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       // ابتدا بررسی کن که آیا session محلی معتبر وجود دارد
       const localSession = await getLocalSession();
       if (localSession && isSessionValid(localSession)) {
-        console.log('[AuthProvider] Using valid local session, expires at:', localSession.expiresAt);
+        // Logging disabled
         setState({
           loading: false,
           session: localSession.session,
@@ -169,13 +169,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         });
         return;
       } else if (localSession) {
-        console.log('[AuthProvider] Local session found but invalid, will fetch from server');
+        // Logging disabled
       } else {
-        console.log('[AuthProvider] No local session found, will fetch from server');
+        // Logging disabled
       }
 
       // اگر session محلی نداریم یا منقضی شده، از سرور بگیر
-      console.log('[AuthProvider] Fetching session from server');
+      // Logging disabled
       const { data: sessionData, error: sessionError } = await supabaseClient.auth.getSession();
       if (sessionError) {
         await clearLocalSession();

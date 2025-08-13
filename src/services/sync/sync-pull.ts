@@ -23,21 +23,25 @@ export interface PullOptions {
  * Fetch server delta for synchronization
  */
 export async function fetchServerDelta(
-  options: PullOptions = {}
+  options: PullOptions & { accessToken?: string } = {}
 ): Promise<ApiResponse<any>> {
   try {
-    // Use direct Supabase client to bypass Docker requirement
-    const { createClient } = await import('@supabase/supabase-js');
-    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://hhtaykuurboewbowzesa.supabase.co';
-    const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImhodGF5a3V1cmJvZXdib3d6ZXNhIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTM4Njc1NTQsImV4cCI6MjA2OTQ0MzU1NH0.MXO2A0tXOudBS7jiKDlYuc92t5gNBhIVvp_1kSkcdcU';
+    // Use singleton Supabase client to avoid multiple instances
+    const { supabaseClient } = await import('@/integrations/supabase/client');
+    const supabase = supabaseClient;
     
-    const supabase = createClient(supabaseUrl, supabaseKey);
+    // Set authorization header if access token is provided
+    const headers: Record<string, string> = {};
+    if (options.accessToken) {
+      headers['Authorization'] = `Bearer ${options.accessToken}`;
+    }
     
     const response = await supabase.functions.invoke('sync-delta', {
         body: {
             clientTime: nowIso(),
             lastSync: options.lastSync || '1970-01-01T00:00:00Z'
-        }
+        },
+        headers
     });
     
     if (response.error) {
@@ -67,34 +71,93 @@ export async function fetchServerDelta(
  * Process server delta and update local database
  */
 export async function processDelta(
-  delta: any,
-  options: PullOptions = {}
-): Promise<PullResult> {
-  const { batchSize = 100 } = options;
-  
+  lastSyncAt: string | null,
+  options: { baseUrl?: string; accessToken?: string } = {}
+): Promise<{
+  inserted: number;
+  updated: number;
+  deleted: number;
+  conflicts: number;
+  errors: number;
+  contactsUpserts: number;
+  contactsDeletes: number;
+  groupsUpserts: number;
+  groupsDeletes: number;
+  serverTime: string;
+}> {
   let inserted = 0;
   let updated = 0;
   let deleted = 0;
   let conflicts = 0;
   let errors = 0;
+  let contactsUpserts = 0;
+  let contactsDeletes = 0;
+  let groupsUpserts = 0;
+  let groupsDeletes = 0;
 
   try {
+    console.log('Fetching server delta since:', lastSyncAt);
+    
+    // Fetch delta from server
+    const deltaResult = await fetchServerDelta({ lastSync: lastSyncAt });
+    
+    if (!deltaResult.ok) {
+      throw new Error(`Failed to fetch delta: ${deltaResult.error}`);
+    }
+    
+    const delta = deltaResult.data;
     console.log('Processing delta:', JSON.stringify(delta, null, 2));
     
-    // Process each entity type in the delta
+    const serverTime = delta.serverTime || new Date().toISOString();
+    
+    // Import database and contact service
+    const { db } = await import('@/database/db');
+    const { toUI } = await import('@/services/contact-service');
+    
+    // Process contacts
     if (delta.contacts && Array.isArray(delta.contacts)) {
       for (const contact of delta.contacts) {
         try {
-          // Implement contact sync logic here
-          console.log('Processing contact:', contact);
+          console.log('Processing contact:', contact.id);
           
-          // For now, just count operations
-          if (contact.operation === 'insert') {
-            inserted++;
-          } else if (contact.operation === 'update') {
+          // Check if contact exists locally
+          const existingContact = await db.contacts.get(contact.id);
+          
+          if (existingContact) {
+            // Update existing contact
+            await db.contacts.update(contact.id, {
+              first_name: contact.first_name,
+              last_name: contact.last_name,
+              gender: contact.gender,
+              company: contact.company,
+              address: contact.address,
+              notes: contact.notes,
+              updated_at: contact.updated_at,
+              _version: (existingContact._version || 0) + 1
+            });
             updated++;
-          } else if (contact.operation === 'delete') {
-            deleted++;
+            contactsUpserts++;
+          } else {
+            // Insert new contact
+            await db.contacts.add({
+              id: contact.id,
+              user_id: contact.user_id,
+              first_name: contact.first_name,
+              last_name: contact.last_name,
+              gender: contact.gender || 'not_specified',
+              role: null,
+              company: contact.company,
+              address: contact.address,
+              notes: contact.notes,
+              created_at: contact.created_at,
+              updated_at: contact.updated_at,
+              phoneNumbers: [],
+              position: null,
+              groupId: null,
+              _version: 1
+            });
+            inserted++;
+            contactsUpserts++;
           }
           
         } catch (error) {
@@ -104,19 +167,39 @@ export async function processDelta(
       }
     }
     
+    // Process groups
     if (delta.groups && Array.isArray(delta.groups)) {
       for (const group of delta.groups) {
         try {
-          // Implement group sync logic here
-          console.log('Processing group:', group);
+          console.log('Processing group:', group.id);
           
-          // For now, just count operations
-          if (group.operation === 'insert') {
-            inserted++;
-          } else if (group.operation === 'update') {
+          // Check if group exists locally
+          const existingGroup = await db.groups.get(group.id);
+          
+          if (existingGroup) {
+            // Update existing group
+            await db.groups.update(group.id, {
+              name: group.name,
+              color: group.color,
+              updated_at: group.updated_at || group.created_at,
+              version: (existingGroup.version || 0) + 1
+            });
             updated++;
-          } else if (group.operation === 'delete') {
-            deleted++;
+            groupsUpserts++;
+          } else {
+            // Insert new group
+            await db.groups.add({
+              id: group.id,
+              user_id: group.user_id,
+              name: group.name,
+              color: group.color,
+              created_at: group.created_at,
+              updated_at: group.updated_at || group.created_at,
+              deleted_at: null,
+              version: 1
+            });
+            inserted++;
+            groupsUpserts++;
           }
           
         } catch (error) {
@@ -133,7 +216,12 @@ export async function processDelta(
       updated,
       deleted,
       conflicts,
-      errors
+      errors,
+      contactsUpserts,
+      contactsDeletes,
+      groupsUpserts,
+      groupsDeletes,
+      serverTime
     };
     
   } catch (error) {

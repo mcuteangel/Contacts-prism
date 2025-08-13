@@ -47,11 +47,11 @@ export default function AppSecureLock() {
       const AuthService = await loadAuth();
       const wm = await AuthService.getWrapMethod();
       const pol = await AuthService.getPolicy();
-      console.log("[AppSecureLock] refreshMeta - wrapMethod:", wm, "policy:", pol);
+      // Logging disabled
       setWrapMethod(wm);
       setPolicy(pol);
     } catch (e) {
-      console.error("[AppSecureLock] refreshMeta error:", e);
+      // Logging disabled
       // ignore
     }
   }, [loadAuth]);
@@ -78,23 +78,23 @@ export default function AppSecureLock() {
 
   // Initial load check
   React.useEffect(() => {
-    console.log('[AppSecureLock] Component mounted, checking initial lock state');
+    // Logging disabled
     const checkInitialLock = async () => {
       try {
         const AuthService = await loadAuth();
         // First check if we have any auth data
         const wrapMethod = await AuthService.getWrapMethod();
-        console.log(`[AppSecureLock] Initial wrap method: ${wrapMethod}`);
+        // Logging disabled
         
         if (!wrapMethod) {
-          console.log('[AppSecureLock] No auth data found, not showing lock');
+          // Logging disabled
           setVisible(false);
           return;
         }
         
         // If we have auth data, check if we should lock
         const should = await AuthService.shouldLock(lastActivityRef.current);
-        console.log(`[AppSecureLock] Initial lock check - should lock: ${should}`);
+        // Logging disabled
         
         if (should) {
           await refreshMeta();
@@ -105,7 +105,7 @@ export default function AppSecureLock() {
           setVisible(should);
         }, 100);
       } catch (e) {
-        console.error('[AppSecureLock] Error in initial lock check:', e);
+        // Logging disabled
         setVisible(false);
       }
     };
@@ -120,10 +120,10 @@ export default function AppSecureLock() {
 
   // Respond to external lock requests
   React.useEffect(() => {
-    console.log('[AppSecureLock] Setting up event listeners');
+    // Logging disabled
     
     const onLock = () => {
-      console.log('[AppSecureLock] Received app-lock:lock event');
+      // Logging disabled
       setVisible(true);
       setError(null);
       void refreshMeta();
@@ -133,20 +133,17 @@ export default function AppSecureLock() {
     
     // Listen for login redirect
     const onLoginRedirect = () => {
-      console.log('[AppSecureLock] Received app-lock:login event');
+      // Logging disabled
       setVisible(false);
       setError(null);
     };
     
     // Listen for unlock after successful auth
     const onUnlock = (e: Event) => {
-      console.log('[AppSecureLock] Received app-unlock event', { 
-        source: e.type, 
-        timestamp: new Date().toISOString() 
-      });
+      // Logging disabled
       setVisible(false);
       setError(null);
-      console.log("[AppSecureLock] App unlocked after successful authentication");
+      // Logging disabled
       // آپدیت زمان آخرین فعالیت برای جلوگیری از قفل فوری
       lastActivityRef.current = Date.now();
     };
@@ -163,21 +160,21 @@ export default function AppSecureLock() {
 
   // Periodic check for inactivity-based lock
   React.useEffect(() => {
-    console.log('[AppSecureLock] Setting up inactivity timer');
+    // Logging disabled
     let timer: number | null = null;
     const tick = async () => {
       try {
-        console.log('[AppSecureLock] Checking if should lock...');
+        // Logging disabled
         const AuthService = await loadAuth();
         const should = await AuthService.shouldLock(lastActivityRef.current);
-        console.log(`[AppSecureLock] Should lock: ${should}, lastActivity: ${new Date(lastActivityRef.current).toISOString()}`);
+        // Logging disabled
         setVisible(should);
         if (should) {
-          console.log('[AppSecureLock] Locking app, refreshing meta...');
+          // Logging disabled
           await refreshMeta();
         }
       } catch (e) {
-        console.error('[AppSecureLock] Error in inactivity check:', e);
+        // Logging disabled
       } finally {
         timer = window.setTimeout(tick, 30_000);
       }
@@ -185,18 +182,18 @@ export default function AppSecureLock() {
     // Initial check immediately
     tick().catch(console.error);
     return () => {
-      console.log('[AppSecureLock] Cleaning up inactivity timer');
+      // Logging disabled
       if (timer) window.clearTimeout(timer);
     };
   }, [loadAuth, refreshMeta]);
 
   // Try unlock via method
   const handleUnlock = React.useCallback(async () => {
-    console.log('[AppSecureLock] handleUnlock called', { wrapMethod, hasPin: !!pin });
+    // Logging disabled
     setError(null);
     try {
       const AuthService = await loadAuth();
-      console.log('[AppSecureLock] AuthService loaded, attempting unlock with method:', wrapMethod);
+      // Logging disabled
       
       if (wrapMethod === "webauthn") {
         console.log('[AppSecureLock] Attempting WebAuthn unlock');

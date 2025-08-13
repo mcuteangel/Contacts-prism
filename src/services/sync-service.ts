@@ -6,6 +6,7 @@
 import { processOutbox } from "./sync/sync-push";
 import { processDelta } from "./sync/sync-pull";
 import { getLastSyncAt, setLastSyncAt, createSyncLog, saveSyncLog } from "./sync/sync-meta";
+import { fallbackSync } from "./sync/sync-fallback";
 import { ErrorManager } from "@/lib/error-manager";
 
 // API Result types

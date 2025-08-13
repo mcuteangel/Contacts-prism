@@ -27,12 +27,9 @@ export async function pushOutboxToServer(
   options: PushOptions = {}
 ): Promise<ApiResponse<{ appliedIds: number[]; conflicts: number; errors: number }>> {
   try {
-    // Use direct Supabase client to bypass Docker requirement
-    const { createClient } = await import('@supabase/supabase-js');
-    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://hhtaykuurboewbowzesa.supabase.co';
-    const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImhodGF5a3V1cmJvZXdib3d6ZXNhIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTM4Njc1NTQsImV4cCI6MjA2OTQ0MzU1NH0.MXO2A0tXOudBS7jiKDlYuc92t5gNBhIVvp_1kSkcdcU';
-    
-    const supabase = createClient(supabaseUrl, supabaseKey);
+    // Use singleton Supabase client to avoid multiple instances
+    const { supabaseClient } = await import('@/integrations/supabase/client');
+    const supabase = supabaseClient;
     
     // Format items to match server expectations
     const itemsToSync = items.map((item) => ({
@@ -52,6 +49,12 @@ export async function pushOutboxToServer(
 
     const response = await supabase.functions.invoke('sync-push', {
         body: body
+    });
+
+    console.log('Push response received:', {
+      error: response.error,
+      data: response.data,
+      status: response.status
     });
 
     if (response.error) {

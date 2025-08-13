@@ -397,7 +397,7 @@ export const AuthService = {
       const sec = await loadSecret();
       // If no secret or no wrap method, no need to lock (first time user)
       if (!sec || !sec.wrapMethod) {
-        console.log('[AuthService] No auth data found, no lock needed');
+        // Logging disabled
         return false;
       }
       

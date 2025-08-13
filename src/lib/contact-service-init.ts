@@ -17,15 +17,17 @@ export async function initializeContactService(): Promise<void> {
   }
 
   try {
-    console.log('[ContactService] Starting initialization...');
+    // Logging disabled
     
     const result = await ContactService.initialize();
     
     if (result.ok) {
-      console.log('[ContactService] Initialization completed successfully:', result.data);
+      // Logging disabled
+
       isInitialized = true;
     } else {
-      console.error('[ContactService] Initialization failed:', result.error);
+      // Logging disabled
+
       throw new Error(result.error);
     }
   } catch (error) {
