@@ -4,7 +4,7 @@
 
 import { db, type OutboxItem, type OutboxStatus, nowIso } from "@/database/db";
 import { ErrorManager } from "@/lib/error-manager";
-import type { ApiResponse, OutboxItemPayload } from "@/types/api";
+import type { ApiResponse } from "@/types/api";
 
 export interface PushResult {
   pushed: number;
@@ -27,52 +27,66 @@ export async function pushOutboxToServer(
   options: PushOptions = {}
 ): Promise<ApiResponse<{ appliedIds: number[]; conflicts: number; errors: number }>> {
   try {
-    const { baseUrl, accessToken } = options;
+    // Use direct Supabase client to bypass Docker requirement
+    const { createClient } = await import('@supabase/supabase-js');
+    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://hhtaykuurboewbowzesa.supabase.co';
+    const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImhodGF5a3V1cmJvZXdib3d6ZXNhIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTM4Njc1NTQsImV4cCI6MjA2OTQ0MzU1NH0.MXO2A0tXOudBS7jiKDlYuc92t5gNBhIVvp_1kSkcdcU';
     
-    if (!baseUrl) {
-      return { ok: false, error: "Missing endpoint baseUrl" };
-    }
+    const supabase = createClient(supabaseUrl, supabaseKey);
+    
+    // Format items to match server expectations
+    const itemsToSync = items.map((item) => ({
+      entity: item.entity,
+      entityId: item.entityId,
+      op: item.op,
+      payload: item.payload ?? {},
+    }));
 
-
-
-    const url = new URL("/posts", baseUrl); // استفاده از JSONPlaceholder endpoint
     const body = {
       clientTime: nowIso(),
-      batch: items.map((item) => ({
-        entity: item.entity,
-        entityId: item.entityId,
-        op: item.op,
-        version: (item.payload as any)?.version ?? 1,
-        payload: item.payload ?? {},
-      })),
+      items: itemsToSync,
     };
 
-    const response = await fetch(url.toString(), {
-      method: "POST",
-      headers: {
-        "Accept": "application/json",
-        "Content-Type": "application/json",
-        ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
-      },
-      body: JSON.stringify(body),
+    console.log('Sending sync request to Supabase function sync-push');
+    console.log('Request body:', JSON.stringify(body, null, 2));
+
+    const response = await supabase.functions.invoke('sync-push', {
+        body: body
     });
 
-    if (!response.ok) {
-      return {
-        ok: false,
-        error: `Push failed: ${response.status} ${response.statusText}`
-      };
+    if (response.error) {
+      console.error('Push failed:', response.error);
+      return { ok: false, error: response.error.message };
     }
-
-    // JSONPlaceholder همیشه موفق است - شبیه‌سازی موفقیت
-    const appliedIds = items.map(item => item.id!).filter(id => id !== undefined);
     
+    // Map server results to appliedIds
+    const appliedIds: number[] = [];
+    let conflicts = 0;
+    let errors = 0;
+
+    if (response.data && response.data.results && Array.isArray(response.data.results)) {
+      response.data.results.forEach((result: any, index: number) => {
+        const item = items[index];
+        if (!item) return;
+        
+        if (result.status === 'applied') {
+          appliedIds.push(item.id!);
+        } else if (result.status === 'conflict') {
+          conflicts++;
+        } else if (result.status === 'error') {
+          errors++;
+          console.error(`Error processing item ${item.id}:`, result.error);
+        }
+      });
+    }
+    
+    console.log('Sync push results:', { appliedIds, conflicts, errors });
     return {
       ok: true,
       data: { 
         appliedIds, 
-        conflicts: 0, 
-        errors: 0 
+        conflicts, 
+        errors 
       }
     };
 
@@ -109,15 +123,17 @@ export function dedupeOutbox(items: OutboxItem[]): OutboxItem[] {
     // Sort by clientTime to get the latest operation
     arr.sort((a, b) => a.clientTime.localeCompare(b.clientTime));
     const last = arr[arr.length - 1];
+    
+    if (last) {  // Check if last exists
+      // If last operation is delete, only keep the delete
+      if (last.op === "delete") {
+        result.push(last);
+        continue;
+      }
 
-    // If last operation is delete, only keep the delete
-    if (last.op === "delete") {
+      // Otherwise keep only the last operation (update or insert)
       result.push(last);
-      continue;
     }
-
-    // Otherwise keep only the last operation (update or insert)
-    result.push(last);
   }
 
   // Sort by clientTime for consistent processing
@@ -135,9 +151,15 @@ export async function processOutbox(options: PushOptions = {}): Promise<PushResu
   let attempted = 0;
   let conflictCount = 0;
   let errorCount = 0;
+  let batchNumber = 0;
+
+  console.log('Starting processOutbox with options:', { batchSize });
 
   try {
     while (true) {
+      batchNumber++;
+      console.log(`Processing batch #${batchNumber}`);
+      
       // Get queued items
       const queuedRaw = await db.outbox_queue
         .where("status")
@@ -145,7 +167,12 @@ export async function processOutbox(options: PushOptions = {}): Promise<PushResu
         .limit(batchSize * 3)
         .sortBy("clientTime");
 
-      if (queuedRaw.length === 0) break;
+      if (queuedRaw.length === 0) {
+        console.log('No more queued items found');
+        break;
+      }
+      
+      console.log(`Found ${queuedRaw.length} queued items`);
 
       // Deduplicate and limit to batch size
       const queued = dedupeOutbox(queuedRaw).slice(0, batchSize);
@@ -164,35 +191,76 @@ export async function processOutbox(options: PushOptions = {}): Promise<PushResu
       });
 
       // Push to server
+      console.log(`Sending batch of ${queued.length} items to server`);
       const pushResult = await pushOutboxToServer(queued, options);
 
       if (!pushResult.ok) {
-        // Mark batch as error and break
+        console.error('Push failed:', pushResult.error);
+        
+        // Only mark as error if we've retried multiple times
         await db.transaction("rw", db.outbox_queue, async () => {
           for (const item of queued) {
-            await db.outbox_queue.update(item.id!, { 
-              status: "error" as OutboxStatus 
-            });
+            const tryCount = (item.tryCount ?? 0) + 1;
+            const newStatus = tryCount >= 3 ? "error" : "queued";
+            
+            console.log(`Marking item ${item.id} as ${newStatus} (attempt ${tryCount})`);
+            
+            const updateData: Partial<OutboxItem> = {
+              status: newStatus as OutboxStatus,
+              tryCount,
+              updatedAt: new Date().toISOString()
+            };
+            
+            // Only include lastError if we're marking as error
+            if (newStatus === "error") {
+              updateData.lastError = pushResult.error || 'Unknown error';
+            } else {
+              updateData.lastError = null;
+            }
+            
+            await db.outbox_queue.update(item.id!, updateData);
           }
         });
-        break;
+        
+        if (pushResult.error?.includes('401') || pushResult.error?.includes('403')) {
+          console.error('Authentication failed, stopping sync');
+          throw new Error('Authentication failed: ' + pushResult.error);
+        }
+        
+        // Don't break on first error, try next batch
+        continue;
       }
 
-      const { appliedIds, conflicts, errors } = pushResult.data;
+      if (!pushResult.data) {
+        throw new Error('No data in push response');
+      }
+      const { appliedIds = [], conflicts = 0, errors = 0 } = pushResult.data;
       conflictCount += conflicts;
       errorCount += errors;
 
-      // Mark applied items as done
+      // Process results
       const appliedSet = new Set(appliedIds);
-      await db.transaction("rw", db.outbox_queue, async () => {
+      const updatedCount = await db.transaction("rw", db.outbox_queue, async () => {
+        let updated = 0;
+        
         for (const item of queued) {
           if (appliedSet.has(item.id!)) {
-            await db.outbox_queue.update(item.id!, { 
-              status: "done" as OutboxStatus 
-            });
+            const updateData: Partial<OutboxItem> = {
+              status: "done" as OutboxStatus,
+              updatedAt: new Date().toISOString(),
+              lastError: null
+            };
+            
+            await db.outbox_queue.update(item.id!, updateData);
+            updated++;
           }
         }
+        
+        return updated;
       });
+      
+      console.log(`Successfully processed ${updatedCount} items in batch #${batchNumber}`);
+      pushedTotal += updatedCount;
 
       pushedTotal += appliedIds.length;
 
@@ -203,6 +271,8 @@ export async function processOutbox(options: PushOptions = {}): Promise<PushResu
             if (!appliedSet.has(item.id!)) {
               await db.outbox_queue.update(item.id!, {
                 status: "error" as OutboxStatus,
+                lastError: `Conflict or error during sync`,
+                updatedAt: new Date().toISOString()
               });
             }
           }
@@ -210,11 +280,12 @@ export async function processOutbox(options: PushOptions = {}): Promise<PushResu
       }
     }
 
+    console.log(`Outbox processing completed: pushed=${pushedTotal}, attempted=${attempted}, conflicts=${conflictCount}, errors=${errorCount}`);
     return {
       pushed: pushedTotal,
       attempted,
       conflicts: conflictCount,
-      errors: errorCount,
+      errors: errorCount
     };
 
   } catch (error) {
@@ -223,12 +294,7 @@ export async function processOutbox(options: PushOptions = {}): Promise<PushResu
       component: 'SyncPush',
       action: 'processOutbox'
     });
-
-    return {
-      pushed: pushedTotal,
-      attempted,
-      conflicts: conflictCount,
-      errors: errorCount + 1,
-    };
+    
+    throw error;
   }
 }

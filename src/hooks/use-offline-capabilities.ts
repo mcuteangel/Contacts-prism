@@ -15,6 +15,7 @@ import { db, nowIso } from '@/database/db';
 import { ContactService } from '@/services/contact-service';
 import { runSync, type SyncStats, type SyncOptions } from '@/services/sync-service-wrapper';
 import { ErrorManager } from '@/lib/error-manager';
+import { useAuth } from '@/context/auth-provider';
 
 interface OfflineCapabilities {
   // وضعیت شبکه
@@ -50,6 +51,7 @@ export function useOfflineCapabilities(): OfflineCapabilities {
   const [pendingChanges, setPendingChanges] = useState(0);
   
   const queryClient = useQueryClient();
+  const { session } = useAuth();
 
   // بررسی وضعیت شبکه
   useEffect(() => {
@@ -136,7 +138,29 @@ export function useOfflineCapabilities(): OfflineCapabilities {
       setIsSyncing(true);
       setSyncError(null);
 
-      const syncOptions = { ...DEFAULT_SYNC_OPTIONS, ...options };
+      // Add access token to sync options
+      const accessToken = session?.access_token;
+      if (!accessToken) {
+        console.error('No access token available for sync');
+        setSyncError('Authentication required');
+        setIsSyncing(false);
+        return;
+      }
+
+      const endpointBaseUrl = process.env.NEXT_PUBLIC_API_BASE_URL;
+      if (!endpointBaseUrl) {
+        console.error('NEXT_PUBLIC_API_BASE_URL is not configured');
+        setSyncError('Server configuration error: API base URL is missing');
+        setIsSyncing(false);
+        return;
+      }
+
+      const syncOptions = {
+        ...DEFAULT_SYNC_OPTIONS,
+        ...options,
+        accessToken,
+        endpointBaseUrl
+      };
       const result = await runSync(syncOptions);
 
       if (result.ok) {

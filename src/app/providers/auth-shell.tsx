@@ -134,7 +134,7 @@ function AuthGateWithSync({ children }: { children: React.ReactNode }) {
             }
 
             // اجرای سنک با توکن‌های امن از AuthService
-            const endpointBaseUrl = endpointBaseUrlEnv;
+            const endpointBaseUrl = process.env.NEXT_PUBLIC_API_BASE_URL;
             const wrapMethod = (await AuthService.getWrapMethod()) as "webauthn" | "pin" | null;
             if (!wrapMethod) {
               window.dispatchEvent(new CustomEvent("sync:failed", { detail: "wrap method is not initialized" }));

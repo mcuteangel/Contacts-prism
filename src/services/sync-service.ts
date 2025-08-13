@@ -46,10 +46,26 @@ export const SyncService = {
   async runSync(options: SyncOptions = {}): Promise<ApiResult<SyncStats>> {
     const { log, finish } = createSyncLog();
     
-
+    // Ensure we have an access token
+    if (!options.accessToken) {
+      return { ok: false, error: 'Authentication required. No access token provided.' };
+    }
+    
+    // Set up headers with the access token
+    const headers = {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${options.accessToken}`
+    };
+    
+    // Merge headers into options
+    const syncOptions = {
+      ...options,
+      headers
+    };
     
     try {
       const batchSize = options.batchSize ?? DEFAULT_BATCH_SIZE;
+      // Use syncOptions instead of options to include the headers
       const baseUrl = options.endpointBaseUrl ?? process.env.NEXT_PUBLIC_API_BASE_URL;
       
       if (!baseUrl) {
@@ -62,12 +78,18 @@ export const SyncService = {
       log.endpointUsed = baseUrl;
       log.lastSyncBefore = await getLastSyncAt();
 
-      // Push phase
+      // Push local changes with the syncOptions that include the access token
       const pushResult = await processOutbox({
-        baseUrl,
-        accessToken: options.accessToken,
         batchSize,
+        ...syncOptions
       });
+      
+      // Check if there were any errors during push
+      if (pushResult.errors > 0) {
+        const errorMsg = `Push completed with ${pushResult.errors} error(s)`;
+        log.error = errorMsg;
+        // We don't return here because we still want to continue with the pull
+      }
 
       log.pushStats = {
         attempted: pushResult.attempted,

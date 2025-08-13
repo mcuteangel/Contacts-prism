@@ -290,24 +290,27 @@ export interface SyncLog {
 /**
  * آیتم‌های صف خروجی برای سنکرون
  */
-export interface OutboxItem {
-  /** شناسه یکتای آیتم (اتوماتیک) */
+export type OutboxItem = {
   id?: number;
-  /** نوع موجودیت */
   entity: OutboxEntity;
-  /** شناسه موجودیت (ممکن است به صورت رشته ترکیبی باشد) */
   entityId: string;
-  /** نوع عملیات */
   op: OutboxOp;
-  /** زمان ثبت درخواست به فرمت ISO */
   clientTime: string;
   /** تعداد دفعات تلاش برای ارسال */
   tryCount: number;
   /** وضعیت فعلی آیتم */
   status: OutboxStatus;
-  /** محتوای درخواست */
+  /** داده‌های عملیات */
   payload: unknown;
-}
+  /** آخرین خطای رخ داده */
+  lastError?: string | null;
+  /** زمان آخرین به‌روزرسانی */
+  updatedAt?: string;
+  /** شناسه کاربر صاحب آیتم */
+  userId?: string;
+  /** متادیتاهای اضافی */
+  metadata?: Record<string, unknown>;
+};
 
 /**
  * کلاس اصلی پایگاه داده Prism Contacts
